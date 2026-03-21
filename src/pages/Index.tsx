@@ -171,17 +171,15 @@ const Index = () => {
         {selectedTeam && stats.matchesPlayed > 0 && (
           <>
             {/* Team header */}
-            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up">
+            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up relative">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">{selectedTeam}</h2>
                 <p className="text-sm text-muted-foreground">
                   {currentLeagueName || "All Leagues"} · Last {stats.matchesPlayed} matches
                 </p>
               </div>
-              <div className="ml-auto flex gap-1.5">
-                {stats.formLast5.map((r, i) => (
-                  <FormBadge key={i} result={r} />
-                ))}
+              <div className="ml-auto">
+                <FormHistoryWindow views={teamViews} formLast5={stats.formLast5} />
               </div>
             </section>
 
