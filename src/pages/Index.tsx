@@ -287,7 +287,7 @@ const Index = () => {
 
             {/* Tactical Profile */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-              <TacticalProfileCard profile={stats.tacticalProfile} teamName={selectedTeam} />
+              <PredictedTacticalProfile stats={stats} teamName={selectedTeam} />
 
               <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "575ms" }}>
                 <span className="stat-label mb-4 block">Shot Efficiency</span>
