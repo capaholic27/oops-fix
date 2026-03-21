@@ -25,7 +25,7 @@ export const FormHistoryWindow = ({ views, formLast5 }: Props) => {
   const losses = extendedForm.filter((r) => r === "L").length;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative flex items-center gap-2">
       {/* Last 5 badges */}
       <div className="flex gap-1">
         {formLast5.map((r, i) => (
@@ -71,7 +71,7 @@ export const FormHistoryWindow = ({ views, formLast5 }: Props) => {
 
       {/* Expanded window */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-20 w-80 rounded-lg border border-border bg-card shadow-lg p-4 animate-in fade-in-0 slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-lg border border-border bg-card shadow-lg p-4 animate-in fade-in-0 slide-in-from-top-2 duration-150">
           {/* Range selector */}
           <div className="flex items-center gap-1.5 mb-3">
             <span className="text-xs text-muted-foreground font-medium">Last</span>
