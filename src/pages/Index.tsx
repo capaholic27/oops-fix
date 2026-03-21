@@ -9,11 +9,12 @@ import {
 } from "@/lib/matchStats";
 import { StatCard } from "@/components/StatCard";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
-import { FormBadge } from "@/components/FormBadge";
 import { MatchFilter } from "@/components/MatchFilter";
-import { TacticalProfileCard } from "@/components/TacticalProfile";
+import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { RecentResults } from "@/components/RecentResults";
 import { RankingsTable } from "@/components/RankingsTable";
+import { TeamDropdown } from "@/components/TeamDropdown";
+import { FormHistoryWindow } from "@/components/FormHistoryWindow";
 import {
   Target,
   Flag,
@@ -143,25 +144,11 @@ const Index = () => {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Select Team
             </h2>
-            <div className="flex flex-wrap gap-2">
-              {teams.map((team) => (
-                <button
-                  key={team}
-                  onClick={() => setSelectedTeam(team)}
-                  className={`
-                    inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium
-                    transition-all duration-200 border active:scale-[0.97]
-                    ${
-                      selectedTeam === team
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-card text-foreground border-border hover:border-primary/40 hover:shadow-sm"
-                    }
-                  `}
-                >
-                  {team}
-                </button>
-              ))}
-            </div>
+            <TeamDropdown
+              teams={teams}
+              selectedTeam={selectedTeam}
+              onSelect={setSelectedTeam}
+            />
           </section>
         )}
 
@@ -184,17 +171,15 @@ const Index = () => {
         {selectedTeam && stats.matchesPlayed > 0 && (
           <>
             {/* Team header */}
-            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up">
+            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up relative">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">{selectedTeam}</h2>
                 <p className="text-sm text-muted-foreground">
                   {currentLeagueName || "All Leagues"} · Last {stats.matchesPlayed} matches
                 </p>
               </div>
-              <div className="ml-auto flex gap-1.5">
-                {stats.formLast5.map((r, i) => (
-                  <FormBadge key={i} result={r} />
-                ))}
+              <div className="ml-auto">
+                <FormHistoryWindow views={teamViews} formLast5={stats.formLast5} />
               </div>
             </section>
 
@@ -302,7 +287,7 @@ const Index = () => {
 
             {/* Tactical Profile */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-              <TacticalProfileCard profile={stats.tacticalProfile} teamName={selectedTeam} />
+              <PredictedTacticalProfile stats={stats} teamName={selectedTeam} />
 
               <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "575ms" }}>
                 <span className="stat-label mb-4 block">Shot Efficiency</span>
