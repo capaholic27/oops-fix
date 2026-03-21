@@ -14,7 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      matches: {
+        Row: {
+          away_corners: number | null
+          away_fouls: number | null
+          away_reds: number | null
+          away_shots: number | null
+          away_shots_target: number | null
+          away_team: string
+          away_yellows: number | null
+          created_at: string | null
+          ft_away_goals: number | null
+          ft_home_goals: number | null
+          ft_result: string | null
+          home_corners: number | null
+          home_fouls: number | null
+          home_reds: number | null
+          home_shots: number | null
+          home_shots_target: number | null
+          home_team: string
+          home_yellows: number | null
+          ht_away_goals: number | null
+          ht_home_goals: number | null
+          ht_result: string | null
+          id: string
+          league_code: string
+          league_name: string
+          match_date: string
+          referee: string | null
+          season: string
+        }
+        Insert: {
+          away_corners?: number | null
+          away_fouls?: number | null
+          away_reds?: number | null
+          away_shots?: number | null
+          away_shots_target?: number | null
+          away_team: string
+          away_yellows?: number | null
+          created_at?: string | null
+          ft_away_goals?: number | null
+          ft_home_goals?: number | null
+          ft_result?: string | null
+          home_corners?: number | null
+          home_fouls?: number | null
+          home_reds?: number | null
+          home_shots?: number | null
+          home_shots_target?: number | null
+          home_team: string
+          home_yellows?: number | null
+          ht_away_goals?: number | null
+          ht_home_goals?: number | null
+          ht_result?: string | null
+          id?: string
+          league_code: string
+          league_name: string
+          match_date: string
+          referee?: string | null
+          season: string
+        }
+        Update: {
+          away_corners?: number | null
+          away_fouls?: number | null
+          away_reds?: number | null
+          away_shots?: number | null
+          away_shots_target?: number | null
+          away_team?: string
+          away_yellows?: number | null
+          created_at?: string | null
+          ft_away_goals?: number | null
+          ft_home_goals?: number | null
+          ft_result?: string | null
+          home_corners?: number | null
+          home_fouls?: number | null
+          home_reds?: number | null
+          home_shots?: number | null
+          home_shots_target?: number | null
+          home_team?: string
+          home_yellows?: number | null
+          ht_away_goals?: number | null
+          ht_home_goals?: number | null
+          ht_result?: string | null
+          id?: string
+          league_code?: string
+          league_name?: string
+          match_date?: string
+          referee?: string | null
+          season?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
