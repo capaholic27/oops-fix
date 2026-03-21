@@ -25,7 +25,7 @@ export const FormHistoryWindow = ({ views, formLast5 }: Props) => {
   const losses = extendedForm.filter((r) => r === "L").length;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative flex items-center gap-2">
       {/* Last 5 badges */}
       <div className="flex gap-1">
         {formLast5.map((r, i) => (
