@@ -9,11 +9,12 @@ import {
 } from "@/lib/matchStats";
 import { StatCard } from "@/components/StatCard";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
-import { FormBadge } from "@/components/FormBadge";
 import { MatchFilter } from "@/components/MatchFilter";
-import { TacticalProfileCard } from "@/components/TacticalProfile";
+import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { RecentResults } from "@/components/RecentResults";
 import { RankingsTable } from "@/components/RankingsTable";
+import { TeamDropdown } from "@/components/TeamDropdown";
+import { FormHistoryWindow } from "@/components/FormHistoryWindow";
 import {
   Target,
   Flag,
