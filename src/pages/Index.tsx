@@ -171,7 +171,7 @@ const Index = () => {
         {selectedTeam && stats.matchesPlayed > 0 && (
           <>
             {/* Team header */}
-            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up relative">
+            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up relative z-40">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">{selectedTeam}</h2>
                 <p className="text-sm text-muted-foreground">
