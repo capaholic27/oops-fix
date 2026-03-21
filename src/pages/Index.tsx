@@ -144,25 +144,11 @@ const Index = () => {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Select Team
             </h2>
-            <div className="flex flex-wrap gap-2">
-              {teams.map((team) => (
-                <button
-                  key={team}
-                  onClick={() => setSelectedTeam(team)}
-                  className={`
-                    inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium
-                    transition-all duration-200 border active:scale-[0.97]
-                    ${
-                      selectedTeam === team
-                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                        : "bg-card text-foreground border-border hover:border-primary/40 hover:shadow-sm"
-                    }
-                  `}
-                >
-                  {team}
-                </button>
-              ))}
-            </div>
+            <TeamDropdown
+              teams={teams}
+              selectedTeam={selectedTeam}
+              onSelect={setSelectedTeam}
+            />
           </section>
         )}
 
