@@ -410,164 +410,169 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
 
-      {/* AI Prediction Section — Inline */}
+      {/* AI Prediction Popup Overlay */}
       {showPredictionModal && (
-        <section className="border-2 border-primary bg-card shadow-[4px_4px_0_hsl(var(--primary)/0.3)] opacity-0 animate-fade-up" style={{ animationDelay: "50ms" }}>
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
-            </div>
-            <button onClick={() => setShowPredictionModal(false)} className="p-1 hover:bg-muted transition-colors">
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          <div className="p-3 space-y-4">
-            {/* Teams head-to-head display */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <TeamLogo teamName={selectedTeam} size="md" />
-                <div>
-                  <p className="text-xs font-bold">{selectedTeam}</p>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Your team</p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-in fade-in-0 duration-200 p-4" onClick={() => setShowPredictionModal(false)}>
+          <div
+            className="relative w-full max-w-md max-h-[85vh] overflow-y-auto border-2 border-primary bg-card shadow-[6px_6px_0_hsl(var(--primary)/0.3)] animate-in zoom-in-95 fade-in-0 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
               </div>
-              <span className="text-sm font-black text-muted-foreground">VS</span>
-              <div className="flex items-center gap-2 text-right">
-                {selectedOpponent ? (
-                  <>
-                    <div>
-                      <p className="text-xs font-bold">{selectedOpponent}</p>
-                      <button onClick={() => setSelectedOpponent("")} className="text-[9px] text-primary uppercase tracking-wider hover:underline">Change</button>
-                    </div>
-                    <TeamLogo teamName={selectedOpponent} size="md" />
-                  </>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground italic">Select below</p>
-                )}
-              </div>
-            </div>
-
-            {/* Opponent picker */}
-            {!prediction && (
-              <div className="space-y-2">
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                  Choose Opponent (optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search opponent…"
-                  value={opponentSearch}
-                  onChange={(e) => setOpponentSearch(e.target.value)}
-                  className="w-full h-7 px-2 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                />
-                <div className="max-h-28 overflow-y-auto border-2 border-border bg-card">
-                  {leagueTeams
-                    .filter((t) => !opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))
-                    .slice(0, 15)
-                    .map((team) => (
-                      <button
-                        key={team}
-                        onClick={() => { setSelectedOpponent(team); setOpponentSearch(""); }}
-                        className={cn(
-                          "w-full text-left px-3 py-1.5 text-xs border-b border-border last:border-b-0 transition-colors flex items-center gap-2",
-                          selectedOpponent === team
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-foreground"
-                        )}
-                      >
-                        <TeamLogo teamName={team} size="xs" />
-                        {team}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Stats comparison table */}
-            {selectedOpponent && opponentStats && !prediction && (
-              <div className="border-2 border-border bg-background">
-                <div className="px-3 py-1.5 border-b border-border bg-muted/50">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Head-to-Head Comparison</span>
-                </div>
-                <div className="divide-y divide-border text-[11px]">
-                  {[
-                    { label: "Win Rate", a: `${stats.winProbability.toFixed(0)}%`, b: `${opponentStats.winProbability.toFixed(0)}%`, aWins: stats.winProbability > opponentStats.winProbability },
-                    { label: "Goals/Game", a: (stats.goalsFor / stats.matchesPlayed).toFixed(2), b: (opponentStats.goalsFor / opponentStats.matchesPlayed).toFixed(2), aWins: stats.goalsFor / stats.matchesPlayed > opponentStats.goalsFor / opponentStats.matchesPlayed },
-                    { label: "Conceded/Game", a: (stats.goalsAgainst / stats.matchesPlayed).toFixed(2), b: (opponentStats.goalsAgainst / opponentStats.matchesPlayed).toFixed(2), aWins: stats.goalsAgainst / stats.matchesPlayed < opponentStats.goalsAgainst / opponentStats.matchesPlayed },
-                    { label: "Shots/Game", a: stats.avgShotsFor.toFixed(1), b: opponentStats.avgShotsFor.toFixed(1), aWins: stats.avgShotsFor > opponentStats.avgShotsFor },
-                    { label: "SOT/Game", a: stats.avgShotsOnTargetFor.toFixed(1), b: opponentStats.avgShotsOnTargetFor.toFixed(1), aWins: stats.avgShotsOnTargetFor > opponentStats.avgShotsOnTargetFor },
-                    { label: "Corners/Game", a: stats.avgCornersFor.toFixed(1), b: opponentStats.avgCornersFor.toFixed(1), aWins: stats.avgCornersFor > opponentStats.avgCornersFor },
-                    { label: "Fouls/Game", a: stats.avgFoulsCommitted.toFixed(1), b: opponentStats.avgFoulsCommitted.toFixed(1), aWins: stats.avgFoulsCommitted < opponentStats.avgFoulsCommitted },
-                    { label: "Yellows/Game", a: stats.avgYellowCards.toFixed(1), b: opponentStats.avgYellowCards.toFixed(1), aWins: stats.avgYellowCards < opponentStats.avgYellowCards },
-                    { label: "Clean Sheets", a: String(stats.cleanSheets), b: String(opponentStats.cleanSheets), aWins: stats.cleanSheets > opponentStats.cleanSheets },
-                    { label: "BTTS %", a: `${stats.bttsPercentage.toFixed(0)}%`, b: `${opponentStats.bttsPercentage.toFixed(0)}%`, aWins: false },
-                    { label: "Over 2.5 %", a: `${stats.over25Percentage.toFixed(0)}%`, b: `${opponentStats.over25Percentage.toFixed(0)}%`, aWins: false },
-                    { label: "Style", a: stats.tacticalProfile.style, b: opponentStats.tacticalProfile.style, aWins: false },
-                  ].map((row) => (
-                    <div key={row.label} className="flex items-center px-3 py-1.5">
-                      <span className={cn("font-mono font-bold w-[72px] text-right", row.aWins === true ? "text-stat-positive" : "text-foreground")}>{row.a}</span>
-                      <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-muted-foreground font-semibold px-2">{row.label}</span>
-                      <span className={cn("font-mono font-bold w-[72px]", row.aWins === false && row.label !== "BTTS %" && row.label !== "Over 2.5 %" && row.label !== "Style" ? "text-stat-positive" : "text-foreground")}>{row.b}</span>
-                    </div>
-                  ))}
-                </div>
-                {/* Form comparison */}
-                <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-muted-foreground font-semibold mr-1">Form:</span>
-                    {stats.formLast5.map((r, i) => <FormBadge key={`a${i}`} result={r} />)}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {opponentStats.formLast5.map((r, i) => <FormBadge key={`b${i}`} result={r} />)}
-                    <span className="text-[9px] text-muted-foreground font-semibold ml-1">:Form</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Generate button */}
-            {!prediction && (
-              <button
-                onClick={handleRunPredict}
-                disabled={predicting}
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider border-2 transition-all",
-                  "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-                  "shadow-[3px_3px_0_hsl(var(--primary)/0.3)]",
-                  predicting && "opacity-70 cursor-wait"
-                )}
-              >
-                {predicting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {predicting ? "Analyzing…" : "Generate Prediction"}
+              <button onClick={() => setShowPredictionModal(false)} className="p-1.5 hover:bg-muted transition-colors border border-border">
+                <X className="w-4 h-4 text-muted-foreground" />
               </button>
-            )}
+            </div>
 
-            {/* Prediction result */}
-            {prediction && (
-              <div className="space-y-3">
-                <div className="border-2 border-primary/20 bg-primary/5 p-3">
-                  <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
-                    {prediction}
+            <div className="p-3 space-y-4">
+              {/* Teams head-to-head display */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <TeamLogo teamName={selectedTeam} size="md" />
+                  <div>
+                    <p className="text-xs font-bold">{selectedTeam}</p>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Your team</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setPrediction(null)}
-                  className="w-full py-2 text-[10px] font-bold uppercase tracking-wider border-2 border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-                >
-                  Run Again
-                </button>
+                <span className="text-sm font-black text-muted-foreground">VS</span>
+                <div className="flex items-center gap-2 text-right">
+                  {selectedOpponent ? (
+                    <>
+                      <div>
+                        <p className="text-xs font-bold">{selectedOpponent}</p>
+                        <button onClick={() => setSelectedOpponent("")} className="text-[9px] text-primary uppercase tracking-wider hover:underline">Change</button>
+                      </div>
+                      <TeamLogo teamName={selectedOpponent} size="md" />
+                    </>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground italic">Select below</p>
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Footer */}
-            <p className="text-[8px] text-muted-foreground text-center uppercase tracking-wider pt-1 border-t border-border">
-              AI-powered analysis · Based on last {stats.matchesPlayed} matches
-            </p>
+              {/* Opponent picker */}
+              {!prediction && (
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                    Choose Opponent (optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search opponent…"
+                    value={opponentSearch}
+                    onChange={(e) => setOpponentSearch(e.target.value)}
+                    className="w-full h-7 px-2 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                  />
+                  <div className="max-h-28 overflow-y-auto border-2 border-border bg-card">
+                    {leagueTeams
+                      .filter((t) => !opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))
+                      .slice(0, 15)
+                      .map((team) => (
+                        <button
+                          key={team}
+                          onClick={() => { setSelectedOpponent(team); setOpponentSearch(""); }}
+                          className={cn(
+                            "w-full text-left px-3 py-1.5 text-xs border-b border-border last:border-b-0 transition-colors flex items-center gap-2",
+                            selectedOpponent === team
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted text-foreground"
+                          )}
+                        >
+                          <TeamLogo teamName={team} size="xs" />
+                          {team}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Stats comparison table */}
+              {selectedOpponent && opponentStats && !prediction && (
+                <div className="border-2 border-border bg-background">
+                  <div className="px-3 py-1.5 border-b border-border bg-muted/50">
+                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Head-to-Head Comparison</span>
+                  </div>
+                  <div className="divide-y divide-border text-[11px]">
+                    {[
+                      { label: "Win Rate", a: `${stats.winProbability.toFixed(0)}%`, b: `${opponentStats.winProbability.toFixed(0)}%`, aWins: stats.winProbability > opponentStats.winProbability },
+                      { label: "Goals/Game", a: (stats.goalsFor / stats.matchesPlayed).toFixed(2), b: (opponentStats.goalsFor / opponentStats.matchesPlayed).toFixed(2), aWins: stats.goalsFor / stats.matchesPlayed > opponentStats.goalsFor / opponentStats.matchesPlayed },
+                      { label: "Conceded/Game", a: (stats.goalsAgainst / stats.matchesPlayed).toFixed(2), b: (opponentStats.goalsAgainst / opponentStats.matchesPlayed).toFixed(2), aWins: stats.goalsAgainst / stats.matchesPlayed < opponentStats.goalsAgainst / opponentStats.matchesPlayed },
+                      { label: "Shots/Game", a: stats.avgShotsFor.toFixed(1), b: opponentStats.avgShotsFor.toFixed(1), aWins: stats.avgShotsFor > opponentStats.avgShotsFor },
+                      { label: "SOT/Game", a: stats.avgShotsOnTargetFor.toFixed(1), b: opponentStats.avgShotsOnTargetFor.toFixed(1), aWins: stats.avgShotsOnTargetFor > opponentStats.avgShotsOnTargetFor },
+                      { label: "Corners/Game", a: stats.avgCornersFor.toFixed(1), b: opponentStats.avgCornersFor.toFixed(1), aWins: stats.avgCornersFor > opponentStats.avgCornersFor },
+                      { label: "Fouls/Game", a: stats.avgFoulsCommitted.toFixed(1), b: opponentStats.avgFoulsCommitted.toFixed(1), aWins: stats.avgFoulsCommitted < opponentStats.avgFoulsCommitted },
+                      { label: "Yellows/Game", a: stats.avgYellowCards.toFixed(1), b: opponentStats.avgYellowCards.toFixed(1), aWins: stats.avgYellowCards < opponentStats.avgYellowCards },
+                      { label: "Clean Sheets", a: String(stats.cleanSheets), b: String(opponentStats.cleanSheets), aWins: stats.cleanSheets > opponentStats.cleanSheets },
+                      { label: "BTTS %", a: `${stats.bttsPercentage.toFixed(0)}%`, b: `${opponentStats.bttsPercentage.toFixed(0)}%`, aWins: false },
+                      { label: "Over 2.5 %", a: `${stats.over25Percentage.toFixed(0)}%`, b: `${opponentStats.over25Percentage.toFixed(0)}%`, aWins: false },
+                      { label: "Style", a: stats.tacticalProfile.style, b: opponentStats.tacticalProfile.style, aWins: false },
+                    ].map((row) => (
+                      <div key={row.label} className="flex items-center px-3 py-1.5">
+                        <span className={cn("font-mono font-bold w-[72px] text-right", row.aWins === true ? "text-stat-positive" : "text-foreground")}>{row.a}</span>
+                        <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-muted-foreground font-semibold px-2">{row.label}</span>
+                        <span className={cn("font-mono font-bold w-[72px]", row.aWins === false && row.label !== "BTTS %" && row.label !== "Over 2.5 %" && row.label !== "Style" ? "text-stat-positive" : "text-foreground")}>{row.b}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Form comparison */}
+                  <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-muted-foreground font-semibold mr-1">Form:</span>
+                      {stats.formLast5.map((r, i) => <FormBadge key={`a${i}`} result={r} />)}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {opponentStats.formLast5.map((r, i) => <FormBadge key={`b${i}`} result={r} />)}
+                      <span className="text-[9px] text-muted-foreground font-semibold ml-1">:Form</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate button */}
+              {!prediction && (
+                <button
+                  onClick={handleRunPredict}
+                  disabled={predicting}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider border-2 transition-all",
+                    "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+                    "shadow-[3px_3px_0_hsl(var(--primary)/0.3)]",
+                    predicting && "opacity-70 cursor-wait"
+                  )}
+                >
+                  {predicting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {predicting ? "Analyzing…" : "Generate Prediction"}
+                </button>
+              )}
+
+              {/* Prediction result */}
+              {prediction && (
+                <div className="space-y-3">
+                  <div className="border-2 border-primary/20 bg-primary/5 p-3">
+                    <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                      {prediction}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPrediction(null)}
+                    className="w-full py-2 text-[10px] font-bold uppercase tracking-wider border-2 border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                  >
+                    Run Again
+                  </button>
+                </div>
+              )}
+
+              {/* Footer */}
+              <p className="text-[8px] text-muted-foreground text-center uppercase tracking-wider pt-1 border-t border-border">
+                AI-powered analysis · Based on last {stats.matchesPlayed} matches
+              </p>
+            </div>
           </div>
-        </section>
+        </div>
       )}
     </div>
   );
