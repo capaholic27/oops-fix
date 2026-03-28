@@ -245,11 +245,17 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
       {/* Team Banner */}
       <section className="border-2 border-foreground bg-card p-3 shadow-[4px_4px_0_hsl(var(--foreground))]">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div>
-            <h2 className="text-xl leading-none">{selectedTeam}</h2>
-            <p className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mt-0.5">
-              {currentLeagueName} · {stats.matchesPlayed} matches
-            </p>
+          <div className="flex items-center gap-3">
+            <TeamLogo teamName={selectedTeam} size="lg" />
+            <div>
+              <h2 className="text-xl leading-none">{selectedTeam}</h2>
+              <div className="flex items-center gap-1 mt-0.5">
+                <LeagueLogo leagueName={currentLeagueName} size="xs" />
+                <p className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
+                  {currentLeagueName} · {stats.matchesPlayed} matches
+                </p>
+              </div>
+            </div>
           </div>
           <div className="text-right">
             <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
