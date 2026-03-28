@@ -212,6 +212,7 @@ const MatchView = ({
                           </span>
 
                           {/* Match info */}
+                          <TeamLogo teamName={opponent} size="xs" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1">
                               <span className="text-[9px] text-muted-foreground uppercase">{isHome ? "vs" : "at"}</span>
