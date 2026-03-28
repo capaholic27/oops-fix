@@ -192,12 +192,20 @@ type StatsProps = {
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: StatsProps) => {
   const [predicting, setPredicting] = useState(false);
   const [prediction, setPrediction] = useState<string | null>(null);
-  const [showPrediction, setShowPrediction] = useState(false);
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [selectedOpponent, setSelectedOpponent] = useState<string>("");
+  const [opponentSearch, setOpponentSearch] = useState("");
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
+
+  // All teams in same league for opponent picker
+  const leagueTeams = useMemo(() => {
+    const teams = getUniqueTeams(allMatches.filter((m) => m.league_code === leagueCode));
+    return teams.filter((t) => t !== selectedTeam);
+  }, [allMatches, leagueCode, selectedTeam]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
@@ -216,29 +224,60 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
     [allMatches, leagueCode]
   );
 
-  const handlePredict = useCallback(async () => {
+  // Compute opponent stats if selected
+  const opponentViews = useMemo(() => {
+    if (!selectedOpponent) return [];
+    return allMatches
+      .filter((m) => m.home_team === selectedOpponent || m.away_team === selectedOpponent)
+      .map((m) => getTeamMatchView(m, selectedOpponent))
+      .filter((v): v is TeamMatchView => v !== null)
+      .slice(-pastN);
+  }, [allMatches, selectedOpponent, pastN]);
+
+  const opponentStats = useMemo(() => (opponentViews.length > 0 ? aggregateStats(opponentViews) : null), [opponentViews]);
+
+  const handleOpenPredict = () => {
+    setShowPredictionModal(true);
+    setPrediction(null);
+    setSelectedOpponent("");
+    setOpponentSearch("");
+  };
+
+  const handleRunPredict = useCallback(async () => {
     setPredicting(true);
     setPrediction(null);
-    toast.info("Generating AI prediction…");
     try {
-      const { data, error } = await supabase.functions.invoke("predict-match", {
-        body: {
-          teamName: selectedTeam,
-          stats,
-          recentForm: stats.formLast5,
-        },
-      });
-      console.log("predict-match response:", { data, error });
-      if (error) {
-        // FunctionsHttpError contains the response body
-        const msg = typeof error === "object" && error.message ? error.message : String(error);
-        throw new Error(msg);
+      const body: any = {
+        teamName: selectedTeam,
+        stats,
+        recentForm: stats.formLast5,
+      };
+      if (selectedOpponent && opponentStats) {
+        body.upcomingOpponent = selectedOpponent;
+        body.opponentStats = opponentStats;
+        body.opponentForm = opponentStats.formLast5;
+      }
+      console.log("Calling predict-match with:", body);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = await response.json();
+      console.log("predict-match response:", response.status, data);
+      if (!response.ok) {
+        throw new Error(data?.error || `Error ${response.status}`);
       }
       if (!data?.prediction) {
         throw new Error(data?.error || "No prediction returned");
       }
       setPrediction(data.prediction);
-      setShowPrediction(true);
       toast.success("Prediction ready!");
     } catch (err: any) {
       console.error("Predict error:", err);
@@ -246,7 +285,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
     } finally {
       setPredicting(false);
     }
-  }, [selectedTeam, stats]);
+  }, [selectedTeam, stats, selectedOpponent, opponentStats]);
 
   if (stats.matchesPlayed === 0) {
     return (
