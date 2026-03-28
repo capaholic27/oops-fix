@@ -20,7 +20,7 @@ import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
-  RefreshCw, ChevronLeft, ChevronRight,
+  RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
