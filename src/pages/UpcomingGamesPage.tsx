@@ -6,7 +6,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { cn } from "@/lib/utils";
-import { Flame, Zap } from "lucide-react";
+import { Flame } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
 
 /* ── helpers ── */
@@ -99,33 +99,31 @@ const MatchRow = ({
       <div className="relative flex items-center h-10 overflow-hidden">
         {/* Home side gradient */}
         <div className={cn(
-          "flex-1 h-full flex items-center justify-between pl-2.5 pr-1",
-          homeWin && "bg-gradient-to-r from-stat-positive/25 to-stat-positive/10",
-          awayWin && "bg-gradient-to-r from-stat-negative/15 to-stat-negative/8",
-          isDraw && "bg-gradient-to-r from-stat-warn/15 to-stat-warn/8",
+          "flex-1 h-full flex items-center justify-between pl-2 pr-1.5",
+          homeWin && "bg-gradient-to-r from-stat-positive/20 to-stat-positive/5",
+          awayWin && "bg-gradient-to-r from-stat-negative/12 to-stat-negative/5",
+          isDraw && "bg-gradient-to-r from-stat-warn/12 to-stat-warn/5",
         )}>
+          <TeamLogo teamName={m.home_team} size="xs" />
           <span className="font-black text-[11px] tracking-wider text-foreground">{getAbbr(m.home_team)}</span>
-          <TeamLogo teamName={m.home_team} size="sm" />
         </div>
 
         {/* Center score block */}
-        <div className="flex items-center h-full bg-foreground/90 px-1.5 gap-0 z-10">
+        <div className="flex items-center h-full bg-foreground/90 px-2 gap-0 z-10">
           <span className="font-mono font-black text-sm text-background min-w-[1rem] text-center">{homeGoals}</span>
-          <div className="mx-0.5 flex items-center justify-center">
-            <Zap className="w-3 h-3 text-primary fill-primary" />
-          </div>
+          <span className="mx-1 text-[9px] font-bold text-muted-foreground/60 uppercase">vs</span>
           <span className="font-mono font-black text-sm text-background min-w-[1rem] text-center">{awayGoals}</span>
         </div>
 
         {/* Away side gradient */}
         <div className={cn(
-          "flex-1 h-full flex items-center justify-between pr-2.5 pl-1",
-          awayWin && "bg-gradient-to-l from-stat-positive/25 to-stat-positive/10",
-          homeWin && "bg-gradient-to-l from-stat-negative/15 to-stat-negative/8",
-          isDraw && "bg-gradient-to-l from-stat-warn/15 to-stat-warn/8",
+          "flex-1 h-full flex items-center justify-between pr-2 pl-1.5",
+          awayWin && "bg-gradient-to-l from-stat-positive/20 to-stat-positive/5",
+          homeWin && "bg-gradient-to-l from-stat-negative/12 to-stat-negative/5",
+          isDraw && "bg-gradient-to-l from-stat-warn/12 to-stat-warn/5",
         )}>
-          <TeamLogo teamName={m.away_team} size="sm" />
           <span className="font-black text-[11px] tracking-wider text-foreground">{getAbbr(m.away_team)}</span>
+          <TeamLogo teamName={m.away_team} size="xs" />
         </div>
       </div>
     </button>

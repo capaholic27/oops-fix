@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
-import { X, ChevronLeft, ChevronRight, Home, Plane } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { FormBadge } from "./FormBadge";
 import { TeamLogo } from "./TeamLogo";
 import { LeagueLogo } from "./LeagueLogo";
@@ -78,14 +78,9 @@ const MatchView = ({
 
   return (
     <div className="animate-in fade-in-0 duration-150">
-      {/* Score Hero */}
-      <div className={cn(
-        "px-4 py-5",
-        homeWin && "bg-gradient-to-r from-stat-positive/10 to-transparent",
-        awayWin && "bg-gradient-to-r from-transparent to-stat-positive/10",
-        isDraw && "bg-muted/20"
-      )}>
-        <div className="text-center mb-1">
+      {/* Score Hero — banner style */}
+      <div className="px-3 pt-3 pb-2">
+        <div className="text-center mb-2">
           <div className="flex items-center justify-center gap-1.5">
             <LeagueLogo leagueName={m.league_name} size="sm" />
             <span className="text-[9px] uppercase tracking-[0.2em] text-primary font-bold">{m.league_name}</span>
@@ -93,44 +88,42 @@ const MatchView = ({
           <p className="text-[10px] text-muted-foreground">{date}</p>
         </div>
 
-        {/* Score - stacked layout for clean alignment */}
-        <div className="flex items-center justify-center gap-3 mt-3">
-          {/* Home team */}
-          <div className="flex-1 min-w-0 text-right">
-            <div className="flex items-center justify-end gap-1.5">
-              <p className={cn("text-xs font-bold truncate", homeWin && "text-stat-positive")}>{m.home_team}</p>
-              <TeamLogo teamName={m.home_team} size="sm" className="flex-shrink-0" />
-            </div>
-            <div className="flex items-center justify-end gap-0.5 mt-0.5">
-              <Home className="w-2.5 h-2.5 text-muted-foreground" />
-              <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Home</span>
-            </div>
+        {/* Banner scoreboard */}
+        <div className="flex items-center h-12 overflow-hidden rounded-md border border-border">
+          {/* Home side */}
+          <div className={cn(
+            "flex-1 h-full flex items-center justify-between px-3",
+            homeWin && "bg-gradient-to-r from-stat-positive/20 to-stat-positive/5",
+            awayWin && "bg-gradient-to-r from-stat-negative/12 to-stat-negative/5",
+            isDraw && "bg-gradient-to-r from-stat-warn/12 to-stat-warn/5",
+          )}>
+            <TeamLogo teamName={m.home_team} size="sm" />
+            <span className="font-black text-xs tracking-wider">{m.home_team}</span>
           </div>
 
-          {/* Score box - fixed width */}
-          <div className="flex-shrink-0 text-center">
-            <div className="border-2 border-foreground bg-card px-3 py-1.5 shadow-[3px_3px_0_hsl(var(--foreground))] whitespace-nowrap">
-              <span className="font-mono text-2xl font-bold tracking-wider">
-                {m.ft_home_goals ?? 0} – {m.ft_away_goals ?? 0}
-              </span>
-            </div>
-            <p className="text-[9px] text-muted-foreground font-mono mt-1">
-              HT {m.ht_home_goals ?? "?"} – {m.ht_away_goals ?? "?"}
-            </p>
+          {/* Center score */}
+          <div className="flex items-center h-full bg-foreground/90 px-3 gap-0 z-10">
+            <span className="font-mono font-black text-lg text-background min-w-[1.2rem] text-center">{m.ft_home_goals ?? 0}</span>
+            <span className="mx-1.5 text-[9px] font-bold text-muted-foreground/60 uppercase">vs</span>
+            <span className="font-mono font-black text-lg text-background min-w-[1.2rem] text-center">{m.ft_away_goals ?? 0}</span>
           </div>
 
-          {/* Away team */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <TeamLogo teamName={m.away_team} size="sm" className="flex-shrink-0" />
-              <p className={cn("text-xs font-bold truncate", awayWin && "text-stat-positive")}>{m.away_team}</p>
-            </div>
-            <div className="flex items-center gap-0.5 mt-0.5">
-              <Plane className="w-2.5 h-2.5 text-muted-foreground" />
-              <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Away</span>
-            </div>
+          {/* Away side */}
+          <div className={cn(
+            "flex-1 h-full flex items-center justify-between px-3",
+            awayWin && "bg-gradient-to-l from-stat-positive/20 to-stat-positive/5",
+            homeWin && "bg-gradient-to-l from-stat-negative/12 to-stat-negative/5",
+            isDraw && "bg-gradient-to-l from-stat-warn/12 to-stat-warn/5",
+          )}>
+            <span className="font-black text-xs tracking-wider">{m.away_team}</span>
+            <TeamLogo teamName={m.away_team} size="sm" />
           </div>
         </div>
+
+        {/* HT score */}
+        <p className="text-[9px] text-muted-foreground font-mono mt-1.5 text-center">
+          HT {m.ht_home_goals ?? "?"} – {m.ht_away_goals ?? "?"}
+        </p>
       </div>
 
       {/* Match Stats */}
