@@ -86,7 +86,10 @@ const MatchView = ({
         isDraw && "bg-muted/20"
       )}>
         <div className="text-center mb-1">
-          <span className="text-[9px] uppercase tracking-[0.2em] text-primary font-bold">{m.league_name}</span>
+          <div className="flex items-center justify-center gap-1.5">
+            <LeagueLogo leagueName={m.league_name} size="sm" />
+            <span className="text-[9px] uppercase tracking-[0.2em] text-primary font-bold">{m.league_name}</span>
+          </div>
           <p className="text-[10px] text-muted-foreground">{date}</p>
         </div>
 
