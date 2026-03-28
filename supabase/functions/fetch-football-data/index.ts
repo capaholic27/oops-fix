@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const url = new URL(req.url);
-    const season = url.searchParams.get("season") || "2425";
+    const season = url.searchParams.get("season") || "2526";
     const leagueParam = url.searchParams.get("league"); // optional, fetch all if not specified
 
     const leaguesToFetch = leagueParam

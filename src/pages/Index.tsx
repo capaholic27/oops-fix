@@ -359,7 +359,7 @@ const Index = () => {
 
         {/* Footer */}
         <footer className="text-center py-6 text-xs text-muted-foreground">
-          Data sourced from football-data.co.uk · Season 2024/25
+          Data sourced from football-data.co.uk · Season 2025/26
         </footer>
       </main>
     </div>
