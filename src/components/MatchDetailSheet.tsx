@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
-import { X, ChevronLeft, Home, Plane } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Home, Plane } from "lucide-react";
 import { FormBadge } from "./FormBadge";
 import type { Match } from "@/lib/matchStats";
 import { getTeamMatchView } from "@/lib/matchStats";
@@ -139,37 +139,95 @@ const MatchView = ({
       </div>
 
       {/* Form Sections */}
-      <div className="px-3 py-2 space-y-4">
-        {[
-          { team: m.home_team, form: homeForm, isHome: true },
-          { team: m.away_team, form: awayForm, isHome: false },
-        ].map(({ team, form, isHome }) => (
-          <div key={team}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="text-[10px] uppercase tracking-wider font-bold">{team}</span>
-              <span className="text-[8px] text-muted-foreground uppercase">— Last {form.length}</span>
-            </div>
-            {form.length === 0 ? (
-              <p className="text-[10px] text-muted-foreground italic">No prior data</p>
-            ) : (
-              <div className="flex gap-1">
-                {form.map((f, i) => (
-                  <button
-                    key={i}
-                    onClick={() => onNavigate(f.match)}
-                    className="group relative hover:scale-110 transition-transform"
-                    title={`${f.match.home_team} ${f.match.ft_home_goals}-${f.match.ft_away_goals} ${f.match.away_team}`}
-                  >
-                    <FormBadge result={f.result} />
-                    <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[7px] text-muted-foreground opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity font-mono">
-                      {f.match.ft_home_goals}-{f.match.ft_away_goals}
-                    </span>
-                  </button>
-                ))}
+      <div className="px-3 py-3">
+        <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground font-bold mb-3 text-center">
+          Recent Form
+        </p>
+        <div className="space-y-2">
+          {[
+            { team: m.home_team, form: homeForm, tag: "HOME" },
+            { team: m.away_team, form: awayForm, tag: "AWAY" },
+          ].map(({ team, form, tag }) => {
+            const wins = form.filter((f) => f.result === "W").length;
+            const draws = form.filter((f) => f.result === "D").length;
+            const losses = form.filter((f) => f.result === "L").length;
+
+            return (
+              <div key={team} className="border border-border rounded-sm overflow-hidden">
+                {/* Team header bar */}
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold uppercase tracking-wide">{team}</span>
+                    <span className="text-[8px] px-1.5 py-0.5 bg-primary/10 text-primary font-bold uppercase tracking-wider rounded-sm">{tag}</span>
+                  </div>
+                  {form.length > 0 && (
+                    <div className="flex items-center gap-2 text-[9px] font-mono font-bold">
+                      <span className="text-stat-positive">{wins}W</span>
+                      <span className="text-stat-warn">{draws}D</span>
+                      <span className="text-stat-negative">{losses}L</span>
+                    </div>
+                  )}
+                </div>
+
+                {form.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground text-center py-3 italic">No prior matches</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {form.map((f, i) => {
+                      const fm = f.match;
+                      const isHome = fm.home_team === team;
+                      const opponent = isHome ? fm.away_team : fm.home_team;
+                      const dateStr = new Date(fm.match_date + "T00:00:00").toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                      });
+
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => onNavigate(fm)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted/30 transition-colors"
+                        >
+                          {/* Result badge */}
+                          <span
+                            className={cn(
+                              "w-6 h-6 flex items-center justify-center text-[10px] font-bold font-mono rounded-sm flex-shrink-0",
+                              f.result === "W" && "bg-stat-positive/15 text-stat-positive",
+                              f.result === "D" && "bg-stat-warn/15 text-stat-warn",
+                              f.result === "L" && "bg-stat-negative/15 text-stat-negative"
+                            )}
+                          >
+                            {f.result}
+                          </span>
+
+                          {/* Match info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[9px] text-muted-foreground uppercase">{isHome ? "vs" : "at"}</span>
+                              <span className="text-[11px] font-semibold truncate">{opponent}</span>
+                            </div>
+                            <span className="text-[8px] text-muted-foreground">{fm.league_name}</span>
+                          </div>
+
+                          {/* Score + date */}
+                          <div className="text-right flex-shrink-0">
+                            <span className="font-mono text-xs font-bold">
+                              {fm.ft_home_goals}-{fm.ft_away_goals}
+                            </span>
+                            <p className="text-[8px] text-muted-foreground">{dateStr}</p>
+                          </div>
+
+                          {/* Chevron */}
+                          <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+            );
+          })}
+        </div>
       </div>
 
       <div className="h-6" />
