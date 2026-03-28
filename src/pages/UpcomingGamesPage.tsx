@@ -6,7 +6,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { cn } from "@/lib/utils";
-import { Trophy, TrendingUp, Target, Flame, Zap } from "lucide-react";
+import { Flame, Zap } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
 
 /* ── helpers ── */
@@ -138,12 +138,11 @@ const MatchRow = ({
   );
 };
 
-/* ── Quick stat pill ── */
-const QuickStat = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | number }) => (
-  <div className="flex flex-col items-center gap-1 px-3 py-2.5 bg-card border border-border rounded-md flex-1 min-w-0">
-    <Icon className="w-3.5 h-3.5 text-primary" />
-    <span className="font-mono text-sm font-bold">{value}</span>
-    <span className="text-[8px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</span>
+/* ── Stat bar item ── */
+const StatBar = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  <div className="flex-1 min-w-0 text-center">
+    <span className={cn("font-mono text-xs font-bold", color || "text-foreground")}>{value}</span>
+    <p className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold mt-0.5">{label}</p>
   </div>
 );
 
@@ -170,16 +169,21 @@ const UpcomingGamesPage = () => {
     return Array.from(map.entries());
   }, [allMatches]);
 
-  // Summary stats
+  // Summary stats — percentage-based
   const summaryStats = useMemo(() => {
     const recent = [...allMatches]
       .sort((a, b) => b.match_date.localeCompare(a.match_date))
       .slice(0, 80);
 
+    const total = recent.length || 1;
     const totalGoals = recent.reduce((s, m) => s + (m.ft_home_goals ?? 0) + (m.ft_away_goals ?? 0), 0);
     const homeWins = recent.filter((m) => (m.ft_home_goals ?? 0) > (m.ft_away_goals ?? 0)).length;
+    const awayWins = recent.filter((m) => (m.ft_away_goals ?? 0) > (m.ft_home_goals ?? 0)).length;
     const draws = recent.filter((m) => (m.ft_home_goals ?? 0) === (m.ft_away_goals ?? 0)).length;
-    const avgGoals = recent.length ? (totalGoals / recent.length).toFixed(1) : "0";
+    const over25 = recent.filter((m) => ((m.ft_home_goals ?? 0) + (m.ft_away_goals ?? 0)) > 2).length;
+    const btts = recent.filter((m) => (m.ft_home_goals ?? 0) > 0 && (m.ft_away_goals ?? 0) > 0).length;
+    const cleanSheets = recent.filter((m) => (m.ft_home_goals ?? 0) === 0 || (m.ft_away_goals ?? 0) === 0).length;
+    const avgGoals = (totalGoals / total).toFixed(1);
 
     // Highest scoring match
     let topMatch: Match | null = null;
@@ -189,7 +193,18 @@ const UpcomingGamesPage = () => {
       if (g > topGoals) { topGoals = g; topMatch = m; }
     });
 
-    return { totalGoals, homeWins, draws, avgGoals, topMatch, topGoals, total: recent.length };
+    return {
+      total,
+      avgGoals,
+      homeWinPct: ((homeWins / total) * 100).toFixed(0),
+      awayWinPct: ((awayWins / total) * 100).toFixed(0),
+      drawPct: ((draws / total) * 100).toFixed(0),
+      over25Pct: ((over25 / total) * 100).toFixed(0),
+      bttsPct: ((btts / total) * 100).toFixed(0),
+      cleanSheetPct: ((cleanSheets / total) * 100).toFixed(0),
+      topMatch,
+      topGoals,
+    };
   }, [allMatches]);
 
   if (isLoading) {
@@ -214,12 +229,19 @@ const UpcomingGamesPage = () => {
     <div className="p-3 pb-20 max-w-lg mx-auto">
       <h2 className="text-lg text-center mb-3">Results</h2>
 
-      {/* Summary stats bar */}
-      <div className="flex gap-1.5 mb-3">
-        <QuickStat icon={Target} label="Goals" value={summaryStats.totalGoals} />
-        <QuickStat icon={TrendingUp} label="Avg/Game" value={summaryStats.avgGoals} />
-        <QuickStat icon={Trophy} label="Home Wins" value={summaryStats.homeWins} />
-        <QuickStat icon={Flame} label="Draws" value={summaryStats.draws} />
+      {/* Summary stats — percentages */}
+      <div className="border border-border bg-card rounded-md overflow-hidden mb-3">
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/30">
+          <span className="text-[8px] uppercase tracking-widest text-muted-foreground font-bold">Last {summaryStats.total} Matches</span>
+          <span className="font-mono text-[10px] font-bold text-primary">{summaryStats.avgGoals} avg goals</span>
+        </div>
+        <div className="flex divide-x divide-border py-2">
+          <StatBar label="Home Win" value={`${summaryStats.homeWinPct}%`} color="text-stat-positive" />
+          <StatBar label="Draw" value={`${summaryStats.drawPct}%`} color="text-stat-warn" />
+          <StatBar label="Away Win" value={`${summaryStats.awayWinPct}%`} color="text-stat-negative" />
+          <StatBar label="Over 2.5" value={`${summaryStats.over25Pct}%`} />
+          <StatBar label="BTTS" value={`${summaryStats.bttsPct}%`} />
+        </div>
       </div>
 
       {/* Top scoring match highlight */}
