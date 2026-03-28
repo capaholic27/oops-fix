@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Home, Plane } from "lucide-react";
 import { FormBadge } from "./FormBadge";
+import { TeamLogo } from "./TeamLogo";
+import { LeagueLogo } from "./LeagueLogo";
 import type { Match } from "@/lib/matchStats";
 import { getTeamMatchView } from "@/lib/matchStats";
 
