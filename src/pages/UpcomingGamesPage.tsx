@@ -229,12 +229,19 @@ const UpcomingGamesPage = () => {
     <div className="p-3 pb-20 max-w-lg mx-auto">
       <h2 className="text-lg text-center mb-3">Results</h2>
 
-      {/* Summary stats bar */}
-      <div className="flex gap-1.5 mb-3">
-        <QuickStat icon={Target} label="Goals" value={summaryStats.totalGoals} />
-        <QuickStat icon={TrendingUp} label="Avg/Game" value={summaryStats.avgGoals} />
-        <QuickStat icon={Trophy} label="Home Wins" value={summaryStats.homeWins} />
-        <QuickStat icon={Flame} label="Draws" value={summaryStats.draws} />
+      {/* Summary stats — percentages */}
+      <div className="border border-border bg-card rounded-md overflow-hidden mb-3">
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-muted/30">
+          <span className="text-[8px] uppercase tracking-widest text-muted-foreground font-bold">Last {summaryStats.total} Matches</span>
+          <span className="font-mono text-[10px] font-bold text-primary">{summaryStats.avgGoals} avg goals</span>
+        </div>
+        <div className="flex divide-x divide-border py-2">
+          <StatBar label="Home Win" value={`${summaryStats.homeWinPct}%`} color="text-stat-positive" />
+          <StatBar label="Draw" value={`${summaryStats.drawPct}%`} color="text-stat-warn" />
+          <StatBar label="Away Win" value={`${summaryStats.awayWinPct}%`} color="text-stat-negative" />
+          <StatBar label="Over 2.5" value={`${summaryStats.over25Pct}%`} />
+          <StatBar label="BTTS" value={`${summaryStats.bttsPct}%`} />
+        </div>
       </div>
 
       {/* Top scoring match highlight */}
