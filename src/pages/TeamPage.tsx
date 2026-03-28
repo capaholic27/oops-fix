@@ -190,6 +190,9 @@ type StatsProps = {
 };
 
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: StatsProps) => {
+  const [predicting, setPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<string | null>(null);
+  const [showPrediction, setShowPrediction] = useState(false);
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
