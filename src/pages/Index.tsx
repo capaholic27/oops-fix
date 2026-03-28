@@ -68,7 +68,7 @@ const Index = () => {
   const handleSync = () => {
     toast.info("Syncing match data from football-data.co.uk...");
     syncData.mutate(
-      { season: "2425" },
+      { season: "2526" },
       {
         onSuccess: (data) => {
           const totalInserted = data.results?.reduce((s: number, r: { inserted: number }) => s + r.inserted, 0) ?? 0;
