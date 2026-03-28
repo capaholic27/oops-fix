@@ -23,6 +23,7 @@ import {
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
