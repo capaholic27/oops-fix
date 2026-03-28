@@ -480,7 +480,7 @@ const PredictionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed top-[2%] left-[50%] translate-x-[-50%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1rem)] max-w-md max-h-[92vh] flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden">
+      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(0.5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b-2 border-primary/20 bg-primary/5">
           <div className="flex items-center gap-1.5">
@@ -492,7 +492,7 @@ const PredictionDialog = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2.5" style={{ minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2.5" style={{ minHeight: 0, WebkitOverflowScrolling: "touch" }}>
           {/* ── TEAM SELECTION SECTION ── */}
           {!prediction && (
             <div className="space-y-2">
