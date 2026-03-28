@@ -188,13 +188,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
 
-  const teamViews: TeamMatchView[] = useMemo(() => {
+  const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
     return teamMatches
       .map((m) => getTeamMatchView(m, selectedTeam))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-pastN);
-  }, [teamMatches, selectedTeam, pastN]);
+      .filter((v): v is TeamMatchView => v !== null);
+  }, [teamMatches, selectedTeam]);
+
+  const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
 
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
