@@ -570,14 +570,22 @@ const PredictionDialog = ({
                   </div>
                 ))}
               </div>
-              <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+              <div className="px-3 py-1.5 border-t border-border flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-muted-foreground font-semibold mr-1">Form:</span>
-                  {statsA.formLast5.map((r, i) => <FormBadge key={`a${i}`} result={r} />)}
+                  <span className="text-[8px] text-muted-foreground font-semibold">Form</span>
+                  <div className="flex gap-[3px]">
+                    {statsA.formLast5.map((r, i) => (
+                      <span key={`a${i}`} className={cn("w-[6px] h-[6px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {statsB.formLast5.map((r, i) => <FormBadge key={`b${i}`} result={r} />)}
-                  <span className="text-[9px] text-muted-foreground font-semibold ml-1">:Form</span>
+                  <div className="flex gap-[3px]">
+                    {statsB.formLast5.map((r, i) => (
+                      <span key={`b${i}`} className={cn("w-[6px] h-[6px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />
+                    ))}
+                  </div>
+                  <span className="text-[8px] text-muted-foreground font-semibold">Form</span>
                 </div>
               </div>
             </div>
