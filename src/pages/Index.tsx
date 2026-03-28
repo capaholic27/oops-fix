@@ -5,6 +5,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSyncData } from "@/hooks/useMatches";
 import { toast } from "sonner";
+import { applyTheme, getStoredTheme } from "@/lib/themes";
 
 import UpcomingGamesPage from "@/pages/UpcomingGamesPage";
 import PremiumPage from "@/pages/PremiumPage";
