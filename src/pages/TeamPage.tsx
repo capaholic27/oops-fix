@@ -280,8 +280,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         <div className="flex items-center justify-between mt-2">
           <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
           <button
-            onClick={handleOpenPredict}
-            disabled={predicting}
+            onClick={onOpenPredict}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all flex-shrink-0",
               "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
