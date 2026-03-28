@@ -75,18 +75,55 @@ const MatchRow = ({
         <TeamLogo teamName={m.home_team} size="xs" />
       </div>
 
-      {/* Score — gradient bg based on result */}
-      <div className="px-2 flex-shrink-0">
-        <span
+      {/* Score with lightning bolt separator */}
+      <div className="px-1.5 flex-shrink-0">
+        <div
           className={cn(
-            "font-mono font-bold text-sm px-2.5 py-1 inline-flex items-center justify-center min-w-[3.2rem] text-center rounded-md transition-colors",
-            homeWin && "bg-gradient-to-r from-stat-positive/20 via-stat-positive/10 to-transparent text-stat-positive border border-stat-positive/30",
-            awayWin && "bg-gradient-to-l from-stat-positive/20 via-stat-positive/10 to-transparent text-stat-positive border border-stat-positive/30",
-            isDraw && "bg-muted/50 text-stat-warn border border-stat-warn/30"
+            "flex items-center gap-0 rounded-md overflow-hidden border",
+            homeWin && "border-stat-positive/30",
+            awayWin && "border-stat-positive/30",
+            isDraw && "border-stat-warn/30"
           )}
         >
-          {homeGoals} – {awayGoals}
-        </span>
+          {/* Home score */}
+          <span
+            className={cn(
+              "font-mono font-bold text-sm px-2 py-1 min-w-[1.5rem] text-center",
+              homeWin && "bg-stat-positive/15 text-stat-positive",
+              awayWin && "bg-stat-negative/10 text-stat-negative",
+              isDraw && "bg-stat-warn/10 text-stat-warn"
+            )}
+          >
+            {homeGoals}
+          </span>
+
+          {/* Lightning bolt divider */}
+          <div className={cn(
+            "flex items-center justify-center px-0.5 py-1",
+            homeWin && "bg-stat-positive/8",
+            awayWin && "bg-stat-positive/8",
+            isDraw && "bg-stat-warn/8"
+          )}>
+            <Zap className={cn(
+              "w-2.5 h-2.5",
+              homeWin && "text-stat-positive/60",
+              awayWin && "text-stat-positive/60",
+              isDraw && "text-stat-warn/60"
+            )} />
+          </div>
+
+          {/* Away score */}
+          <span
+            className={cn(
+              "font-mono font-bold text-sm px-2 py-1 min-w-[1.5rem] text-center",
+              awayWin && "bg-stat-positive/15 text-stat-positive",
+              homeWin && "bg-stat-negative/10 text-stat-negative",
+              isDraw && "bg-stat-warn/10 text-stat-warn"
+            )}
+          >
+            {awayGoals}
+          </span>
+        </div>
       </div>
 
       {/* Away side */}
