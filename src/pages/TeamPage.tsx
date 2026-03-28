@@ -348,186 +348,299 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       {openStat && (
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
+    </div>
+  );
+};
 
-      {!showPredictionModal && (
-        <button
-          onClick={handleOpenPredict}
-          disabled={predicting}
-          className={cn(
-            "fixed bottom-20 right-3 z-40 flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all",
-            "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-            "shadow-[3px_3px_0_hsl(var(--primary)/0.35)]",
-            "md:bottom-6",
-            predicting && "opacity-70 cursor-wait"
-          )}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Predict
-        </button>
-      )}
+/* ─── Prediction Dialog (standalone) ─── */
+const PredictionDialog = ({
+  open,
+  onOpenChange,
+  allMatches,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  allMatches: any[];
+}) => {
+  const [predicting, setPredicting] = useState(false);
+  const [prediction, setPrediction] = useState<string | null>(null);
+  const [selectedTeamA, setSelectedTeamA] = useState("");
+  const [selectedTeamB, setSelectedTeamB] = useState("");
+  const [teamSearch, setTeamSearch] = useState("");
+  const [opponentSearch, setOpponentSearch] = useState("");
+  const pastN = 10;
 
-      {/* AI Prediction Popup */}
-      <Dialog open={showPredictionModal} onOpenChange={setShowPredictionModal}>
-        <DialogContent className="top-[8%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1.5rem)] max-w-md max-h-[88vh] overflow-y-auto p-0 border-2 border-primary shadow-[6px_6px_0_hsl(var(--primary)/0.3)]">
-          {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
-            </div>
-            <DialogClose asChild>
-              <button className="p-1.5 hover:bg-muted transition-colors border border-border">
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </DialogClose>
+  const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
+
+  const getTeamStats = useCallback(
+    (teamName: string) => {
+      if (!teamName) return null;
+      const views = allMatches
+        .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+        .map((m: any) => getTeamMatchView(m, teamName))
+        .filter((v: any): v is TeamMatchView => v !== null)
+        .slice(-pastN);
+      return views.length > 0 ? aggregateStats(views) : null;
+    },
+    [allMatches, pastN]
+  );
+
+  const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
+  const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
+
+  const handleReset = () => {
+    setPrediction(null);
+    setSelectedTeamA("");
+    setSelectedTeamB("");
+    setTeamSearch("");
+    setOpponentSearch("");
+  };
+
+  const handleRunPredict = useCallback(async () => {
+    if (!selectedTeamA || !statsA) return;
+    setPredicting(true);
+    setPrediction(null);
+    try {
+      const body: any = {
+        teamName: selectedTeamA,
+        stats: statsA,
+        recentForm: statsA.formLast5,
+      };
+      if (selectedTeamB && statsB) {
+        body.upcomingOpponent = selectedTeamB;
+        body.opponentStats = statsB;
+        body.opponentForm = statsB.formLast5;
+      }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || `Error ${response.status}`);
+      if (!data?.prediction) throw new Error(data?.error || "No prediction returned");
+      setPrediction(data.prediction);
+      toast.success("Prediction ready!");
+    } catch (err: any) {
+      console.error("Predict error:", err);
+      toast.error(err?.message || "Prediction failed — try again");
+    } finally {
+      setPredicting(false);
+    }
+  }, [selectedTeamA, statsA, selectedTeamB, statsB]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="top-[8%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1.5rem)] max-w-md max-h-[88vh] overflow-y-auto p-0 border-2 border-primary shadow-[6px_6px_0_hsl(var(--primary)/0.3)]">
+        {/* Header */}
+        <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
           </div>
+          <DialogClose asChild>
+            <button className="p-1.5 hover:bg-muted transition-colors border border-border">
+              <X className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </DialogClose>
+        </div>
 
-          <div className="p-3 space-y-4">
-            {/* Teams head-to-head display */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <TeamLogo teamName={selectedTeam} size="md" />
-                <div>
-                  <p className="text-xs font-bold">{selectedTeam}</p>
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Your team</p>
+        <div className="p-3 space-y-4">
+          {/* Team A picker */}
+          {!prediction && (
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Select Team</label>
+              {selectedTeamA ? (
+                <div className="flex items-center justify-between border-2 border-primary bg-primary/5 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={selectedTeamA} size="md" />
+                    <p className="text-xs font-bold">{selectedTeamA}</p>
+                  </div>
+                  <button onClick={() => setSelectedTeamA("")} className="text-[9px] text-primary uppercase tracking-wider hover:underline">Change</button>
                 </div>
-              </div>
-              <span className="text-sm font-black text-muted-foreground">VS</span>
-              <div className="flex items-center gap-2 text-right">
-                {selectedOpponent ? (
-                  <>
-                    <div>
-                      <p className="text-xs font-bold">{selectedOpponent}</p>
-                      <button onClick={() => setSelectedOpponent("")} className="text-[9px] text-primary uppercase tracking-wider hover:underline">Change</button>
-                    </div>
-                    <TeamLogo teamName={selectedOpponent} size="md" />
-                  </>
-                ) : (
-                  <p className="text-[10px] text-muted-foreground italic">Select below</p>
-                )}
-              </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Search team…"
+                    value={teamSearch}
+                    onChange={(e) => setTeamSearch(e.target.value)}
+                    className="w-full h-7 px-2 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    autoFocus
+                  />
+                  <div className="max-h-32 overflow-y-auto border-2 border-border bg-card">
+                    {allTeams
+                      .filter((t) => !teamSearch || t.toLowerCase().includes(teamSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map((team) => (
+                        <button
+                          key={team}
+                          onClick={() => { setSelectedTeamA(team); setTeamSearch(""); }}
+                          className="w-full text-left px-3 py-1.5 text-xs border-b border-border last:border-b-0 transition-colors flex items-center gap-2 hover:bg-muted text-foreground"
+                        >
+                          <TeamLogo teamName={team} size="xs" />
+                          {team}
+                        </button>
+                      ))}
+                  </div>
+                </>
+              )}
             </div>
+          )}
 
-            {/* Opponent picker */}
-            {!prediction && (
+          {/* VS display when team A selected */}
+          {selectedTeamA && !prediction && (
+            <>
+              <div className="flex items-center justify-center">
+                <span className="text-sm font-black text-muted-foreground">VS</span>
+              </div>
+
+              {/* Team B (opponent) picker */}
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                   Choose Opponent (optional)
                 </label>
-                <input
-                  type="text"
-                  placeholder="Search opponent…"
-                  value={opponentSearch}
-                  onChange={(e) => setOpponentSearch(e.target.value)}
-                  className="w-full h-7 px-2 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                />
-                <div className="max-h-28 overflow-y-auto border-2 border-border bg-card">
-                  {leagueTeams
-                    .filter((t) => !opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))
-                    .slice(0, 15)
-                    .map((team) => (
-                      <button
-                        key={team}
-                        onClick={() => { setSelectedOpponent(team); setOpponentSearch(""); }}
-                        className={cn(
-                          "w-full text-left px-3 py-1.5 text-xs border-b border-border last:border-b-0 transition-colors flex items-center gap-2",
-                          selectedOpponent === team
-                            ? "bg-primary text-primary-foreground"
-                            : "hover:bg-muted text-foreground"
-                        )}
-                      >
-                        <TeamLogo teamName={team} size="xs" />
-                        {team}
-                      </button>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Stats comparison table */}
-            {selectedOpponent && opponentStats && !prediction && (
-              <div className="border-2 border-border bg-background">
-                <div className="px-3 py-1.5 border-b border-border bg-muted/50">
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Head-to-Head Comparison</span>
-                </div>
-                <div className="divide-y divide-border text-[11px]">
-                  {[
-                    { label: "Win Rate", a: `${stats.winProbability.toFixed(0)}%`, b: `${opponentStats.winProbability.toFixed(0)}%`, aWins: stats.winProbability > opponentStats.winProbability },
-                    { label: "Goals/Game", a: (stats.goalsFor / stats.matchesPlayed).toFixed(2), b: (opponentStats.goalsFor / opponentStats.matchesPlayed).toFixed(2), aWins: stats.goalsFor / stats.matchesPlayed > opponentStats.goalsFor / opponentStats.matchesPlayed },
-                    { label: "Conceded/Game", a: (stats.goalsAgainst / stats.matchesPlayed).toFixed(2), b: (opponentStats.goalsAgainst / opponentStats.matchesPlayed).toFixed(2), aWins: stats.goalsAgainst / stats.matchesPlayed < opponentStats.goalsAgainst / opponentStats.matchesPlayed },
-                    { label: "Shots/Game", a: stats.avgShotsFor.toFixed(1), b: opponentStats.avgShotsFor.toFixed(1), aWins: stats.avgShotsFor > opponentStats.avgShotsFor },
-                    { label: "SOT/Game", a: stats.avgShotsOnTargetFor.toFixed(1), b: opponentStats.avgShotsOnTargetFor.toFixed(1), aWins: stats.avgShotsOnTargetFor > opponentStats.avgShotsOnTargetFor },
-                    { label: "Corners/Game", a: stats.avgCornersFor.toFixed(1), b: opponentStats.avgCornersFor.toFixed(1), aWins: stats.avgCornersFor > opponentStats.avgCornersFor },
-                    { label: "Fouls/Game", a: stats.avgFoulsCommitted.toFixed(1), b: opponentStats.avgFoulsCommitted.toFixed(1), aWins: stats.avgFoulsCommitted < opponentStats.avgFoulsCommitted },
-                    { label: "Yellows/Game", a: stats.avgYellowCards.toFixed(1), b: opponentStats.avgYellowCards.toFixed(1), aWins: stats.avgYellowCards < opponentStats.avgYellowCards },
-                    { label: "Clean Sheets", a: String(stats.cleanSheets), b: String(opponentStats.cleanSheets), aWins: stats.cleanSheets > opponentStats.cleanSheets },
-                    { label: "BTTS %", a: `${stats.bttsPercentage.toFixed(0)}%`, b: `${opponentStats.bttsPercentage.toFixed(0)}%`, aWins: false },
-                    { label: "Over 2.5 %", a: `${stats.over25Percentage.toFixed(0)}%`, b: `${opponentStats.over25Percentage.toFixed(0)}%`, aWins: false },
-                    { label: "Style", a: stats.tacticalProfile.style, b: opponentStats.tacticalProfile.style, aWins: false },
-                  ].map((row) => (
-                    <div key={row.label} className="flex items-center px-3 py-1.5">
-                      <span className={cn("font-mono font-bold w-[72px] text-right", row.aWins === true ? "text-stat-positive" : "text-foreground")}>{row.a}</span>
-                      <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-muted-foreground font-semibold px-2">{row.label}</span>
-                      <span className={cn("font-mono font-bold w-[72px]", row.aWins === false && row.label !== "BTTS %" && row.label !== "Over 2.5 %" && row.label !== "Style" ? "text-stat-positive" : "text-foreground")}>{row.b}</span>
+                {selectedTeamB ? (
+                  <div className="flex items-center justify-between border-2 border-border bg-muted/30 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <TeamLogo teamName={selectedTeamB} size="md" />
+                      <p className="text-xs font-bold">{selectedTeamB}</p>
                     </div>
-                  ))}
-                </div>
-                {/* Form comparison */}
-                <div className="px-3 py-2 border-t border-border flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-muted-foreground font-semibold mr-1">Form:</span>
-                    {stats.formLast5.map((r, i) => <FormBadge key={`a${i}`} result={r} />)}
+                    <button onClick={() => setSelectedTeamB("")} className="text-[9px] text-primary uppercase tracking-wider hover:underline">Change</button>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {opponentStats.formLast5.map((r, i) => <FormBadge key={`b${i}`} result={r} />)}
-                    <span className="text-[9px] text-muted-foreground font-semibold ml-1">:Form</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Generate button */}
-            {!prediction && (
-              <button
-                onClick={handleRunPredict}
-                disabled={predicting}
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider border-2 transition-all",
-                  "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-                  "shadow-[3px_3px_0_hsl(var(--primary)/0.3)]",
-                  predicting && "opacity-70 cursor-wait"
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Search opponent…"
+                      value={opponentSearch}
+                      onChange={(e) => setOpponentSearch(e.target.value)}
+                      className="w-full h-7 px-2 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                    />
+                    <div className="max-h-28 overflow-y-auto border-2 border-border bg-card">
+                      {allTeams
+                        .filter((t) => t !== selectedTeamA && (!opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase())))
+                        .slice(0, 15)
+                        .map((team) => (
+                          <button
+                            key={team}
+                            onClick={() => { setSelectedTeamB(team); setOpponentSearch(""); }}
+                            className="w-full text-left px-3 py-1.5 text-xs border-b border-border last:border-b-0 transition-colors flex items-center gap-2 hover:bg-muted text-foreground"
+                          >
+                            <TeamLogo teamName={team} size="xs" />
+                            {team}
+                          </button>
+                        ))}
+                    </div>
+                  </>
                 )}
-              >
-                {predicting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {predicting ? "Analyzing…" : "Generate Prediction"}
-              </button>
-            )}
-
-            {/* Prediction result */}
-            {prediction && (
-              <div className="space-y-3">
-                <div className="border-2 border-primary/20 bg-primary/5 p-3">
-                  <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
-                    {prediction}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setPrediction(null)}
-                  className="w-full py-2 text-[10px] font-bold uppercase tracking-wider border-2 border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-                >
-                  Run Again
-                </button>
               </div>
-            )}
+            </>
+          )}
 
-            {/* Footer */}
-            <p className="text-[8px] text-muted-foreground text-center uppercase tracking-wider pt-1 border-t border-border">
-              AI-powered analysis · Based on last {stats.matchesPlayed} matches
-            </p>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          {/* Stats comparison table */}
+          {selectedTeamA && statsA && selectedTeamB && statsB && !prediction && (
+            <div className="border-2 border-border bg-background">
+              <div className="px-3 py-1.5 border-b border-border bg-muted/50">
+                <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">Head-to-Head Comparison</span>
+              </div>
+              <div className="divide-y divide-border text-[11px]">
+                {[
+                  { label: "Win Rate", a: `${statsA.winProbability.toFixed(0)}%`, b: `${statsB.winProbability.toFixed(0)}%`, aWins: statsA.winProbability > statsB.winProbability },
+                  { label: "Goals/Game", a: (statsA.goalsFor / statsA.matchesPlayed).toFixed(2), b: (statsB.goalsFor / statsB.matchesPlayed).toFixed(2), aWins: statsA.goalsFor / statsA.matchesPlayed > statsB.goalsFor / statsB.matchesPlayed },
+                  { label: "Conceded/Game", a: (statsA.goalsAgainst / statsA.matchesPlayed).toFixed(2), b: (statsB.goalsAgainst / statsB.matchesPlayed).toFixed(2), aWins: statsA.goalsAgainst / statsA.matchesPlayed < statsB.goalsAgainst / statsB.matchesPlayed },
+                  { label: "Shots/Game", a: statsA.avgShotsFor.toFixed(1), b: statsB.avgShotsFor.toFixed(1), aWins: statsA.avgShotsFor > statsB.avgShotsFor },
+                  { label: "SOT/Game", a: statsA.avgShotsOnTargetFor.toFixed(1), b: statsB.avgShotsOnTargetFor.toFixed(1), aWins: statsA.avgShotsOnTargetFor > statsB.avgShotsOnTargetFor },
+                  { label: "Corners/Game", a: statsA.avgCornersFor.toFixed(1), b: statsB.avgCornersFor.toFixed(1), aWins: statsA.avgCornersFor > statsB.avgCornersFor },
+                  { label: "Fouls/Game", a: statsA.avgFoulsCommitted.toFixed(1), b: statsB.avgFoulsCommitted.toFixed(1), aWins: statsA.avgFoulsCommitted < statsB.avgFoulsCommitted },
+                  { label: "Yellows/Game", a: statsA.avgYellowCards.toFixed(1), b: statsB.avgYellowCards.toFixed(1), aWins: statsA.avgYellowCards < statsB.avgYellowCards },
+                  { label: "Clean Sheets", a: String(statsA.cleanSheets), b: String(statsB.cleanSheets), aWins: statsA.cleanSheets > statsB.cleanSheets },
+                  { label: "BTTS %", a: `${statsA.bttsPercentage.toFixed(0)}%`, b: `${statsB.bttsPercentage.toFixed(0)}%`, aWins: false },
+                  { label: "Over 2.5 %", a: `${statsA.over25Percentage.toFixed(0)}%`, b: `${statsB.over25Percentage.toFixed(0)}%`, aWins: false },
+                  { label: "Style", a: statsA.tacticalProfile.style, b: statsB.tacticalProfile.style, aWins: false },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center px-3 py-1.5">
+                    <span className={cn("font-mono font-bold w-[72px] text-right", row.aWins === true ? "text-stat-positive" : "text-foreground")}>{row.a}</span>
+                    <span className="flex-1 text-center text-[9px] uppercase tracking-wider text-muted-foreground font-semibold px-2">{row.label}</span>
+                    <span className={cn("font-mono font-bold w-[72px]", row.aWins === false && row.label !== "BTTS %" && row.label !== "Over 2.5 %" && row.label !== "Style" ? "text-stat-positive" : "text-foreground")}>{row.b}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground font-semibold mr-1">Form:</span>
+                  {statsA.formLast5.map((r, i) => <FormBadge key={`a${i}`} result={r} />)}
+                </div>
+                <div className="flex items-center gap-1">
+                  {statsB.formLast5.map((r, i) => <FormBadge key={`b${i}`} result={r} />)}
+                  <span className="text-[9px] text-muted-foreground font-semibold ml-1">:Form</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Generate button */}
+          {selectedTeamA && !prediction && (
+            <button
+              onClick={handleRunPredict}
+              disabled={predicting || !statsA}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider border-2 transition-all",
+                "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+                "shadow-[3px_3px_0_hsl(var(--primary)/0.3)]",
+                (predicting || !statsA) && "opacity-70 cursor-wait"
+              )}
+            >
+              {predicting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              {predicting ? "Analyzing…" : "Generate Prediction"}
+            </button>
+          )}
+
+          {/* Prediction result */}
+          {prediction && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <TeamLogo teamName={selectedTeamA} size="md" />
+                  <p className="text-xs font-bold">{selectedTeamA}</p>
+                </div>
+                {selectedTeamB && (
+                  <>
+                    <span className="text-sm font-black text-muted-foreground">VS</span>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold">{selectedTeamB}</p>
+                      <TeamLogo teamName={selectedTeamB} size="md" />
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="border-2 border-primary/20 bg-primary/5 p-3">
+                <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                  {prediction}
+                </div>
+              </div>
+              <button
+                onClick={handleReset}
+                className="w-full py-2 text-[10px] font-bold uppercase tracking-wider border-2 border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+              >
+                New Prediction
+              </button>
+            </div>
+          )}
+
+          {/* Footer */}
+          <p className="text-[8px] text-muted-foreground text-center uppercase tracking-wider pt-1 border-t border-border">
+            AI-powered analysis · Based on last {pastN} matches
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -536,8 +649,8 @@ const TeamPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const syncData = useSyncData();
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
 
-  // Persist selection in localStorage
   const [selectedTeam, setSelectedTeam] = useState<string>(() => localStorage.getItem("fe_team") || "");
   const [leagueCode, setLeagueCode] = useState<string>(() => localStorage.getItem("fe_league") || "");
   const [pastN, setPastN] = useState<number>(() => parseInt(localStorage.getItem("fe_pastN") || "10"));
@@ -600,19 +713,32 @@ const TeamPage = () => {
     );
   }
 
-  if (showStats && selectedTeam) {
-    return (
-      <StatsDashboard
-        selectedTeam={selectedTeam}
-        leagueCode={leagueCode}
-        pastN={pastN}
-        setPastN={handleSetPastN}
-        onBack={handleBack}
+  return (
+    <>
+      {showStats && selectedTeam ? (
+        <StatsDashboard
+          selectedTeam={selectedTeam}
+          leagueCode={leagueCode}
+          pastN={pastN}
+          setPastN={handleSetPastN}
+          onBack={handleBack}
+          onOpenPredict={() => setShowPredictionModal(true)}
+        />
+      ) : (
+        <TeamSelector
+          leagues={leagues}
+          allMatches={allMatches}
+          onSelectTeam={handleSelectTeam}
+          onOpenPredict={() => setShowPredictionModal(true)}
+        />
+      )}
+      <PredictionDialog
+        open={showPredictionModal}
+        onOpenChange={setShowPredictionModal}
+        allMatches={allMatches}
       />
-    );
-  }
-
-  return <TeamSelector leagues={leagues} allMatches={allMatches} onSelectTeam={handleSelectTeam} />;
+    </>
+  );
 };
 
 export default TeamPage;
