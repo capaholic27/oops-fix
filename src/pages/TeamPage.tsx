@@ -221,22 +221,17 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <button onClick={onBack} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
           <ChevronLeft className="w-3 h-3" /> Teams
         </button>
-        <div className="flex items-center gap-0.5 flex-wrap">
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">Last</span>
-          {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
-            <button
-              key={n}
-              onClick={() => setPastN(n)}
-              className={cn(
-                "px-1.5 py-0.5 text-[10px] font-mono font-bold border transition-colors",
-                pastN === n
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {n}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Last</span>
+          <select
+            value={pastN}
+            onChange={(e) => setPastN(Number(e.target.value))}
+            className="h-6 px-1.5 text-[10px] font-mono font-bold border-2 border-border bg-card shadow-[2px_2px_0_hsl(var(--border))] focus:outline-none focus:border-foreground"
+          >
+            {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
         </div>
       </div>
 
