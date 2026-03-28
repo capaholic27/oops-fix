@@ -2,6 +2,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
 
+export type Fixture = {
+  id: string;
+  league_code: string;
+  league_name: string;
+  match_date: string;
+  match_time: string | null;
+  home_team: string;
+  away_team: string;
+  referee: string | null;
+};
+
 export function useMatches(leagueCode?: string) {
   return useQuery({
     queryKey: ["matches", leagueCode],
@@ -15,7 +26,6 @@ export function useMatches(leagueCode?: string) {
         query = query.eq("league_code", leagueCode);
       }
 
-      // Fetch in batches to overcome 1000 row limit
       const allMatches: Match[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -72,6 +82,26 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
   });
 }
 
+export function useFixtures(teamName?: string) {
+  return useQuery({
+    queryKey: ["fixtures", teamName],
+    queryFn: async (): Promise<Fixture[]> => {
+      let query = supabase
+        .from("fixtures")
+        .select("*")
+        .order("match_date", { ascending: true });
+
+      if (teamName) {
+        query = query.or(`home_team.eq.${teamName},away_team.eq.${teamName}`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as unknown as Fixture[];
+    },
+  });
+}
+
 export function useSyncData() {
   const queryClient = useQueryClient();
 
@@ -98,6 +128,31 @@ export function useSyncData() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["matches"] });
       queryClient.invalidateQueries({ queryKey: ["team-matches"] });
+    },
+  });
+}
+
+export function useSyncFixtures() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const url = `https://${projectId}.supabase.co/functions/v1/fetch-fixtures`;
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+      });
+
+      if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fixtures"] });
     },
   });
 }
