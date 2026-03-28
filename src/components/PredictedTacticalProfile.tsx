@@ -11,7 +11,7 @@ type Props = {
   nextFixture?: { date: string; isHome: boolean } | null;
 };
 
-export const PredictedTacticalProfile = ({ stats, teamName, views, opponentStats, opponentName }: Props) => {
+export const PredictedTacticalProfile = ({ stats, teamName, views, opponentStats, opponentName, nextFixture }: Props) => {
   const predictions = predictNextMatchStyles(stats, views, opponentStats);
   const topStyle = predictions[0];
 
@@ -23,7 +23,19 @@ export const PredictedTacticalProfile = ({ stats, teamName, views, opponentStats
           Next match
         </span>
       </div>
-      {opponentName ? (
+
+      {/* Next fixture info */}
+      {nextFixture && opponentName ? (
+        <div className="flex items-center gap-2 mb-3 px-2 py-1.5 border border-border bg-muted/30 rounded-sm">
+          <Calendar className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+          <p className="text-[11px] text-muted-foreground">
+            <span className="font-semibold text-foreground">{teamName}</span>
+            {nextFixture.isHome ? " vs " : " @ "}
+            <span className="font-semibold text-foreground">{opponentName}</span>
+            <span className="text-[10px] ml-1.5 font-mono">({nextFixture.date})</span>
+          </p>
+        </div>
+      ) : opponentName ? (
         <p className="text-xs text-muted-foreground mb-4">
           How {teamName} will likely play <span className="font-semibold text-foreground">vs {opponentName}</span>
         </p>
