@@ -254,7 +254,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Win Rate</p>
           </div>
         </div>
-        <FormStrip views={teamViews} formLast5={stats.formLast5} />
+        <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
       </section>
 
       {/* Stats Grid */}
