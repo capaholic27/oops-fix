@@ -340,17 +340,16 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <div className="flex items-center justify-between mt-2">
           <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
           <button
-            onClick={handlePredict}
+            onClick={handleOpenPredict}
             disabled={predicting}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all flex-shrink-0",
               "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
               "shadow-[2px_2px_0_hsl(var(--primary))]",
-              predicting && "opacity-60 cursor-wait"
             )}
           >
-            {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            {predicting ? "Predicting…" : "Predict"}
+            <Sparkles className="w-3 h-3" />
+            Predict
           </button>
         </div>
       </section>
