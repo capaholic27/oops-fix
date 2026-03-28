@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { FormBadge } from "./FormBadge";
 import type { TeamMatchView } from "@/lib/matchStats";
 
