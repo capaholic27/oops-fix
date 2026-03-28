@@ -216,6 +216,27 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
     [allMatches, leagueCode]
   );
 
+  const handlePredict = useCallback(async () => {
+    setPredicting(true);
+    setPrediction(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("predict-match", {
+        body: {
+          teamName: selectedTeam,
+          stats,
+          recentForm: stats.formLast5,
+        },
+      });
+      if (error) throw error;
+      setPrediction(data.prediction);
+      setShowPrediction(true);
+    } catch (err: any) {
+      toast.error(err?.message || "Prediction failed");
+    } finally {
+      setPredicting(false);
+    }
+  }, [selectedTeam, stats]);
+
   if (stats.matchesPlayed === 0) {
     return (
       <div className="p-6 text-center">
