@@ -157,8 +157,9 @@ const UpcomingGamesPage = () => {
 
             {Array.from(byLeague.entries()).map(([league, leagueMatches]) => (
               <div key={league} className="mb-1.5">
-                <div className="text-[8px] uppercase tracking-[0.15em] text-primary font-bold px-1 mb-0.5">
-                  {league}
+                <div className="flex items-center gap-1 px-1 mb-0.5">
+                  <LeagueLogo leagueName={league} size="xs" />
+                  <span className="text-[8px] uppercase tracking-[0.15em] text-primary font-bold">{league}</span>
                 </div>
                 <div className="border border-border bg-card rounded-sm overflow-hidden">
                   {leagueMatches.map((m) => (
@@ -175,6 +176,9 @@ const UpcomingGamesPage = () => {
           </div>
         );
       })}
+
+      {/* Ad banner after results */}
+      <AdBanner variant="inline" />
 
       {/* Single detail sheet with internal stack */}
       {selectedMatch && (
