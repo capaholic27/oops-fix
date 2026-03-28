@@ -192,12 +192,20 @@ type StatsProps = {
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: StatsProps) => {
   const [predicting, setPredicting] = useState(false);
   const [prediction, setPrediction] = useState<string | null>(null);
-  const [showPrediction, setShowPrediction] = useState(false);
+  const [showPredictionModal, setShowPredictionModal] = useState(false);
+  const [selectedOpponent, setSelectedOpponent] = useState<string>("");
+  const [opponentSearch, setOpponentSearch] = useState("");
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
+
+  // All teams in same league for opponent picker
+  const leagueTeams = useMemo(() => {
+    const teams = getUniqueTeams(allMatches.filter((m) => m.league_code === leagueCode));
+    return teams.filter((t) => t !== selectedTeam);
+  }, [allMatches, leagueCode, selectedTeam]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
@@ -216,29 +224,60 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
     [allMatches, leagueCode]
   );
 
-  const handlePredict = useCallback(async () => {
+  // Compute opponent stats if selected
+  const opponentViews = useMemo(() => {
+    if (!selectedOpponent) return [];
+    return allMatches
+      .filter((m) => m.home_team === selectedOpponent || m.away_team === selectedOpponent)
+      .map((m) => getTeamMatchView(m, selectedOpponent))
+      .filter((v): v is TeamMatchView => v !== null)
+      .slice(-pastN);
+  }, [allMatches, selectedOpponent, pastN]);
+
+  const opponentStats = useMemo(() => (opponentViews.length > 0 ? aggregateStats(opponentViews) : null), [opponentViews]);
+
+  const handleOpenPredict = () => {
+    setShowPredictionModal(true);
+    setPrediction(null);
+    setSelectedOpponent("");
+    setOpponentSearch("");
+  };
+
+  const handleRunPredict = useCallback(async () => {
     setPredicting(true);
     setPrediction(null);
-    toast.info("Generating AI prediction…");
     try {
-      const { data, error } = await supabase.functions.invoke("predict-match", {
-        body: {
-          teamName: selectedTeam,
-          stats,
-          recentForm: stats.formLast5,
-        },
-      });
-      console.log("predict-match response:", { data, error });
-      if (error) {
-        // FunctionsHttpError contains the response body
-        const msg = typeof error === "object" && error.message ? error.message : String(error);
-        throw new Error(msg);
+      const body: any = {
+        teamName: selectedTeam,
+        stats,
+        recentForm: stats.formLast5,
+      };
+      if (selectedOpponent && opponentStats) {
+        body.upcomingOpponent = selectedOpponent;
+        body.opponentStats = opponentStats;
+        body.opponentForm = opponentStats.formLast5;
+      }
+      console.log("Calling predict-match with:", body);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(body),
+        }
+      );
+      const data = await response.json();
+      console.log("predict-match response:", response.status, data);
+      if (!response.ok) {
+        throw new Error(data?.error || `Error ${response.status}`);
       }
       if (!data?.prediction) {
         throw new Error(data?.error || "No prediction returned");
       }
       setPrediction(data.prediction);
-      setShowPrediction(true);
       toast.success("Prediction ready!");
     } catch (err: any) {
       console.error("Predict error:", err);
@@ -246,7 +285,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
     } finally {
       setPredicting(false);
     }
-  }, [selectedTeam, stats]);
+  }, [selectedTeam, stats, selectedOpponent, opponentStats]);
 
   if (stats.matchesPlayed === 0) {
     return (
@@ -301,17 +340,16 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <div className="flex items-center justify-between mt-2">
           <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
           <button
-            onClick={handlePredict}
+            onClick={handleOpenPredict}
             disabled={predicting}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all flex-shrink-0",
               "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
               "shadow-[2px_2px_0_hsl(var(--primary))]",
-              predicting && "opacity-60 cursor-wait"
             )}
           >
-            {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-            {predicting ? "Predicting…" : "Predict"}
+            <Sparkles className="w-3 h-3" />
+            Predict
           </button>
         </div>
       </section>
@@ -373,28 +411,119 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
       )}
 
       {/* AI Prediction Modal */}
-      {showPrediction && prediction && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 animate-in fade-in-0 duration-150 p-4" onClick={() => setShowPrediction(false)}>
-          <div className="w-full max-w-md max-h-[80vh] bg-card border-2 border-foreground shadow-[4px_4px_0_hsl(var(--foreground))] flex flex-col animate-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+      {showPredictionModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 animate-in fade-in-0 duration-150 p-4" onClick={() => setShowPredictionModal(false)}>
+          <div className="w-full max-w-md max-h-[85vh] bg-card border-2 border-foreground shadow-[4px_4px_0_hsl(var(--foreground))] flex flex-col animate-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
             <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-primary/5 flex-shrink-0">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Prediction</span>
+                <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
               </div>
-              <button onClick={() => setShowPrediction(false)} className="p-1 hover:bg-muted transition-colors">
+              <button onClick={() => setShowPredictionModal(false)} className="p-1 hover:bg-muted transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TeamLogo teamName={selectedTeam} size="md" />
-                <h3 className="text-sm font-bold">{selectedTeam}</h3>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Teams display */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <TeamLogo teamName={selectedTeam} size="md" />
+                  <div>
+                    <p className="text-xs font-bold">{selectedTeam}</p>
+                    <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Your team</p>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-muted-foreground">VS</span>
+                <div className="flex items-center gap-2 text-right">
+                  {selectedOpponent ? (
+                    <>
+                      <div>
+                        <p className="text-xs font-bold">{selectedOpponent}</p>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Opponent</p>
+                      </div>
+                      <TeamLogo teamName={selectedOpponent} size="md" />
+                    </>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground italic">Select below</p>
+                  )}
+                </div>
               </div>
-              <div className="prose prose-xs text-xs text-foreground leading-relaxed whitespace-pre-wrap">
-                {prediction}
-              </div>
+
+              {/* Opponent picker */}
+              {!prediction && (
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                    Choose Opponent (optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search opponent…"
+                    value={opponentSearch}
+                    onChange={(e) => setOpponentSearch(e.target.value)}
+                    className="w-full h-7 px-2 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary"
+                  />
+                  <div className="max-h-32 overflow-y-auto border-2 border-border bg-card">
+                    {leagueTeams
+                      .filter((t) => !opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))
+                      .slice(0, 20)
+                      .map((team) => (
+                        <button
+                          key={team}
+                          onClick={() => { setSelectedOpponent(team); setOpponentSearch(""); }}
+                          className={cn(
+                            "w-full text-left px-3 py-1.5 text-xs border-b border-border last:border-b-0 transition-colors flex items-center gap-2",
+                            selectedOpponent === team
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted text-foreground"
+                          )}
+                        >
+                          <TeamLogo teamName={team} size="xs" />
+                          {team}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Generate button */}
+              {!prediction && (
+                <button
+                  onClick={handleRunPredict}
+                  disabled={predicting}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 py-2.5 text-xs font-bold uppercase tracking-wider border-2 transition-all",
+                    "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+                    "shadow-[3px_3px_0_hsl(var(--primary)/0.3)]",
+                    predicting && "opacity-70 cursor-wait"
+                  )}
+                >
+                  {predicting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {predicting ? "Analyzing…" : "Generate Prediction"}
+                </button>
+              )}
+
+              {/* Prediction result */}
+              {prediction && (
+                <div className="space-y-3">
+                  <div className="border-t-2 border-primary/20 pt-3">
+                    <div className="prose prose-xs text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                      {prediction}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPrediction(null)}
+                    className="w-full py-2 text-[10px] font-bold uppercase tracking-wider border-2 border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                  >
+                    Run Again
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="px-3 py-2 border-t border-border">
+
+            {/* Footer */}
+            <div className="px-3 py-2 border-t border-border flex-shrink-0">
               <p className="text-[8px] text-muted-foreground text-center uppercase tracking-wider">
                 AI-powered analysis · Based on last {stats.matchesPlayed} matches
               </p>
