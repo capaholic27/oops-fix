@@ -169,16 +169,21 @@ const UpcomingGamesPage = () => {
     return Array.from(map.entries());
   }, [allMatches]);
 
-  // Summary stats
+  // Summary stats — percentage-based
   const summaryStats = useMemo(() => {
     const recent = [...allMatches]
       .sort((a, b) => b.match_date.localeCompare(a.match_date))
       .slice(0, 80);
 
+    const total = recent.length || 1;
     const totalGoals = recent.reduce((s, m) => s + (m.ft_home_goals ?? 0) + (m.ft_away_goals ?? 0), 0);
     const homeWins = recent.filter((m) => (m.ft_home_goals ?? 0) > (m.ft_away_goals ?? 0)).length;
+    const awayWins = recent.filter((m) => (m.ft_away_goals ?? 0) > (m.ft_home_goals ?? 0)).length;
     const draws = recent.filter((m) => (m.ft_home_goals ?? 0) === (m.ft_away_goals ?? 0)).length;
-    const avgGoals = recent.length ? (totalGoals / recent.length).toFixed(1) : "0";
+    const over25 = recent.filter((m) => ((m.ft_home_goals ?? 0) + (m.ft_away_goals ?? 0)) > 2).length;
+    const btts = recent.filter((m) => (m.ft_home_goals ?? 0) > 0 && (m.ft_away_goals ?? 0) > 0).length;
+    const cleanSheets = recent.filter((m) => (m.ft_home_goals ?? 0) === 0 || (m.ft_away_goals ?? 0) === 0).length;
+    const avgGoals = (totalGoals / total).toFixed(1);
 
     // Highest scoring match
     let topMatch: Match | null = null;
@@ -188,7 +193,18 @@ const UpcomingGamesPage = () => {
       if (g > topGoals) { topGoals = g; topMatch = m; }
     });
 
-    return { totalGoals, homeWins, draws, avgGoals, topMatch, topGoals, total: recent.length };
+    return {
+      total,
+      avgGoals,
+      homeWinPct: ((homeWins / total) * 100).toFixed(0),
+      awayWinPct: ((awayWins / total) * 100).toFixed(0),
+      drawPct: ((draws / total) * 100).toFixed(0),
+      over25Pct: ((over25 / total) * 100).toFixed(0),
+      bttsPct: ((btts / total) * 100).toFixed(0),
+      cleanSheetPct: ((cleanSheets / total) * 100).toFixed(0),
+      topMatch,
+      topGoals,
+    };
   }, [allMatches]);
 
   if (isLoading) {
