@@ -300,12 +300,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Win Rate</p>
           </div>
         </div>
-        <div className="flex items-center justify-between mt-2">
-          <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
+        <div className="flex items-start justify-between mt-2 gap-2">
+          <div className="flex-1 min-w-0">
+            <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
+          </div>
           <button
             onClick={onOpenPredict}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all flex-shrink-0",
+              "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all flex-shrink-0 mt-0.5",
               "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
               "shadow-[2px_2px_0_hsl(var(--primary))]",
             )}
@@ -478,7 +480,7 @@ const PredictionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[3%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1rem)] max-w-md max-h-[94vh] flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden">
+      <DialogContent className="fixed top-[2%] left-[50%] translate-x-[-50%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1rem)] max-w-md max-h-[92vh] flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b-2 border-primary/20 bg-primary/5">
           <div className="flex items-center gap-1.5">
@@ -490,7 +492,7 @@ const PredictionDialog = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2.5" style={{ minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
           {/* ── TEAM SELECTION SECTION ── */}
           {!prediction && (
             <div className="space-y-2">
@@ -611,20 +613,6 @@ const PredictionDialog = ({
             </div>
           )}
 
-          {/* ── GENERATE BUTTON ── */}
-          {selectedTeamA && !prediction && (
-            <button onClick={handleRunPredict} disabled={predicting || !statsA}
-              className={cn(
-                "w-full flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
-                "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-                "shadow-[2px_2px_0_hsl(var(--primary)/0.3)]",
-                (predicting || !statsA) && "opacity-70 cursor-wait"
-              )}>
-              {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              {predicting ? "Analyzing…" : "Generate Prediction"}
-            </button>
-          )}
-
           {/* ── PREDICTION RESULT ── */}
           {prediction && (
             <div className="space-y-2">
@@ -654,9 +642,23 @@ const PredictionDialog = ({
           )}
         </div>
 
-        {/* Sticky footer */}
-        <div className="flex-shrink-0 px-2.5 py-1 border-t border-border bg-card">
-          <p className="text-[7px] text-muted-foreground text-center uppercase tracking-wider">
+        {/* Sticky bottom: Generate button + footer */}
+        <div className="flex-shrink-0 border-t border-border bg-card">
+          {selectedTeamA && !prediction && (
+            <div className="px-2.5 pt-2 pb-1">
+              <button onClick={handleRunPredict} disabled={predicting || !statsA}
+                className={cn(
+                  "w-full flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
+                  "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+                  "shadow-[2px_2px_0_hsl(var(--primary)/0.3)]",
+                  (predicting || !statsA) && "opacity-70 cursor-wait"
+                )}>
+                {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                {predicting ? "Analyzing…" : "Generate Prediction"}
+              </button>
+            </div>
+          )}
+          <p className="text-[7px] text-muted-foreground text-center uppercase tracking-wider px-2.5 py-1">
             AI-powered · Last {pastN} matches
           </p>
         </div>
