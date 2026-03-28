@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"; // v2
+import { useState, useMemo } from "react";
 import { useMatches, useTeamMatches, useSyncData } from "@/hooks/useMatches";
 import {
   getTeamMatchView,
@@ -21,9 +21,9 @@ import {
   AlertTriangle,
   Shield,
   TrendingUp,
-  BarChart3,
-  RefreshCw,
   Crosshair,
+  RefreshCw,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -53,12 +53,18 @@ const Index = () => {
     }
   }, [teams, selectedTeam]);
 
+  // If only ≤2 teams in filtered list, clear league filter to show all
+  useMemo(() => {
+    if (leagueCode && teams.length <= 2 && teams.length > 0) {
+      // Don't auto-clear, but we'll show a hint
+    }
+  }, [leagueCode, teams]);
+
   const teamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
     const views = teamMatches
       .map((m) => getTeamMatchView(m, selectedTeam))
       .filter((v): v is TeamMatchView => v !== null);
-    // Take last N matches
     return views.slice(-pastN);
   }, [teamMatches, selectedTeam, pastN]);
 
@@ -66,7 +72,7 @@ const Index = () => {
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
 
   const handleSync = () => {
-    toast.info("Syncing match data from football-data.co.uk...");
+    toast.info("Syncing match data…");
     syncData.mutate(
       { season: "2526" },
       {
@@ -89,43 +95,43 @@ const Index = () => {
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background retro-stripe">
       {/* Header */}
-      <header className="border-b border-border bg-card/60 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <header className="border-b-2 border-foreground bg-card sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 border-2 border-foreground bg-primary flex items-center justify-center shadow-[3px_3px_0_hsl(var(--foreground))]">
+              <Zap className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold leading-tight">FootballEdge</h1>
-              <p className="text-xs text-muted-foreground">Statistical advantage finder</p>
+              <h1 className="text-lg leading-tight">FootballEdge</h1>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                Statistical Advantage Finder
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-muted-foreground hidden sm:block">
-              Season 2025/26
+            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hidden sm:block border border-border px-2 py-1">
+              25/26
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={handleSync}
               disabled={syncData.isPending}
-              className="gap-1.5"
+              className="gap-1.5 uppercase tracking-wider text-xs font-bold border-2 border-foreground shadow-[2px_2px_0_hsl(var(--foreground))] hover:shadow-[3px_3px_0_hsl(var(--foreground))] hover:translate-x-[-1px] hover:translate-y-[-1px] active:shadow-none active:translate-x-0 active:translate-y-0 rounded-none"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncData.isPending ? "animate-spin" : ""}`} />
-              {syncData.isPending ? "Syncing..." : "Sync Data"}
+              {syncData.isPending ? "Syncing…" : "Sync"}
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Filters */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Filters
-          </h2>
+        <section className="space-y-2">
+          <h2 className="text-xs text-muted-foreground tracking-[0.2em]">Filters</h2>
           <MatchFilter
             pastN={pastN}
             onPastNChange={setPastN}
@@ -140,10 +146,18 @@ const Index = () => {
 
         {/* Team Selector */}
         {teams.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Select Team
-            </h2>
+          <section className="space-y-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-xs text-muted-foreground tracking-[0.2em]">Team</h2>
+              {leagueCode && teams.length <= 2 && (
+                <button
+                  onClick={() => { setLeagueCode(""); setSelectedTeam(""); }}
+                  className="text-[10px] uppercase tracking-wider text-accent font-bold hover:underline"
+                >
+                  Show all leagues →
+                </button>
+              )}
+            </div>
             <TeamDropdown
               teams={teams}
               selectedTeam={selectedTeam}
@@ -154,31 +168,40 @@ const Index = () => {
 
         {isLoading && (
           <div className="text-center py-12">
-            <p className="text-sm text-muted-foreground">Loading match data...</p>
+            <p className="text-sm text-muted-foreground uppercase tracking-wider">Loading match data…</p>
           </div>
         )}
 
         {!isLoading && allMatches.length === 0 && (
           <div className="text-center py-16 space-y-4">
-            <p className="text-muted-foreground">No match data yet. Click "Sync Data" to pull stats from football-data.co.uk</p>
-            <Button onClick={handleSync} disabled={syncData.isPending} className="gap-2">
-              <RefreshCw className={`w-4 h-4 ${syncData.isPending ? "animate-spin" : ""}`} />
-              Sync Now
-            </Button>
+            <div className="inline-block border-2 border-foreground bg-card p-8 shadow-[6px_6px_0_hsl(var(--foreground))]">
+              <p className="text-muted-foreground uppercase tracking-wider text-sm mb-4">No match data yet</p>
+              <Button
+                onClick={handleSync}
+                disabled={syncData.isPending}
+                className="gap-2 uppercase tracking-wider font-bold rounded-none border-2 border-foreground shadow-[3px_3px_0_hsl(var(--foreground))] hover:shadow-[4px_4px_0_hsl(var(--foreground))]"
+              >
+                <RefreshCw className={`w-4 h-4 ${syncData.isPending ? "animate-spin" : ""}`} />
+                Sync Now
+              </Button>
+            </div>
           </div>
         )}
 
         {selectedTeam && stats.matchesPlayed > 0 && (
           <>
-            {/* Team header */}
-            <section key={selectedTeam} className="flex items-center gap-4 opacity-0 animate-fade-up relative z-40">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">{selectedTeam}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {currentLeagueName || "All Leagues"} · Last {stats.matchesPlayed} matches
-                </p>
-              </div>
-              <div className="ml-auto">
+            {/* Team header — integrated into the design */}
+            <section
+              key={selectedTeam}
+              className="border-2 border-foreground bg-card p-4 sm:p-5 shadow-[4px_4px_0_hsl(var(--foreground))] opacity-0 animate-fade-up relative z-40"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl leading-none">{selectedTeam}</h2>
+                  <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold mt-1">
+                    {currentLeagueName || "All Leagues"} · Last {stats.matchesPlayed} matches
+                  </p>
+                </div>
                 <FormHistoryWindow views={teamViews} formLast5={stats.formLast5} />
               </div>
             </section>
@@ -197,7 +220,7 @@ const Index = () => {
               />
 
               <StatCard
-                label="Avg Corners (For)"
+                label="Corners For"
                 value={stats.avgCornersFor.toFixed(1)}
                 icon={<Flag className="w-4 h-4" />}
                 trend="neutral"
@@ -206,7 +229,7 @@ const Index = () => {
               />
 
               <StatCard
-                label="Avg Corners (Total)"
+                label="Corners Total"
                 value={(stats.avgCornersFor + stats.avgCornersAgainst).toFixed(1)}
                 icon={<Flag className="w-4 h-4" />}
                 trend="warn"
@@ -215,7 +238,7 @@ const Index = () => {
               />
 
               <StatCard
-                label="Avg Yellow Cards"
+                label="Yellow Cards"
                 value={stats.avgYellowCards.toFixed(1)}
                 icon={<AlertTriangle className="w-4 h-4" />}
                 trend="warn"
@@ -224,7 +247,7 @@ const Index = () => {
               />
 
               <StatCard
-                label="Avg Fouls Committed"
+                label="Fouls Committed"
                 value={stats.avgFoulsCommitted.toFixed(1)}
                 icon={<Shield className="w-4 h-4" />}
                 trend="negative"
@@ -254,7 +277,7 @@ const Index = () => {
             {/* Shots Stats */}
             <div key={`shots-${selectedTeam}`} className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <StatCard
-                label="Avg Shots (For)"
+                label="Shots For"
                 value={stats.avgShotsFor.toFixed(1)}
                 icon={<Crosshair className="w-4 h-4" />}
                 trend="positive"
@@ -262,7 +285,7 @@ const Index = () => {
                 delay={200}
               />
               <StatCard
-                label="Avg Shots on Target"
+                label="Shots on Target"
                 value={stats.avgShotsOnTargetFor.toFixed(1)}
                 icon={<Crosshair className="w-4 h-4" />}
                 trend="positive"
@@ -285,7 +308,7 @@ const Index = () => {
               />
             </div>
 
-            {/* Tactical Profile */}
+            {/* Tactical Profile + Shot Efficiency */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
               <PredictedTacticalProfile stats={stats} teamName={selectedTeam} />
 
@@ -294,16 +317,16 @@ const Index = () => {
                 <div className="space-y-6">
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-muted-foreground">SOT / Total Shots</span>
+                      <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">SOT / Total Shots</span>
                       <span className="font-mono font-semibold text-foreground">
                         {stats.avgShotsFor > 0
                           ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(1)
                           : "0"}%
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="probability-bar">
                       <div
-                        className="h-full rounded-full bg-stat-positive transition-all duration-700"
+                        className="probability-fill"
                         style={{
                           width: `${stats.avgShotsFor > 0 ? (stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100 : 0}%`,
                         }}
@@ -313,16 +336,16 @@ const Index = () => {
 
                   <div>
                     <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-muted-foreground">Goals / SOT</span>
+                      <span className="text-muted-foreground uppercase tracking-wider text-[10px] font-semibold">Goals / SOT</span>
                       <span className="font-mono font-semibold text-foreground">
                         {stats.avgShotsOnTargetFor > 0
                           ? (((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100).toFixed(1)
                           : "0"}%
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div className="probability-bar">
                       <div
-                        className="h-full rounded-full bg-primary transition-all duration-700"
+                        className="h-full transition-all duration-700 ease-out bg-accent"
                         style={{
                           width: `${
                             stats.avgShotsOnTargetFor > 0
@@ -334,13 +357,13 @@ const Index = () => {
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-xs text-muted-foreground">
+                  <div className="pt-2 border-t-2 border-border">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
                       {stats.avgShotsOnTargetFor > 4
-                        ? "High volume shooter — creates many chances"
+                        ? "⚡ High volume — creates many chances"
                         : stats.avgShotsOnTargetFor > 2
-                        ? "Moderate shot output — selective in attack"
-                        : "Low shot volume — likely defensive or counter-attacking"}
+                        ? "◆ Moderate — selective in attack"
+                        : "◇ Low volume — counter-attacking style"}
                     </p>
                   </div>
                 </div>
@@ -358,8 +381,10 @@ const Index = () => {
         )}
 
         {/* Footer */}
-        <footer className="text-center py-6 text-xs text-muted-foreground">
-          Data sourced from football-data.co.uk · Season 2025/26
+        <footer className="text-center py-6 border-t-2 border-border">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+            Data sourced from football-data.co.uk · Season 2025/26
+          </p>
         </footer>
       </main>
     </div>
