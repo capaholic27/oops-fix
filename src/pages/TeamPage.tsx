@@ -206,8 +206,31 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
+  const { data: fixtures = [] } = useFixtures(selectedTeam);
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
+
+  // Find next fixture for this team
+  const nextFixture = useMemo(() => {
+    if (fixtures.length === 0) return null;
+    const today = new Date().toISOString().split("T")[0];
+    return fixtures.find((f) => f.match_date >= today) ?? null;
+  }, [fixtures]);
+
+  const nextOpponentName = useMemo(() => {
+    if (!nextFixture) return undefined;
+    return nextFixture.home_team === selectedTeam ? nextFixture.away_team : nextFixture.home_team;
+  }, [nextFixture, selectedTeam]);
+
+  // Get opponent stats if we have a next fixture
+  const nextOpponentStats = useMemo(() => {
+    if (!nextOpponentName) return null;
+    const oppViews = allMatches
+      .map((m) => getTeamMatchView(m, nextOpponentName))
+      .filter((v): v is TeamMatchView => v !== null)
+      .slice(-pastN);
+    return oppViews.length > 0 ? aggregateStats(oppViews) : null;
+  }, [nextOpponentName, allMatches, pastN]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
