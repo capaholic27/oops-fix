@@ -14,6 +14,9 @@ import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile"
 import { RecentResults } from "@/components/RecentResults";
 import { RankingsTable } from "@/components/RankingsTable";
 import { FormBadge } from "@/components/FormBadge";
+import { TeamLogo } from "@/components/TeamLogo";
+import { LeagueLogo } from "@/components/LeagueLogo";
+import { AdBanner } from "@/components/AdBanner";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight,
