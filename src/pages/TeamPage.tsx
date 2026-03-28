@@ -202,23 +202,12 @@ type StatsProps = {
   onOpenPredict: () => void;
 };
 
-const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: StatsProps) => {
-  const [predicting, setPredicting] = useState(false);
-  const [prediction, setPrediction] = useState<string | null>(null);
-  const [showPredictionModal, setShowPredictionModal] = useState(false);
-  const [selectedOpponent, setSelectedOpponent] = useState<string>("");
-  const [opponentSearch, setOpponentSearch] = useState("");
+const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict }: StatsProps) => {
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
-
-  // All teams in same league for opponent picker
-  const leagueTeams = useMemo(() => {
-    const teams = getUniqueTeams(allMatches.filter((m) => m.league_code === leagueCode));
-    return teams.filter((t) => t !== selectedTeam);
-  }, [allMatches, leagueCode, selectedTeam]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
