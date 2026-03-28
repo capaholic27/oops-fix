@@ -138,12 +138,11 @@ const MatchRow = ({
   );
 };
 
-/* ── Quick stat pill ── */
-const QuickStat = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | number }) => (
-  <div className="flex flex-col items-center gap-1 px-3 py-2.5 bg-card border border-border rounded-md flex-1 min-w-0">
-    <Icon className="w-3.5 h-3.5 text-primary" />
-    <span className="font-mono text-sm font-bold">{value}</span>
-    <span className="text-[8px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</span>
+/* ── Stat bar item ── */
+const StatBar = ({ label, value, color }: { label: string; value: string; color?: string }) => (
+  <div className="flex-1 min-w-0 text-center">
+    <span className={cn("font-mono text-xs font-bold", color || "text-foreground")}>{value}</span>
+    <p className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold mt-0.5">{label}</p>
   </div>
 );
 
