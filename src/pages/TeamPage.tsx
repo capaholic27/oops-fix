@@ -480,7 +480,7 @@ const PredictionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(0.5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
+      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b-2 border-primary/20 bg-primary/5">
           <div className="flex items-center gap-1.5">
@@ -643,7 +643,7 @@ const PredictionDialog = ({
         </div>
 
         {/* Sticky bottom: Generate button + footer */}
-        <div className="flex-shrink-0 border-t border-border bg-card" style={{ paddingBottom: "max(0.25rem, env(safe-area-inset-bottom))" }}>
+        <div className="flex-shrink-0 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))]">
           {selectedTeamA && !prediction && (
             <div className="px-2.5 pt-2 pb-1">
               <button onClick={handleRunPredict} disabled={predicting || !statsA}
