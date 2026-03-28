@@ -613,20 +613,6 @@ const PredictionDialog = ({
             </div>
           )}
 
-          {/* ── GENERATE BUTTON ── */}
-          {selectedTeamA && !prediction && (
-            <button onClick={handleRunPredict} disabled={predicting || !statsA}
-              className={cn(
-                "w-full flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
-                "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-                "shadow-[2px_2px_0_hsl(var(--primary)/0.3)]",
-                (predicting || !statsA) && "opacity-70 cursor-wait"
-              )}>
-              {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              {predicting ? "Analyzing…" : "Generate Prediction"}
-            </button>
-          )}
-
           {/* ── PREDICTION RESULT ── */}
           {prediction && (
             <div className="space-y-2">
@@ -656,9 +642,23 @@ const PredictionDialog = ({
           )}
         </div>
 
-        {/* Sticky footer */}
-        <div className="flex-shrink-0 px-2.5 py-1 border-t border-border bg-card">
-          <p className="text-[7px] text-muted-foreground text-center uppercase tracking-wider">
+        {/* Sticky bottom: Generate button + footer */}
+        <div className="flex-shrink-0 border-t border-border bg-card">
+          {selectedTeamA && !prediction && (
+            <div className="px-2.5 pt-2 pb-1">
+              <button onClick={handleRunPredict} disabled={predicting || !statsA}
+                className={cn(
+                  "w-full flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
+                  "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+                  "shadow-[2px_2px_0_hsl(var(--primary)/0.3)]",
+                  (predicting || !statsA) && "opacity-70 cursor-wait"
+                )}>
+                {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                {predicting ? "Analyzing…" : "Generate Prediction"}
+              </button>
+            </div>
+          )}
+          <p className="text-[7px] text-muted-foreground text-center uppercase tracking-wider px-2.5 py-1">
             AI-powered · Last {pastN} matches
           </p>
         </div>
