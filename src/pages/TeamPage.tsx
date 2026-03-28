@@ -186,6 +186,7 @@ type StatsProps = {
 };
 
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: StatsProps) => {
+  const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
