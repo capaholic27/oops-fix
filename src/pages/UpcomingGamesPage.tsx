@@ -61,11 +61,14 @@ const MatchRow = ({
       className="w-full flex items-center px-3 py-2.5 text-xs hover:bg-muted/40 transition-colors text-left border-b border-border last:border-b-0"
     >
       {/* Home side */}
-      <div className="flex-1 min-w-0 text-right space-y-0.5">
-        <p className={cn("truncate text-[11px]", homeWin && "font-bold")}>{m.home_team}</p>
-        <div className="flex justify-end">
-          <FormDots form={homeForm} />
+      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+        <div className="min-w-0 text-right space-y-0.5">
+          <p className={cn("truncate text-[11px]", homeWin && "font-bold")}>{m.home_team}</p>
+          <div className="flex justify-end">
+            <FormDots form={homeForm} />
+          </div>
         </div>
+        <TeamLogo teamName={m.home_team} size="xs" />
       </div>
 
       {/* Score */}
