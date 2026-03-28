@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      fixtures: {
+        Row: {
+          away_team: string
+          created_at: string | null
+          home_team: string
+          id: string
+          league_code: string
+          league_name: string
+          match_date: string
+          match_time: string | null
+          referee: string | null
+        }
+        Insert: {
+          away_team: string
+          created_at?: string | null
+          home_team: string
+          id?: string
+          league_code: string
+          league_name: string
+          match_date: string
+          match_time?: string | null
+          referee?: string | null
+        }
+        Update: {
+          away_team?: string
+          created_at?: string | null
+          home_team?: string
+          id?: string
+          league_code?: string
+          league_name?: string
+          match_date?: string
+          match_time?: string | null
+          referee?: string | null
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           away_corners: number | null

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useMatches, useTeamMatches, useSyncData } from "@/hooks/useMatches";
+import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures } from "@/hooks/useMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getTeamMatchView,
@@ -206,8 +206,31 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
+  const { data: fixtures = [] } = useFixtures(selectedTeam);
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
+
+  // Find next fixture for this team
+  const nextFixture = useMemo(() => {
+    if (fixtures.length === 0) return null;
+    const today = new Date().toISOString().split("T")[0];
+    return fixtures.find((f) => f.match_date >= today) ?? null;
+  }, [fixtures]);
+
+  const nextOpponentName = useMemo(() => {
+    if (!nextFixture) return undefined;
+    return nextFixture.home_team === selectedTeam ? nextFixture.away_team : nextFixture.home_team;
+  }, [nextFixture, selectedTeam]);
+
+  // Get opponent stats if we have a next fixture
+  const nextOpponentStats = useMemo(() => {
+    if (!nextOpponentName) return null;
+    const oppViews = allMatches
+      .map((m) => getTeamMatchView(m, nextOpponentName))
+      .filter((v): v is TeamMatchView => v !== null)
+      .slice(-pastN);
+    return oppViews.length > 0 ? aggregateStats(oppViews) : null;
+  }, [nextOpponentName, allMatches, pastN]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
@@ -310,7 +333,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
 
       {/* Tactical + Efficiency */}
       <div className="grid grid-cols-1 gap-2">
-        <PredictedTacticalProfile stats={stats} teamName={selectedTeam} views={teamViews} />
+        <PredictedTacticalProfile
+          stats={stats}
+          teamName={selectedTeam}
+          views={teamViews}
+          opponentStats={nextOpponentStats}
+          opponentName={nextOpponentName}
+          nextFixture={nextFixture ? { date: nextFixture.match_date, isHome: nextFixture.home_team === selectedTeam } : undefined}
+        />
         <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
           <span className="stat-label mb-3 block">Shot Efficiency</span>
           <div className="space-y-4">
@@ -654,6 +684,7 @@ const PredictionDialog = ({
 const TeamPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const syncData = useSyncData();
+  const syncFixtures = useSyncFixtures();
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
 
@@ -684,7 +715,7 @@ const TeamPage = () => {
   };
 
   const handleSync = () => {
-    toast.info("Syncing…");
+    toast.info("Syncing matches & fixtures…");
     syncData.mutate(
       { season: "2526" },
       {
@@ -692,9 +723,15 @@ const TeamPage = () => {
           const total = data.results?.reduce((s: number, r: { inserted: number }) => s + r.inserted, 0) ?? 0;
           toast.success(`Synced ${total} matches`);
         },
-        onError: (err) => toast.error(`Sync failed: ${err.message}`),
+        onError: (err) => toast.error(`Match sync failed: ${err.message}`),
       }
     );
+    syncFixtures.mutate(undefined, {
+      onSuccess: (data) => {
+        toast.success(`Synced ${data.fixtures ?? 0} upcoming fixtures`);
+      },
+      onError: (err) => toast.error(`Fixtures sync failed: ${err.message}`),
+    });
   };
 
   if (isLoading) {
