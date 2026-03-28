@@ -437,21 +437,19 @@ const PredictionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[8%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1.5rem)] max-w-md max-h-[88vh] overflow-y-auto p-0 border-2 border-primary shadow-[6px_6px_0_hsl(var(--primary)/0.3)]">
+      <DialogContent className="top-[5%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1.5rem)] max-w-md max-h-[90vh] flex flex-col p-0 border-2 border-primary shadow-[6px_6px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
+        <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
             <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
           </div>
-          <DialogClose asChild>
-            <button className="p-1.5 hover:bg-muted transition-colors border border-border">
-              <X className="w-4 h-4 text-muted-foreground" />
-            </button>
-          </DialogClose>
+          <button onClick={() => onOpenChange(false)} className="p-1.5 hover:bg-muted transition-colors border border-border rounded-sm">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
 
-        <div className="p-3 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {/* Team A picker */}
           {!prediction && (
             <div className="space-y-2">

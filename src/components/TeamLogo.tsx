@@ -61,16 +61,14 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
 
   if (badge && !errored) {
     return (
-      <div className={cn("flex-shrink-0 rounded-full overflow-hidden bg-muted", sizeClass, className)}>
-        <img
-          src={badge + "/tiny"}
-          alt={teamName}
-          className={cn("w-full h-full object-contain", loaded ? "opacity-100" : "opacity-0")}
-          onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
-          loading="lazy"
-        />
-      </div>
+      <img
+        src={badge + "/tiny"}
+        alt={teamName}
+        className={cn("flex-shrink-0 object-contain", sizeClass, loaded ? "opacity-100" : "opacity-0", className)}
+        onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
+        loading="lazy"
+      />
     );
   }
 
