@@ -104,7 +104,7 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono text-muted-foreground hidden sm:block">
-              Season 2024/25
+              Season 2025/26
             </span>
             <Button
               variant="outline"
