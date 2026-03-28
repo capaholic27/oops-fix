@@ -12,6 +12,7 @@ import PremiumPage from "@/pages/PremiumPage";
 import TeamPage from "@/pages/TeamPage";
 import NewsPage from "@/pages/NewsPage";
 import ProfilePage from "@/pages/ProfilePage";
+import { AdBanner } from "@/components/AdBanner";
 
 const PAGES = [
   { id: "upcoming", label: "Games", icon: CalendarDays },
