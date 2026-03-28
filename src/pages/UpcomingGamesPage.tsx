@@ -39,7 +39,42 @@ const FormDots = ({ form }: { form: ("W" | "D" | "L")[] }) => (
   </div>
 );
 
-/* ── Match Row ── */
+/* ── Team abbreviation ── */
+function getAbbr(name: string) {
+  const map: Record<string, string> = {
+    "Arsenal": "ARS", "Aston Villa": "AVL", "Brighton": "BHA", "Bournemouth": "BOU",
+    "Brentford": "BRE", "Burnley": "BUR", "Chelsea": "CHE", "Crystal Palace": "CRY",
+    "Everton": "EVE", "Fulham": "FUL", "Leeds": "LEE", "Leicester": "LEI",
+    "Liverpool": "LIV", "Man City": "MCI", "Man United": "MUN", "Newcastle": "NEW",
+    "Nott'm Forest": "NFO", "Sunderland": "SUN", "Tottenham": "TOT", "West Ham": "WHU",
+    "Wolves": "WOL", "Ipswich": "IPS", "Southampton": "SOU",
+    "Real Madrid": "RMA", "Barcelona": "BAR", "Ath Madrid": "ATM", "Betis": "BET",
+    "Sevilla": "SEV", "Villarreal": "VIL", "Sociedad": "RSO", "Ath Bilbao": "ATH",
+    "Celta": "CEL", "Getafe": "GET", "Osasuna": "OSA", "Mallorca": "MLL",
+    "Vallecano": "RAY", "Alaves": "ALA", "Valladolid": "VLD", "Girona": "GIR",
+    "Espanol": "ESP", "Las Palmas": "LPA", "Leganes": "LEG",
+    "Bayern Munich": "BAY", "Dortmund": "BVB", "Leverkusen": "LEV", "RB Leipzig": "RBL",
+    "Ein Frankfurt": "SGE", "Wolfsburg": "WOB", "Freiburg": "SCF", "Stuttgart": "VFB",
+    "Hoffenheim": "TSG", "Mainz": "M05", "Augsburg": "FCA", "Union Berlin": "FCU",
+    "Werder Bremen": "SVW", "Bochum": "BOC", "Heidenheim": "HDH", "Darmstadt": "DAR",
+    "St Pauli": "STP", "Holstein Kiel": "KIE",
+    "Inter": "INT", "Milan": "MIL", "Juventus": "JUV", "Napoli": "NAP",
+    "Roma": "ROM", "Lazio": "LAZ", "Atalanta": "ATA", "Fiorentina": "FIO",
+    "Bologna": "BOL", "Torino": "TOR", "Monza": "MON", "Genoa": "GEN",
+    "Cagliari": "CAG", "Lecce": "LEC", "Empoli": "EMP", "Verona": "VER",
+    "Udinese": "UDI", "Sassuolo": "SAS", "Salernitana": "SAL", "Frosinone": "FRO",
+    "Como": "COM", "Parma": "PAR", "Venezia": "VEN", "Pisa": "PIS",
+    "PSG": "PSG", "Marseille": "OM", "Lyon": "OL", "Monaco": "MON",
+    "Lille": "LIL", "Nice": "OGN", "Rennes": "REN", "Lens": "LEN",
+    "Strasbourg": "RCS", "Nantes": "NAN", "Toulouse": "TFC", "Montpellier": "MTP",
+    "Brest": "BRE", "Reims": "REI", "Le Havre": "HAC", "Metz": "FCM",
+    "Lorient": "FCL", "Clermont": "CF6", "Auxerre": "AJA", "Angers": "SCO",
+    "St Etienne": "STE", "Paris FC": "PFC",
+  };
+  return map[name] || name.split(/\s+/).map(w => w[0]).join("").slice(0, 3).toUpperCase();
+}
+
+/* ── Match Row — banner scoreboard style ── */
 const MatchRow = ({
   match,
   allMatches,
@@ -56,82 +91,41 @@ const MatchRow = ({
   const awayWin = awayGoals > homeGoals;
   const isDraw = homeGoals === awayGoals;
 
-  const homeForm = useMemo(() => getTeamFormQuick(m.home_team, allMatches, m.match_date), [m, allMatches]);
-  const awayForm = useMemo(() => getTeamFormQuick(m.away_team, allMatches, m.match_date), [m, allMatches]);
-
   return (
     <button
       onClick={() => onSelect(m)}
-      className="w-full flex items-center px-3 py-2.5 text-xs hover:bg-muted/40 transition-colors text-left border-b border-border last:border-b-0"
+      className="w-full hover:opacity-90 transition-opacity"
     >
-      {/* Home side */}
-      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-        <div className="min-w-0 text-right space-y-0.5">
-          <p className="truncate text-[11px] font-medium">{m.home_team}</p>
-          <div className="flex justify-end">
-            <FormDots form={homeForm} />
-          </div>
+      <div className="relative flex items-center h-10 overflow-hidden">
+        {/* Home side gradient */}
+        <div className={cn(
+          "flex-1 h-full flex items-center justify-between pl-2.5 pr-1",
+          homeWin && "bg-gradient-to-r from-stat-positive/25 to-stat-positive/10",
+          awayWin && "bg-gradient-to-r from-stat-negative/15 to-stat-negative/8",
+          isDraw && "bg-gradient-to-r from-stat-warn/15 to-stat-warn/8",
+        )}>
+          <span className="font-black text-[11px] tracking-wider text-foreground">{getAbbr(m.home_team)}</span>
+          <TeamLogo teamName={m.home_team} size="sm" />
         </div>
-        <TeamLogo teamName={m.home_team} size="xs" />
-      </div>
 
-      {/* Score with lightning bolt separator */}
-      <div className="px-1.5 flex-shrink-0">
-        <div
-          className={cn(
-            "flex items-center gap-0 rounded-md overflow-hidden border",
-            homeWin && "border-stat-positive/30",
-            awayWin && "border-stat-positive/30",
-            isDraw && "border-stat-warn/30"
-          )}
-        >
-          {/* Home score */}
-          <span
-            className={cn(
-              "font-mono font-bold text-sm px-2 py-1 min-w-[1.5rem] text-center",
-              homeWin && "bg-stat-positive/15 text-stat-positive",
-              awayWin && "bg-stat-negative/10 text-stat-negative",
-              isDraw && "bg-stat-warn/10 text-stat-warn"
-            )}
-          >
-            {homeGoals}
-          </span>
-
-          {/* Lightning bolt divider */}
-          <div className={cn(
-            "flex items-center justify-center px-0.5 py-1",
-            homeWin && "bg-stat-positive/8",
-            awayWin && "bg-stat-positive/8",
-            isDraw && "bg-stat-warn/8"
-          )}>
-            <Zap className={cn(
-              "w-2.5 h-2.5",
-              homeWin && "text-stat-positive/60",
-              awayWin && "text-stat-positive/60",
-              isDraw && "text-stat-warn/60"
-            )} />
+        {/* Center score block */}
+        <div className="flex items-center h-full bg-foreground/90 px-1.5 gap-0 z-10">
+          <span className="font-mono font-black text-sm text-background min-w-[1rem] text-center">{homeGoals}</span>
+          <div className="mx-0.5 flex items-center justify-center">
+            <Zap className="w-3 h-3 text-primary fill-primary" />
           </div>
-
-          {/* Away score */}
-          <span
-            className={cn(
-              "font-mono font-bold text-sm px-2 py-1 min-w-[1.5rem] text-center",
-              awayWin && "bg-stat-positive/15 text-stat-positive",
-              homeWin && "bg-stat-negative/10 text-stat-negative",
-              isDraw && "bg-stat-warn/10 text-stat-warn"
-            )}
-          >
-            {awayGoals}
-          </span>
+          <span className="font-mono font-black text-sm text-background min-w-[1rem] text-center">{awayGoals}</span>
         </div>
-      </div>
 
-      {/* Away side */}
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-        <TeamLogo teamName={m.away_team} size="xs" />
-        <div className="min-w-0 space-y-0.5">
-          <p className="truncate text-[11px] font-medium">{m.away_team}</p>
-          <FormDots form={awayForm} />
+        {/* Away side gradient */}
+        <div className={cn(
+          "flex-1 h-full flex items-center justify-between pr-2.5 pl-1",
+          awayWin && "bg-gradient-to-l from-stat-positive/25 to-stat-positive/10",
+          homeWin && "bg-gradient-to-l from-stat-negative/15 to-stat-negative/8",
+          isDraw && "bg-gradient-to-l from-stat-warn/15 to-stat-warn/8",
+        )}>
+          <TeamLogo teamName={m.away_team} size="sm" />
+          <span className="font-black text-[11px] tracking-wider text-foreground">{getAbbr(m.away_team)}</span>
         </div>
       </div>
     </button>
