@@ -310,7 +310,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
 
       {/* Tactical + Efficiency */}
       <div className="grid grid-cols-1 gap-2">
-        <PredictedTacticalProfile stats={stats} teamName={selectedTeam} />
+        <PredictedTacticalProfile stats={stats} teamName={selectedTeam} views={teamViews} />
         <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
           <span className="stat-label mb-3 block">Shot Efficiency</span>
           <div className="space-y-4">
