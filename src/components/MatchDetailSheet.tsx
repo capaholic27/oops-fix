@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
-import { X, ChevronLeft, ChevronRight, Home, Plane } from "lucide-react";
+import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { FormBadge } from "./FormBadge";
 import { TeamLogo } from "./TeamLogo";
 import { LeagueLogo } from "./LeagueLogo";
