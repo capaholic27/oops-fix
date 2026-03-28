@@ -277,6 +277,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
       </div>
 
+      {/* Ad placement */}
+      <AdBanner variant="inline" />
+
       {/* Tactical + Efficiency */}
       <div className="grid grid-cols-1 gap-2">
         <PredictedTacticalProfile stats={stats} teamName={selectedTeam} />
