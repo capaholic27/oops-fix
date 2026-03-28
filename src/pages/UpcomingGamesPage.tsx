@@ -2,6 +2,9 @@ import { useState, useMemo, useCallback } from "react";
 import { useMatches } from "@/hooks/useMatches";
 import { getTeamMatchView } from "@/lib/matchStats";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
+import { TeamLogo } from "@/components/TeamLogo";
+import { LeagueLogo } from "@/components/LeagueLogo";
+import { AdBanner } from "@/components/AdBanner";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
 
