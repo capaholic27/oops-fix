@@ -449,7 +449,7 @@ const PredictionDialog = ({
           </button>
         </div>
 
-        <div className="p-3 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {/* Team A picker */}
           {!prediction && (
             <div className="space-y-2">

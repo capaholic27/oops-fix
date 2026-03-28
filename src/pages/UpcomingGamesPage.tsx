@@ -63,7 +63,11 @@ const MatchRow = ({
       {/* Home side */}
       <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
         <div className="min-w-0 text-right space-y-0.5">
-          <p className={cn("truncate text-[11px]", homeWin && "font-bold")}>{m.home_team}</p>
+          <p className={cn(
+            "truncate text-[11px]",
+            homeWin && "font-bold text-stat-positive",
+            awayWin && "text-stat-negative"
+          )}>{m.home_team}</p>
           <div className="flex justify-end">
             <FormDots form={homeForm} />
           </div>
@@ -82,7 +86,11 @@ const MatchRow = ({
       <div className="flex-1 min-w-0 flex items-center gap-1.5">
         <TeamLogo teamName={m.away_team} size="xs" />
         <div className="min-w-0 space-y-0.5">
-          <p className={cn("truncate text-[11px]", awayWin && "font-bold")}>{m.away_team}</p>
+          <p className={cn(
+            "truncate text-[11px]",
+            awayWin && "font-bold text-stat-positive",
+            homeWin && "text-stat-negative"
+          )}>{m.away_team}</p>
           <FormDots form={awayForm} />
         </div>
       </div>
