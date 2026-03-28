@@ -199,6 +199,7 @@ type StatsProps = {
   pastN: number;
   setPastN: (n: number) => void;
   onBack: () => void;
+  onOpenPredict: () => void;
 };
 
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: StatsProps) => {
