@@ -95,7 +95,10 @@ const MatchView = ({
 
         <div className="flex items-center justify-center gap-4 mt-3">
           <div className="flex-1 text-right space-y-1">
-            <p className={cn("text-sm font-display", homeWin && "text-stat-positive")}>{m.home_team}</p>
+            <div className="flex items-center justify-end gap-2">
+              <p className={cn("text-sm font-display", homeWin && "text-stat-positive")}>{m.home_team}</p>
+              <TeamLogo teamName={m.home_team} size="md" />
+            </div>
             <div className="flex items-center justify-end gap-1">
               <Home className="w-2.5 h-2.5 text-muted-foreground" />
               <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Home</span>
