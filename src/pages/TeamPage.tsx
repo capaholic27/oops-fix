@@ -219,6 +219,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
   const handlePredict = useCallback(async () => {
     setPredicting(true);
     setPrediction(null);
+    toast.info("Generating AI prediction…");
     try {
       const { data, error } = await supabase.functions.invoke("predict-match", {
         body: {
@@ -227,11 +228,21 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
           recentForm: stats.formLast5,
         },
       });
-      if (error) throw error;
+      console.log("predict-match response:", { data, error });
+      if (error) {
+        // FunctionsHttpError contains the response body
+        const msg = typeof error === "object" && error.message ? error.message : String(error);
+        throw new Error(msg);
+      }
+      if (!data?.prediction) {
+        throw new Error(data?.error || "No prediction returned");
+      }
       setPrediction(data.prediction);
       setShowPrediction(true);
+      toast.success("Prediction ready!");
     } catch (err: any) {
-      toast.error(err?.message || "Prediction failed");
+      console.error("Predict error:", err);
+      toast.error(err?.message || "Prediction failed — try again");
     } finally {
       setPredicting(false);
     }
