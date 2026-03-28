@@ -87,10 +87,12 @@ const TeamSelector = ({
   leagues,
   allMatches,
   onSelectTeam,
+  onOpenPredict,
 }: {
   leagues: { code: string; name: string }[];
   allMatches: any[];
   onSelectTeam: (team: string, league: string) => void;
+  onOpenPredict: () => void;
 }) => {
   const [expandedLeague, setExpandedLeague] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -106,7 +108,6 @@ const TeamSelector = ({
 
   const searchLower = search.toLowerCase().trim();
 
-  // Flat search results across all leagues
   const searchResults = useMemo(() => {
     if (!searchLower) return null;
     const results: { team: string; league: { code: string; name: string } }[] = [];
@@ -121,10 +122,9 @@ const TeamSelector = ({
   }, [searchLower, leagues, teamsByLeague]);
 
   return (
-    <div className="p-3 space-y-2 max-w-lg mx-auto">
+    <div className="p-3 space-y-2 max-w-lg mx-auto pb-20">
       <h2 className="text-lg text-center mb-3">Select Team</h2>
 
-      {/* Search */}
       <input
         type="text"
         placeholder="Search team…"
@@ -133,7 +133,6 @@ const TeamSelector = ({
         className="w-full h-8 px-3 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary shadow-[2px_2px_0_hsl(var(--border))]"
       />
 
-      {/* Search results */}
       {searchResults ? (
         <div className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))] max-h-64 overflow-y-auto">
           {searchResults.length === 0 && (
@@ -151,7 +150,6 @@ const TeamSelector = ({
           ))}
         </div>
       ) : (
-        /* League folders */
         leagues.map((l) => (
           <div key={l.code} className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))]">
             <button
@@ -177,6 +175,19 @@ const TeamSelector = ({
           </div>
         ))
       )}
+
+      {/* Predict menu item */}
+      <button
+        onClick={onOpenPredict}
+        className={cn(
+          "w-full flex items-center justify-center gap-2 py-3 mt-4 text-xs font-bold uppercase tracking-wider border-2 transition-all",
+          "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
+          "shadow-[3px_3px_0_hsl(var(--primary))]",
+        )}
+      >
+        <Sparkles className="w-4 h-4" />
+        AI Match Prediction
+      </button>
     </div>
   );
 };
