@@ -14,6 +14,9 @@ import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile"
 import { RecentResults } from "@/components/RecentResults";
 import { RankingsTable } from "@/components/RankingsTable";
 import { FormBadge } from "@/components/FormBadge";
+import { TeamLogo } from "@/components/TeamLogo";
+import { LeagueLogo } from "@/components/LeagueLogo";
+import { AdBanner } from "@/components/AdBanner";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight,
@@ -242,11 +245,17 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
       {/* Team Banner */}
       <section className="border-2 border-foreground bg-card p-3 shadow-[4px_4px_0_hsl(var(--foreground))]">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div>
-            <h2 className="text-xl leading-none">{selectedTeam}</h2>
-            <p className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground font-semibold mt-0.5">
-              {currentLeagueName} · {stats.matchesPlayed} matches
-            </p>
+          <div className="flex items-center gap-3">
+            <TeamLogo teamName={selectedTeam} size="lg" />
+            <div>
+              <h2 className="text-xl leading-none">{selectedTeam}</h2>
+              <div className="flex items-center gap-1 mt-0.5">
+                <LeagueLogo leagueName={currentLeagueName} size="xs" />
+                <p className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
+                  {currentLeagueName} · {stats.matchesPlayed} matches
+                </p>
+              </div>
+            </div>
           </div>
           <div className="text-right">
             <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
@@ -267,6 +276,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <StatCard label="Over 2.5" value={`${stats.over25Percentage.toFixed(0)}%`} icon={<Target className="w-4 h-4" />} trend={stats.over25Percentage > 60 ? "positive" : "neutral"} subtitle={`O1.5: ${stats.over15Percentage.toFixed(0)}% · BTTS: ${stats.bttsPercentage.toFixed(0)}%`} delay={400} onClick={() => setOpenStat("over25")} />
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
       </div>
+
+      {/* Ad placement */}
+      <AdBanner variant="inline" />
 
       {/* Tactical + Efficiency */}
       <div className="grid grid-cols-1 gap-2">

@@ -1,7 +1,8 @@
 import { Lock } from "lucide-react";
+import { AdBanner } from "@/components/AdBanner";
 
 const PremiumPage = () => (
-  <div className="min-h-full flex flex-col items-center justify-center p-6 text-center">
+  <div className="min-h-full flex flex-col items-center justify-center p-6 text-center gap-6">
     <div className="retro-border bg-card p-8 max-w-sm w-full">
       <Lock className="w-10 h-10 text-accent mx-auto mb-3" />
       <h2 className="text-lg mb-1">Premium</h2>
@@ -14,6 +15,7 @@ const PremiumPage = () => (
         </p>
       </div>
     </div>
+    <AdBanner variant="interstitial" />
   </div>
 );
 

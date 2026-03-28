@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight, Home, Plane } from "lucide-react";
 import { FormBadge } from "./FormBadge";
+import { TeamLogo } from "./TeamLogo";
+import { LeagueLogo } from "./LeagueLogo";
 import type { Match } from "@/lib/matchStats";
 import { getTeamMatchView } from "@/lib/matchStats";
 
@@ -84,13 +86,19 @@ const MatchView = ({
         isDraw && "bg-muted/20"
       )}>
         <div className="text-center mb-1">
-          <span className="text-[9px] uppercase tracking-[0.2em] text-primary font-bold">{m.league_name}</span>
+          <div className="flex items-center justify-center gap-1.5">
+            <LeagueLogo leagueName={m.league_name} size="sm" />
+            <span className="text-[9px] uppercase tracking-[0.2em] text-primary font-bold">{m.league_name}</span>
+          </div>
           <p className="text-[10px] text-muted-foreground">{date}</p>
         </div>
 
         <div className="flex items-center justify-center gap-4 mt-3">
           <div className="flex-1 text-right space-y-1">
-            <p className={cn("text-sm font-display", homeWin && "text-stat-positive")}>{m.home_team}</p>
+            <div className="flex items-center justify-end gap-2">
+              <p className={cn("text-sm font-display", homeWin && "text-stat-positive")}>{m.home_team}</p>
+              <TeamLogo teamName={m.home_team} size="md" />
+            </div>
             <div className="flex items-center justify-end gap-1">
               <Home className="w-2.5 h-2.5 text-muted-foreground" />
               <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Home</span>
@@ -109,7 +117,10 @@ const MatchView = ({
           </div>
 
           <div className="flex-1 space-y-1">
-            <p className={cn("text-sm font-display", awayWin && "text-stat-positive")}>{m.away_team}</p>
+            <div className="flex items-center gap-2">
+              <TeamLogo teamName={m.away_team} size="md" />
+              <p className={cn("text-sm font-display", awayWin && "text-stat-positive")}>{m.away_team}</p>
+            </div>
             <div className="flex items-center gap-1">
               <Plane className="w-2.5 h-2.5 text-muted-foreground" />
               <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Away</span>
@@ -201,6 +212,7 @@ const MatchView = ({
                           </span>
 
                           {/* Match info */}
+                          <TeamLogo teamName={opponent} size="xs" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1">
                               <span className="text-[9px] text-muted-foreground uppercase">{isHome ? "vs" : "at"}</span>

@@ -12,6 +12,7 @@ import PremiumPage from "@/pages/PremiumPage";
 import TeamPage from "@/pages/TeamPage";
 import NewsPage from "@/pages/NewsPage";
 import ProfilePage from "@/pages/ProfilePage";
+import { AdBanner } from "@/components/AdBanner";
 
 const PAGES = [
   { id: "upcoming", label: "Games", icon: CalendarDays },
@@ -123,24 +124,29 @@ const Index = () => {
         ))}
       </div>
 
-      {/* Swipeable page area */}
-      <div
-        ref={containerRef}
-        className="flex-1 relative overflow-hidden"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
+      {/* Swipeable page area with optional sidebar */}
+      <div className="flex-1 flex overflow-hidden">
         <div
-          className={cn("flex h-full", !swiping && "transition-transform duration-300 ease-out")}
-          style={{ transform: `translateX(calc(-${activePage * 100}% + ${swipeOffset}px))` }}
+          ref={containerRef}
+          className="flex-1 relative overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
-          {PAGE_COMPONENTS.map((PageComp, i) => (
-            <div key={i} className="w-full h-full flex-shrink-0 overflow-y-auto retro-stripe">
-              <PageComp />
-            </div>
-          ))}
+          <div
+            className={cn("flex h-full", !swiping && "transition-transform duration-300 ease-out")}
+            style={{ transform: `translateX(calc(-${activePage * 100}% + ${swipeOffset}px))` }}
+          >
+            {PAGE_COMPONENTS.map((PageComp, i) => (
+              <div key={i} className="w-full h-full flex-shrink-0 overflow-y-auto retro-stripe">
+                <PageComp />
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Desktop sidebar ad */}
+        <AdBanner variant="sidebar" />
       </div>
 
       {/* Bottom Nav */}

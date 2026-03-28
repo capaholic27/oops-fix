@@ -2,6 +2,9 @@ import { useState, useMemo, useCallback } from "react";
 import { useMatches } from "@/hooks/useMatches";
 import { getTeamMatchView } from "@/lib/matchStats";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
+import { TeamLogo } from "@/components/TeamLogo";
+import { LeagueLogo } from "@/components/LeagueLogo";
+import { AdBanner } from "@/components/AdBanner";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
 
@@ -58,11 +61,14 @@ const MatchRow = ({
       className="w-full flex items-center px-3 py-2.5 text-xs hover:bg-muted/40 transition-colors text-left border-b border-border last:border-b-0"
     >
       {/* Home side */}
-      <div className="flex-1 min-w-0 text-right space-y-0.5">
-        <p className={cn("truncate text-[11px]", homeWin && "font-bold")}>{m.home_team}</p>
-        <div className="flex justify-end">
-          <FormDots form={homeForm} />
+      <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+        <div className="min-w-0 text-right space-y-0.5">
+          <p className={cn("truncate text-[11px]", homeWin && "font-bold")}>{m.home_team}</p>
+          <div className="flex justify-end">
+            <FormDots form={homeForm} />
+          </div>
         </div>
+        <TeamLogo teamName={m.home_team} size="xs" />
       </div>
 
       {/* Score */}
@@ -73,9 +79,12 @@ const MatchRow = ({
       </div>
 
       {/* Away side */}
-      <div className="flex-1 min-w-0 space-y-0.5">
-        <p className={cn("truncate text-[11px]", awayWin && "font-bold")}>{m.away_team}</p>
-        <FormDots form={awayForm} />
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <TeamLogo teamName={m.away_team} size="xs" />
+        <div className="min-w-0 space-y-0.5">
+          <p className={cn("truncate text-[11px]", awayWin && "font-bold")}>{m.away_team}</p>
+          <FormDots form={awayForm} />
+        </div>
       </div>
     </button>
   );
@@ -148,8 +157,9 @@ const UpcomingGamesPage = () => {
 
             {Array.from(byLeague.entries()).map(([league, leagueMatches]) => (
               <div key={league} className="mb-1.5">
-                <div className="text-[8px] uppercase tracking-[0.15em] text-primary font-bold px-1 mb-0.5">
-                  {league}
+                <div className="flex items-center gap-1 px-1 mb-0.5">
+                  <LeagueLogo leagueName={league} size="xs" />
+                  <span className="text-[8px] uppercase tracking-[0.15em] text-primary font-bold">{league}</span>
                 </div>
                 <div className="border border-border bg-card rounded-sm overflow-hidden">
                   {leagueMatches.map((m) => (
@@ -166,6 +176,9 @@ const UpcomingGamesPage = () => {
           </div>
         );
       })}
+
+      {/* Ad banner after results */}
+      <AdBanner variant="inline" />
 
       {/* Single detail sheet with internal stack */}
       {selectedMatch && (
