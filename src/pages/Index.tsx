@@ -68,7 +68,7 @@ const Index = () => {
   const handleSync = () => {
     toast.info("Syncing match data from football-data.co.uk...");
     syncData.mutate(
-      { season: "2425" },
+      { season: "2526" },
       {
         onSuccess: (data) => {
           const totalInserted = data.results?.reduce((s: number, r: { inserted: number }) => s + r.inserted, 0) ?? 0;
@@ -104,7 +104,7 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono text-muted-foreground hidden sm:block">
-              Season 2024/25
+              Season 2025/26
             </span>
             <Button
               variant="outline"
@@ -359,7 +359,7 @@ const Index = () => {
 
         {/* Footer */}
         <footer className="text-center py-6 text-xs text-muted-foreground">
-          Data sourced from football-data.co.uk · Season 2024/25
+          Data sourced from football-data.co.uk · Season 2025/26
         </footer>
       </main>
     </div>
