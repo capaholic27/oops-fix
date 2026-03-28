@@ -1,5 +1,6 @@
 import { predictNextMatchStyles, type StylePrediction } from "@/lib/tacticalPredictor";
 import type { AggregatedStats, TeamMatchView } from "@/lib/matchStats";
+import { Calendar } from "lucide-react";
 
 type Props = {
   stats: AggregatedStats;
@@ -7,6 +8,7 @@ type Props = {
   views: TeamMatchView[];
   opponentStats?: AggregatedStats | null;
   opponentName?: string;
+  nextFixture?: { date: string; isHome: boolean } | null;
 };
 
 export const PredictedTacticalProfile = ({ stats, teamName, views, opponentStats, opponentName }: Props) => {
