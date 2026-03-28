@@ -643,7 +643,7 @@ const PredictionDialog = ({
         </div>
 
         {/* Sticky bottom: Generate button + footer */}
-        <div className="flex-shrink-0 border-t border-border bg-card">
+        <div className="flex-shrink-0 border-t border-border bg-card" style={{ paddingBottom: "max(0.25rem, env(safe-area-inset-bottom))" }}>
           {selectedTeamA && !prediction && (
             <div className="px-2.5 pt-2 pb-1">
               <button onClick={handleRunPredict} disabled={predicting || !statsA}
