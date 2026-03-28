@@ -24,9 +24,14 @@ const PAGES = [
 const PAGE_COMPONENTS = [UpcomingGamesPage, PremiumPage, TeamPage, NewsPage, ProfilePage];
 
 const Index = () => {
-  const [activePage, setActivePage] = useState(2); // page 3 = index 2
+  const [activePage, setActivePage] = useState(2);
   const containerRef = useRef<HTMLDivElement>(null);
   const syncData = useSyncData();
+
+  // Apply stored theme on mount
+  useEffect(() => {
+    applyTheme(getStoredTheme());
+  }, []);
 
   // Swipe handling
   const touchStart = useRef<{ x: number; y: number } | null>(null);
