@@ -6,6 +6,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { cn } from "@/lib/utils";
+import { Trophy, TrendingUp, Target, Flame } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
 
 /* ── helpers ── */
@@ -49,8 +50,11 @@ const MatchRow = ({
   onSelect: (m: Match) => void;
 }) => {
   const m = match;
-  const homeWin = (m.ft_home_goals ?? 0) > (m.ft_away_goals ?? 0);
-  const awayWin = (m.ft_away_goals ?? 0) > (m.ft_home_goals ?? 0);
+  const homeGoals = m.ft_home_goals ?? 0;
+  const awayGoals = m.ft_away_goals ?? 0;
+  const homeWin = homeGoals > awayGoals;
+  const awayWin = awayGoals > homeGoals;
+  const isDraw = homeGoals === awayGoals;
 
   const homeForm = useMemo(() => getTeamFormQuick(m.home_team, allMatches, m.match_date), [m, allMatches]);
   const awayForm = useMemo(() => getTeamFormQuick(m.away_team, allMatches, m.match_date), [m, allMatches]);
@@ -63,11 +67,7 @@ const MatchRow = ({
       {/* Home side */}
       <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
         <div className="min-w-0 text-right space-y-0.5">
-          <p className={cn(
-            "truncate text-[11px]",
-            homeWin && "font-bold text-stat-positive",
-            awayWin && "text-stat-negative"
-          )}>{m.home_team}</p>
+          <p className="truncate text-[11px] font-medium">{m.home_team}</p>
           <div className="flex justify-end">
             <FormDots form={homeForm} />
           </div>
@@ -75,10 +75,17 @@ const MatchRow = ({
         <TeamLogo teamName={m.home_team} size="xs" />
       </div>
 
-      {/* Score */}
-      <div className="px-3 flex-shrink-0">
-        <span className="font-mono font-bold text-sm border-2 border-border px-2.5 py-1 inline-block min-w-[3rem] text-center bg-card shadow-[2px_2px_0_hsl(var(--border))]">
-          {m.ft_home_goals} - {m.ft_away_goals}
+      {/* Score — gradient bg based on result */}
+      <div className="px-2 flex-shrink-0">
+        <span
+          className={cn(
+            "font-mono font-bold text-sm px-2.5 py-1 inline-flex items-center justify-center min-w-[3.2rem] text-center rounded-md transition-colors",
+            homeWin && "bg-gradient-to-r from-stat-positive/20 via-stat-positive/10 to-transparent text-stat-positive border border-stat-positive/30",
+            awayWin && "bg-gradient-to-l from-stat-positive/20 via-stat-positive/10 to-transparent text-stat-positive border border-stat-positive/30",
+            isDraw && "bg-muted/50 text-stat-warn border border-stat-warn/30"
+          )}
+        >
+          {homeGoals} – {awayGoals}
         </span>
       </div>
 
@@ -86,17 +93,22 @@ const MatchRow = ({
       <div className="flex-1 min-w-0 flex items-center gap-1.5">
         <TeamLogo teamName={m.away_team} size="xs" />
         <div className="min-w-0 space-y-0.5">
-          <p className={cn(
-            "truncate text-[11px]",
-            awayWin && "font-bold text-stat-positive",
-            homeWin && "text-stat-negative"
-          )}>{m.away_team}</p>
+          <p className="truncate text-[11px] font-medium">{m.away_team}</p>
           <FormDots form={awayForm} />
         </div>
       </div>
     </button>
   );
 };
+
+/* ── Quick stat pill ── */
+const QuickStat = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | number }) => (
+  <div className="flex flex-col items-center gap-1 px-3 py-2.5 bg-card border border-border rounded-md flex-1 min-w-0">
+    <Icon className="w-3.5 h-3.5 text-primary" />
+    <span className="font-mono text-sm font-bold">{value}</span>
+    <span className="text-[8px] uppercase tracking-widest text-muted-foreground font-semibold">{label}</span>
+  </div>
+);
 
 /* ── Main Page ── */
 const UpcomingGamesPage = () => {
@@ -121,6 +133,28 @@ const UpcomingGamesPage = () => {
     return Array.from(map.entries());
   }, [allMatches]);
 
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    const recent = [...allMatches]
+      .sort((a, b) => b.match_date.localeCompare(a.match_date))
+      .slice(0, 80);
+
+    const totalGoals = recent.reduce((s, m) => s + (m.ft_home_goals ?? 0) + (m.ft_away_goals ?? 0), 0);
+    const homeWins = recent.filter((m) => (m.ft_home_goals ?? 0) > (m.ft_away_goals ?? 0)).length;
+    const draws = recent.filter((m) => (m.ft_home_goals ?? 0) === (m.ft_away_goals ?? 0)).length;
+    const avgGoals = recent.length ? (totalGoals / recent.length).toFixed(1) : "0";
+
+    // Highest scoring match
+    let topMatch: Match | null = null;
+    let topGoals = 0;
+    recent.forEach((m) => {
+      const g = (m.ft_home_goals ?? 0) + (m.ft_away_goals ?? 0);
+      if (g > topGoals) { topGoals = g; topMatch = m; }
+    });
+
+    return { totalGoals, homeWins, draws, avgGoals, topMatch, topGoals, total: recent.length };
+  }, [allMatches]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -143,7 +177,34 @@ const UpcomingGamesPage = () => {
     <div className="p-3 pb-20 max-w-lg mx-auto">
       <h2 className="text-lg text-center mb-3">Results</h2>
 
-      {grouped.map(([date, matches]) => {
+      {/* Summary stats bar */}
+      <div className="flex gap-1.5 mb-3">
+        <QuickStat icon={Target} label="Goals" value={summaryStats.totalGoals} />
+        <QuickStat icon={TrendingUp} label="Avg/Game" value={summaryStats.avgGoals} />
+        <QuickStat icon={Trophy} label="Home Wins" value={summaryStats.homeWins} />
+        <QuickStat icon={Flame} label="Draws" value={summaryStats.draws} />
+      </div>
+
+      {/* Top scoring match highlight */}
+      {summaryStats.topMatch && (
+        <button
+          onClick={() => handleSelect(summaryStats.topMatch!)}
+          className="w-full mb-3 border border-accent/30 bg-accent/5 rounded-md px-3 py-2 flex items-center gap-2 text-left hover:bg-accent/10 transition-colors"
+        >
+          <Flame className="w-4 h-4 text-accent flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] uppercase tracking-widest text-accent font-bold">Highest Scoring</p>
+            <p className="text-[11px] font-semibold truncate">
+              {summaryStats.topMatch.home_team} {summaryStats.topMatch.ft_home_goals} – {summaryStats.topMatch.ft_away_goals} {summaryStats.topMatch.away_team}
+            </p>
+          </div>
+          <span className="font-mono text-xs font-bold text-accent">{summaryStats.topGoals} goals</span>
+        </button>
+      )}
+
+      <AdBanner variant="inline" />
+
+      {grouped.map(([date, matches], groupIdx) => {
         const formatted = new Date(date + "T00:00:00").toLocaleDateString("en-GB", {
           weekday: "short",
           day: "numeric",
@@ -158,29 +219,34 @@ const UpcomingGamesPage = () => {
         });
 
         return (
-          <div key={date} className="mb-3">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 px-0.5">
-              {formatted}
+          <div key={date}>
+            <div className="mb-3">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 px-0.5">
+                {formatted}
+              </div>
+
+              {Array.from(byLeague.entries()).map(([league, leagueMatches]) => (
+                <div key={league} className="mb-1.5">
+                  <div className="flex items-center gap-1 px-1 mb-0.5">
+                    <LeagueLogo leagueName={league} size="xs" />
+                    <span className="text-[8px] uppercase tracking-[0.15em] text-primary font-bold">{league}</span>
+                  </div>
+                  <div className="border border-border bg-card rounded-sm overflow-hidden">
+                    {leagueMatches.map((m) => (
+                      <MatchRow
+                        key={m.id}
+                        match={m}
+                        allMatches={allMatches}
+                        onSelect={handleSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {Array.from(byLeague.entries()).map(([league, leagueMatches]) => (
-              <div key={league} className="mb-1.5">
-                <div className="flex items-center gap-1 px-1 mb-0.5">
-                  <LeagueLogo leagueName={league} size="xs" />
-                  <span className="text-[8px] uppercase tracking-[0.15em] text-primary font-bold">{league}</span>
-                </div>
-                <div className="border border-border bg-card rounded-sm overflow-hidden">
-                  {leagueMatches.map((m) => (
-                    <MatchRow
-                      key={m.id}
-                      match={m}
-                      allMatches={allMatches}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+            {/* Mid-page ad after 3rd date group */}
+            {groupIdx === 2 && <AdBanner variant="inline" />}
           </div>
         );
       })}
