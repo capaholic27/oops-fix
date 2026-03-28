@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useMatches, useTeamMatches, useSyncData } from "@/hooks/useMatches";
+import { supabase } from "@/integrations/supabase/client";
 import {
   getTeamMatchView,
   aggregateStats,
