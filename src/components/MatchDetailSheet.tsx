@@ -93,22 +93,25 @@ const MatchView = ({
           <p className="text-[10px] text-muted-foreground">{date}</p>
         </div>
 
-        <div className="flex items-center justify-center gap-4 mt-3">
-          <div className="flex-1 text-right space-y-1">
-            <div className="flex items-center justify-end gap-2">
-              <p className={cn("text-sm font-display", homeWin && "text-stat-positive")}>{m.home_team}</p>
-              <TeamLogo teamName={m.home_team} size="md" />
+        {/* Score - stacked layout for clean alignment */}
+        <div className="flex items-center justify-center gap-3 mt-3">
+          {/* Home team */}
+          <div className="flex-1 min-w-0 text-right">
+            <div className="flex items-center justify-end gap-1.5">
+              <p className={cn("text-xs font-bold truncate", homeWin && "text-stat-positive")}>{m.home_team}</p>
+              <TeamLogo teamName={m.home_team} size="sm" className="flex-shrink-0" />
             </div>
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-end gap-0.5 mt-0.5">
               <Home className="w-2.5 h-2.5 text-muted-foreground" />
               <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Home</span>
             </div>
           </div>
 
-          <div className="text-center">
-            <div className="border-2 border-foreground bg-card px-4 py-2 shadow-[3px_3px_0_hsl(var(--foreground))]">
-              <span className="font-mono text-3xl font-bold tracking-wider">
-                {m.ft_home_goals} — {m.ft_away_goals}
+          {/* Score box - fixed width */}
+          <div className="flex-shrink-0 text-center">
+            <div className="border-2 border-foreground bg-card px-3 py-1.5 shadow-[3px_3px_0_hsl(var(--foreground))] whitespace-nowrap">
+              <span className="font-mono text-2xl font-bold tracking-wider">
+                {m.ft_home_goals ?? 0} – {m.ft_away_goals ?? 0}
               </span>
             </div>
             <p className="text-[9px] text-muted-foreground font-mono mt-1">
@@ -116,12 +119,13 @@ const MatchView = ({
             </p>
           </div>
 
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-2">
-              <TeamLogo teamName={m.away_team} size="md" />
-              <p className={cn("text-sm font-display", awayWin && "text-stat-positive")}>{m.away_team}</p>
+          {/* Away team */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <TeamLogo teamName={m.away_team} size="sm" className="flex-shrink-0" />
+              <p className={cn("text-xs font-bold truncate", awayWin && "text-stat-positive")}>{m.away_team}</p>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5 mt-0.5">
               <Plane className="w-2.5 h-2.5 text-muted-foreground" />
               <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Away</span>
             </div>
