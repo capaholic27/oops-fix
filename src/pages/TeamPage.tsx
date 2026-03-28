@@ -684,6 +684,7 @@ const PredictionDialog = ({
 const TeamPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const syncData = useSyncData();
+  const syncFixtures = useSyncFixtures();
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
 
