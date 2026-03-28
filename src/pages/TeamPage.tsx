@@ -360,6 +360,37 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
       {openStat && (
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
+
+      {/* AI Prediction Modal */}
+      {showPrediction && prediction && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 animate-in fade-in-0 duration-150 p-4" onClick={() => setShowPrediction(false)}>
+          <div className="w-full max-w-md max-h-[80vh] bg-card border-2 border-foreground shadow-[4px_4px_0_hsl(var(--foreground))] flex flex-col animate-in slide-in-from-bottom-4 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-primary/5 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] uppercase tracking-[0.15em] font-bold text-primary">AI Prediction</span>
+              </div>
+              <button onClick={() => setShowPrediction(false)} className="p-1 hover:bg-muted transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <TeamLogo teamName={selectedTeam} size="md" />
+                <h3 className="text-sm font-bold">{selectedTeam}</h3>
+              </div>
+              <div className="prose prose-xs text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                {prediction}
+              </div>
+            </div>
+            <div className="px-3 py-2 border-t border-border">
+              <p className="text-[8px] text-muted-foreground text-center uppercase tracking-wider">
+                AI-powered analysis · Based on last {stats.matchesPlayed} matches
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
