@@ -304,6 +304,10 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
       {leagueCode && leagueMatches.length > 0 && (
         <RankingsTable matches={leagueMatches} leagueName={currentLeagueName} />
       )}
+
+      {openStat && (
+        <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
+      )}
     </div>
   );
 };
