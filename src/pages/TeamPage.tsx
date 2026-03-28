@@ -715,7 +715,7 @@ const TeamPage = () => {
   };
 
   const handleSync = () => {
-    toast.info("Syncing…");
+    toast.info("Syncing matches & fixtures…");
     syncData.mutate(
       { season: "2526" },
       {
@@ -723,9 +723,15 @@ const TeamPage = () => {
           const total = data.results?.reduce((s: number, r: { inserted: number }) => s + r.inserted, 0) ?? 0;
           toast.success(`Synced ${total} matches`);
         },
-        onError: (err) => toast.error(`Sync failed: ${err.message}`),
+        onError: (err) => toast.error(`Match sync failed: ${err.message}`),
       }
     );
+    syncFixtures.mutate(undefined, {
+      onSuccess: (data) => {
+        toast.success(`Synced ${data.fixtures ?? 0} upcoming fixtures`);
+      },
+      onError: (err) => toast.error(`Fixtures sync failed: ${err.message}`),
+    });
   };
 
   if (isLoading) {
