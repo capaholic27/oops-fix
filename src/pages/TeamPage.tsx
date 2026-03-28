@@ -8,6 +8,7 @@ import {
   type TeamMatchView,
 } from "@/lib/matchStats";
 import { StatCard } from "@/components/StatCard";
+import { StatCardDetail } from "@/components/StatCardDetail";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { RecentResults } from "@/components/RecentResults";
@@ -20,6 +21,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
 /* ─── Form Strip ─── */
 const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
