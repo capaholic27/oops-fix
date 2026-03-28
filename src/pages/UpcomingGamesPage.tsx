@@ -6,7 +6,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { cn } from "@/lib/utils";
-import { Trophy, TrendingUp, Target, Flame, Zap } from "lucide-react";
+import { Flame, Zap } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
 
 /* ── helpers ── */
