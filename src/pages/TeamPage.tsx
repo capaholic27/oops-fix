@@ -411,9 +411,26 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
 
+      {!showPredictionModal && (
+        <button
+          onClick={handleOpenPredict}
+          disabled={predicting}
+          className={cn(
+            "fixed bottom-20 right-3 z-40 flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all",
+            "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
+            "shadow-[3px_3px_0_hsl(var(--primary)/0.35)]",
+            "md:bottom-6",
+            predicting && "opacity-70 cursor-wait"
+          )}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Predict
+        </button>
+      )}
+
       {/* AI Prediction Popup */}
       <Dialog open={showPredictionModal} onOpenChange={setShowPredictionModal}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md max-h-[85vh] overflow-y-auto p-0 border-2 border-primary shadow-[6px_6px_0_hsl(var(--primary)/0.3)]">
+        <DialogContent className="top-[8%] translate-y-0 sm:top-[50%] sm:translate-y-[-50%] w-[calc(100vw-1.5rem)] max-w-md max-h-[88vh] overflow-y-auto p-0 border-2 border-primary shadow-[6px_6px_0_hsl(var(--primary)/0.3)]">
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b-2 border-primary/20 bg-primary/5">
             <div className="flex items-center gap-1.5">
