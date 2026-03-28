@@ -226,68 +226,6 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     [allMatches, leagueCode]
   );
 
-  // Compute opponent stats if selected
-  const opponentViews = useMemo(() => {
-    if (!selectedOpponent) return [];
-    return allMatches
-      .filter((m) => m.home_team === selectedOpponent || m.away_team === selectedOpponent)
-      .map((m) => getTeamMatchView(m, selectedOpponent))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-pastN);
-  }, [allMatches, selectedOpponent, pastN]);
-
-  const opponentStats = useMemo(() => (opponentViews.length > 0 ? aggregateStats(opponentViews) : null), [opponentViews]);
-
-  const handleOpenPredict = () => {
-    setShowPredictionModal(true);
-    setPrediction(null);
-    setSelectedOpponent("");
-    setOpponentSearch("");
-  };
-
-  const handleRunPredict = useCallback(async () => {
-    setPredicting(true);
-    setPrediction(null);
-    try {
-      const body: any = {
-        teamName: selectedTeam,
-        stats,
-        recentForm: stats.formLast5,
-      };
-      if (selectedOpponent && opponentStats) {
-        body.upcomingOpponent = selectedOpponent;
-        body.opponentStats = opponentStats;
-        body.opponentForm = opponentStats.formLast5;
-      }
-      console.log("Calling predict-match with:", body);
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify(body),
-        }
-      );
-      const data = await response.json();
-      console.log("predict-match response:", response.status, data);
-      if (!response.ok) {
-        throw new Error(data?.error || `Error ${response.status}`);
-      }
-      if (!data?.prediction) {
-        throw new Error(data?.error || "No prediction returned");
-      }
-      setPrediction(data.prediction);
-      toast.success("Prediction ready!");
-    } catch (err: any) {
-      console.error("Predict error:", err);
-      toast.error(err?.message || "Prediction failed — try again");
-    } finally {
-      setPredicting(false);
-    }
-  }, [selectedTeam, stats, selectedOpponent, opponentStats]);
 
   if (stats.matchesPlayed === 0) {
     return (
