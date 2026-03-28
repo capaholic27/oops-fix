@@ -79,9 +79,12 @@ const MatchRow = ({
       </div>
 
       {/* Away side */}
-      <div className="flex-1 min-w-0 space-y-0.5">
-        <p className={cn("truncate text-[11px]", awayWin && "font-bold")}>{m.away_team}</p>
-        <FormDots form={awayForm} />
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <TeamLogo teamName={m.away_team} size="xs" />
+        <div className="min-w-0 space-y-0.5">
+          <p className={cn("truncate text-[11px]", awayWin && "font-bold")}>{m.away_team}</p>
+          <FormDots form={awayForm} />
+        </div>
       </div>
     </button>
   );
