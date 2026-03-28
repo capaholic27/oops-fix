@@ -1,7 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
 import { useMatches } from "@/hooks/useMatches";
 import { getTeamMatchView } from "@/lib/matchStats";
-import { FormBadge } from "@/components/FormBadge";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
@@ -26,7 +25,7 @@ const FormDots = ({ form }: { form: ("W" | "D" | "L")[] }) => (
       <span
         key={i}
         className={cn(
-          "w-[6px] h-[6px] rounded-full",
+          "w-[5px] h-[5px] rounded-full",
           r === "W" && "bg-stat-positive",
           r === "D" && "bg-stat-warn",
           r === "L" && "bg-stat-negative"
@@ -40,17 +39,15 @@ const FormDots = ({ form }: { form: ("W" | "D" | "L")[] }) => (
 const MatchRow = ({
   match,
   allMatches,
-  isLast,
   onSelect,
 }: {
   match: Match;
   allMatches: Match[];
-  isLast: boolean;
   onSelect: (m: Match) => void;
 }) => {
   const m = match;
-  const homeWin = m.ft_home_goals > m.ft_away_goals;
-  const awayWin = m.ft_away_goals > m.ft_home_goals;
+  const homeWin = (m.ft_home_goals ?? 0) > (m.ft_away_goals ?? 0);
+  const awayWin = (m.ft_away_goals ?? 0) > (m.ft_home_goals ?? 0);
 
   const homeForm = useMemo(() => getTeamFormQuick(m.home_team, allMatches, m.match_date), [m, allMatches]);
   const awayForm = useMemo(() => getTeamFormQuick(m.away_team, allMatches, m.match_date), [m, allMatches]);
@@ -58,29 +55,26 @@ const MatchRow = ({
   return (
     <button
       onClick={() => onSelect(m)}
-      className={cn(
-        "w-full flex items-center px-2.5 py-2 text-xs hover:bg-muted/50 transition-colors text-left",
-        !isLast && "border-b border-border"
-      )}
+      className="w-full flex items-center px-3 py-2.5 text-xs hover:bg-muted/40 transition-colors text-left border-b border-border last:border-b-0"
     >
       {/* Home side */}
       <div className="flex-1 min-w-0 text-right space-y-0.5">
-        <p className={cn("truncate", homeWin && "font-bold")}>{m.home_team}</p>
+        <p className={cn("truncate text-[11px]", homeWin && "font-bold")}>{m.home_team}</p>
         <div className="flex justify-end">
           <FormDots form={homeForm} />
         </div>
       </div>
 
       {/* Score */}
-      <div className="px-2.5 flex-shrink-0">
-        <span className="font-mono font-bold text-sm bg-muted border border-border px-2 py-0.5 inline-block min-w-[2.8rem] text-center">
+      <div className="px-3 flex-shrink-0">
+        <span className="font-mono font-bold text-sm border-2 border-border px-2.5 py-1 inline-block min-w-[3rem] text-center bg-card shadow-[2px_2px_0_hsl(var(--border))]">
           {m.ft_home_goals} - {m.ft_away_goals}
         </span>
       </div>
 
       {/* Away side */}
       <div className="flex-1 min-w-0 space-y-0.5">
-        <p className={cn("truncate", awayWin && "font-bold")}>{m.away_team}</p>
+        <p className={cn("truncate text-[11px]", awayWin && "font-bold")}>{m.away_team}</p>
         <FormDots form={awayForm} />
       </div>
     </button>
@@ -90,24 +84,10 @@ const MatchRow = ({
 /* ── Main Page ── */
 const UpcomingGamesPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
-  const [matchStack, setMatchStack] = useState<Match[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
 
-  const selectedMatch = matchStack.length > 0 ? matchStack[matchStack.length - 1] : null;
-
-  const handleSelect = useCallback((m: Match) => {
-    setMatchStack([m]);
-  }, []);
-
-  const handleNavigate = useCallback((m: Match) => {
-    setMatchStack((prev) => [...prev, m]);
-  }, []);
-
-  const handleClose = useCallback(() => {
-    setMatchStack((prev) => {
-      if (prev.length <= 1) return [];
-      return prev.slice(0, -1);
-    });
-  }, []);
+  const handleSelect = useCallback((m: Match) => setSelectedMatch(m), []);
+  const handleClose = useCallback(() => setSelectedMatch(null), []);
 
   // Group last 80 matches by date
   const grouped = useMemo(() => {
@@ -153,7 +133,6 @@ const UpcomingGamesPage = () => {
           month: "short",
         });
 
-        // Group by league
         const byLeague = new Map<string, Match[]>();
         matches.forEach((m) => {
           const existing = byLeague.get(m.league_name) || [];
@@ -173,12 +152,11 @@ const UpcomingGamesPage = () => {
                   {league}
                 </div>
                 <div className="border border-border bg-card rounded-sm overflow-hidden">
-                  {leagueMatches.map((m, i) => (
+                  {leagueMatches.map((m) => (
                     <MatchRow
                       key={m.id}
                       match={m}
                       allMatches={allMatches}
-                      isLast={i === leagueMatches.length - 1}
                       onSelect={handleSelect}
                     />
                   ))}
@@ -189,13 +167,12 @@ const UpcomingGamesPage = () => {
         );
       })}
 
-      {/* Detail sheet — supports back navigation via stack */}
+      {/* Single detail sheet with internal stack */}
       {selectedMatch && (
         <MatchDetailSheet
           match={selectedMatch}
           allMatches={allMatches}
           onClose={handleClose}
-          onNavigateMatch={handleNavigate}
         />
       )}
     </div>
