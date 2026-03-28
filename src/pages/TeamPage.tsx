@@ -333,7 +333,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
 
       {/* Tactical + Efficiency */}
       <div className="grid grid-cols-1 gap-2">
-        <PredictedTacticalProfile stats={stats} teamName={selectedTeam} views={teamViews} />
+        <PredictedTacticalProfile
+          stats={stats}
+          teamName={selectedTeam}
+          views={teamViews}
+          opponentStats={nextOpponentStats}
+          opponentName={nextOpponentName}
+          nextFixture={nextFixture ? { date: nextFixture.match_date, isHome: nextFixture.home_team === selectedTeam } : undefined}
+        />
         <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
           <span className="stat-label mb-3 block">Shot Efficiency</span>
           <div className="space-y-4">
