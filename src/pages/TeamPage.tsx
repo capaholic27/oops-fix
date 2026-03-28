@@ -85,43 +85,90 @@ const TeamSelector = ({
   onSelectTeam: (team: string, league: string) => void;
 }) => {
   const [expandedLeague, setExpandedLeague] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const teamsByLeague = useMemo(() => {
     const map: Record<string, string[]> = {};
     leagues.forEach((l) => {
-      const filtered = allMatches.filter((m) => m.league_code === l.code);
+      const filtered = allMatches.filter((m: any) => m.league_code === l.code);
       map[l.code] = getUniqueTeams(filtered);
     });
     return map;
   }, [leagues, allMatches]);
 
+  const searchLower = search.toLowerCase().trim();
+
+  // Flat search results across all leagues
+  const searchResults = useMemo(() => {
+    if (!searchLower) return null;
+    const results: { team: string; league: { code: string; name: string } }[] = [];
+    leagues.forEach((l) => {
+      (teamsByLeague[l.code] || []).forEach((team) => {
+        if (team.toLowerCase().includes(searchLower)) {
+          results.push({ team, league: l });
+        }
+      });
+    });
+    return results;
+  }, [searchLower, leagues, teamsByLeague]);
+
   return (
     <div className="p-3 space-y-2 max-w-lg mx-auto">
       <h2 className="text-lg text-center mb-3">Select Team</h2>
-      {leagues.map((l) => (
-        <div key={l.code} className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))]">
-          <button
-            onClick={() => setExpandedLeague(expandedLeague === l.code ? null : l.code)}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground hover:bg-muted transition-colors"
-          >
-            <span>{l.name}</span>
-            <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", expandedLeague === l.code && "rotate-90")} />
-          </button>
-          {expandedLeague === l.code && (
-            <div className="border-t-2 border-border max-h-52 overflow-y-auto">
-              {(teamsByLeague[l.code] || []).map((team) => (
-                <button
-                  key={team}
-                  onClick={() => onSelectTeam(team, l.code)}
-                  className="w-full text-left px-4 py-2 text-xs text-foreground hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0"
-                >
-                  {team}
-                </button>
-              ))}
-            </div>
+
+      {/* Search */}
+      <input
+        type="text"
+        placeholder="Search team…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full h-8 px-3 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary shadow-[2px_2px_0_hsl(var(--border))]"
+      />
+
+      {/* Search results */}
+      {searchResults ? (
+        <div className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))] max-h-64 overflow-y-auto">
+          {searchResults.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4">No teams found</p>
           )}
+          {searchResults.map(({ team, league: l }) => (
+            <button
+              key={`${l.code}-${team}`}
+              onClick={() => onSelectTeam(team, l.code)}
+              className="w-full text-left px-4 py-2 text-xs text-foreground hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0"
+            >
+              <span className="font-semibold">{team}</span>
+              <span className="text-muted-foreground ml-2 text-[10px]">{l.name}</span>
+            </button>
+          ))}
         </div>
-      ))}
+      ) : (
+        /* League folders */
+        leagues.map((l) => (
+          <div key={l.code} className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))]">
+            <button
+              onClick={() => setExpandedLeague(expandedLeague === l.code ? null : l.code)}
+              className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground hover:bg-muted transition-colors"
+            >
+              <span>{l.name}</span>
+              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", expandedLeague === l.code && "rotate-90")} />
+            </button>
+            {expandedLeague === l.code && (
+              <div className="border-t-2 border-border max-h-52 overflow-y-auto">
+                {(teamsByLeague[l.code] || []).map((team) => (
+                  <button
+                    key={team}
+                    onClick={() => onSelectTeam(team, l.code)}
+                    className="w-full text-left px-4 py-2 text-xs text-foreground hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0"
+                  >
+                    {team}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))
+      )}
     </div>
   );
 };
@@ -141,13 +188,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
 
-  const teamViews: TeamMatchView[] = useMemo(() => {
+  const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
     return teamMatches
       .map((m) => getTeamMatchView(m, selectedTeam))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-pastN);
-  }, [teamMatches, selectedTeam, pastN]);
+      .filter((v): v is TeamMatchView => v !== null);
+  }, [teamMatches, selectedTeam]);
+
+  const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
 
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
@@ -173,13 +221,22 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
         <button onClick={onBack} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
           <ChevronLeft className="w-3 h-3" /> Teams
         </button>
-        <div className="flex items-center gap-1">
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Last</span>
-          <input
-            type="number" min={1} max={50} value={pastN}
-            onChange={(e) => setPastN(Math.max(1, Math.min(50, parseInt(e.target.value) || 5)))}
-            className="w-10 h-6 border-2 border-border bg-background px-1 text-xs font-mono text-center shadow-[2px_2px_0_hsl(var(--border))] focus:outline-none"
-          />
+        <div className="flex items-center gap-0.5 flex-wrap">
+          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">Last</span>
+          {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
+            <button
+              key={n}
+              onClick={() => setPastN(n)}
+              className={cn(
+                "px-1.5 py-0.5 text-[10px] font-mono font-bold border transition-colors",
+                pastN === n
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {n}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -197,7 +254,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack }: S
             <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Win Rate</p>
           </div>
         </div>
-        <FormStrip views={teamViews} formLast5={stats.formLast5} />
+        <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
       </section>
 
       {/* Stats Grid */}
