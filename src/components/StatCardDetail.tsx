@@ -37,7 +37,7 @@ function getStatValue(v: TeamMatchView, key: StatKey): string {
 export const StatCardDetail = ({ statKey, views, onClose }: Props) => {
   const reversed = [...views].reverse();
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 animate-in fade-in-0 duration-150" onClick={onClose}>
       <div
         className="w-full max-w-lg max-h-[70vh] bg-card border-t-2 border-foreground overflow-y-auto animate-in slide-in-from-bottom-4 duration-200"
@@ -87,6 +87,7 @@ export const StatCardDetail = ({ statKey, views, onClose }: Props) => {
           <p className="text-xs text-muted-foreground text-center py-6">No match data</p>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
