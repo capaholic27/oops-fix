@@ -1,40 +1,16 @@
-import type { AggregatedStats } from "@/lib/matchStats";
+import { predictNextMatchStyles, type StylePrediction } from "@/lib/tacticalPredictor";
+import type { AggregatedStats, TeamMatchView } from "@/lib/matchStats";
 
 type Props = {
   stats: AggregatedStats;
   teamName: string;
+  views: TeamMatchView[];
+  opponentStats?: AggregatedStats | null;
+  opponentName?: string;
 };
 
-type StylePrediction = {
-  style: string;
-  probability: number;
-  description: string;
-  color: string;
-};
-
-function predictStyles(stats: AggregatedStats): StylePrediction[] {
-  const tp = stats.tacticalProfile;
-
-  // Normalize scores into probability distribution
-  const raw = [
-    { style: "Pressing", score: tp.pressing, color: "bg-stat-warn", description: "High press, aggressive recoveries, lots of fouls" },
-    { style: "Attacking", score: tp.attacking, color: "bg-stat-positive", description: "Possession-dominant, high shot volume, creative play" },
-    { style: "Defensive", score: tp.defensive, color: "bg-primary", description: "Deep block, low concession rate, solid structure" },
-    { style: "Counter-Attack", score: tp.counterAttack, color: "bg-accent", description: "Efficient on transitions, clinical finishing" },
-    { style: "Volatile", score: tp.volatile, color: "bg-stat-negative", description: "Unpredictable swings, high-scoring chaotic games" },
-  ];
-
-  const total = raw.reduce((s, r) => s + r.score, 0) || 1;
-  return raw
-    .map((r) => ({
-      ...r,
-      probability: Math.round((r.score / total) * 100),
-    }))
-    .sort((a, b) => b.probability - a.probability);
-}
-
-export const PredictedTacticalProfile = ({ stats, teamName }: Props) => {
-  const predictions = predictStyles(stats);
+export const PredictedTacticalProfile = ({ stats, teamName, views, opponentStats, opponentName }: Props) => {
+  const predictions = predictNextMatchStyles(stats, views, opponentStats);
   const topStyle = predictions[0];
 
   return (
@@ -45,9 +21,15 @@ export const PredictedTacticalProfile = ({ stats, teamName }: Props) => {
           Next match
         </span>
       </div>
-      <p className="text-xs text-muted-foreground mb-4">
-        Probability ranking based on {teamName}'s recent patterns
-      </p>
+      {opponentName ? (
+        <p className="text-xs text-muted-foreground mb-4">
+          How {teamName} will likely play <span className="font-semibold text-foreground">vs {opponentName}</span>
+        </p>
+      ) : (
+        <p className="text-xs text-muted-foreground mb-4">
+          Prediction based on {teamName}'s recent patterns & form
+        </p>
+      )}
 
       <div className="space-y-2.5">
         {predictions.map((p, i) => (
