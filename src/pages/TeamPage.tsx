@@ -8,6 +8,7 @@ import {
   getUniqueLeagues,
   type TeamMatchView,
 } from "@/lib/matchStats";
+import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
