@@ -401,6 +401,7 @@ const PredictionDialog = ({
   const [selectedTeamB, setSelectedTeamB] = useState("");
   const [teamSearch, setTeamSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
+  const [showAI, setShowAI] = useState(false);
   const pastN = 10;
 
   const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
@@ -421,12 +422,58 @@ const PredictionDialog = ({
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
   const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
 
+  // ── Dixon-Coles prediction ──
+  const dcResult = useMemo<PredictionResult | null>(() => {
+    if (!statsA || !statsB || !selectedTeamA || !selectedTeamB) return null;
+
+    const leagueAvg = computeLeagueAvgGoals(allMatches);
+
+    // Build recent form stats (last 5)
+    const getRecentStats = (teamName: string) => {
+      const views = allMatches
+        .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+        .map((m: any) => getTeamMatchView(m, teamName))
+        .filter((v: any): v is TeamMatchView => v !== null)
+        .slice(-5);
+      if (views.length === 0) return { scored: 0, conceded: 0, n: 0 };
+      return {
+        scored: views.reduce((s, v) => s + v.goalsFor, 0),
+        conceded: views.reduce((s, v) => s + v.goalsAgainst, 0),
+        n: views.length,
+      };
+    };
+
+    const recentA = getRecentStats(selectedTeamA);
+    const recentB = getRecentStats(selectedTeamB);
+
+    const homeInput: TeamInput = {
+      goalsScored: statsA.goalsFor,
+      goalsConceded: statsA.goalsAgainst,
+      matchesPlayed: statsA.matchesPlayed,
+      recentGoalsScored: recentA.scored,
+      recentGoalsConceded: recentA.conceded,
+      recentMatches: recentA.n,
+    };
+
+    const awayInput: TeamInput = {
+      goalsScored: statsB.goalsFor,
+      goalsConceded: statsB.goalsAgainst,
+      matchesPlayed: statsB.matchesPlayed,
+      recentGoalsScored: recentB.scored,
+      recentGoalsConceded: recentB.conceded,
+      recentMatches: recentB.n,
+    };
+
+    return predictMatch(homeInput, awayInput, leagueAvg);
+  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches]);
+
   const handleReset = () => {
     setPrediction(null);
     setSelectedTeamA("");
     setSelectedTeamB("");
     setTeamSearch("");
     setOpponentSearch("");
+    setShowAI(false);
   };
 
   const handleRunPredict = useCallback(async () => {
@@ -459,7 +506,8 @@ const PredictionDialog = ({
       if (!response.ok) throw new Error(data?.error || `Error ${response.status}`);
       if (!data?.prediction) throw new Error(data?.error || "No prediction returned");
       setPrediction(data.prediction);
-      toast.success("Prediction ready!");
+      setShowAI(true);
+      toast.success("AI prediction ready!");
     } catch (err: any) {
       console.error("Predict error:", err);
       toast.error(err?.message || "Prediction failed — try again");
@@ -479,6 +527,19 @@ const PredictionDialog = ({
 
   const hasBothTeams = selectedTeamA && statsA && selectedTeamB && statsB;
 
+  /* Probability bar helper */
+  const ProbBar = ({ label, value, color }: { label: string; value: number; color: string }) => (
+    <div className="space-y-0.5">
+      <div className="flex justify-between">
+        <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
+        <span className="font-mono text-[11px] font-bold">{value.toFixed(1)}%</span>
+      </div>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div className={cn("h-full rounded-full transition-all duration-700", color)} style={{ width: `${value}%` }} />
+      </div>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
@@ -486,7 +547,7 @@ const PredictionDialog = ({
         <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b-2 border-primary/20 bg-primary/5">
           <div className="flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-primary" />
-            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-primary">AI Match Prediction</span>
+            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-primary">Match Prediction</span>
           </div>
           <button onClick={() => onOpenChange(false)} className="p-1 hover:bg-muted transition-colors border border-border rounded-sm">
             <X className="w-3.5 h-3.5 text-muted-foreground" />
@@ -494,12 +555,12 @@ const PredictionDialog = ({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2.5" style={{ minHeight: 0, WebkitOverflowScrolling: "touch" }}>
-          {/* ── TEAM SELECTION SECTION ── */}
-          {!prediction && (
+          {/* ── TEAM SELECTION ── */}
+          {!showAI && (
             <div className="space-y-2">
               {/* Team A */}
               <div>
-                <label className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold mb-1 block">Team</label>
+                <label className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold mb-1 block">Home Team</label>
                 {selectedTeamA ? (
                   <div className="flex items-center justify-between border border-primary bg-primary/5 px-2 py-1.5 rounded-sm">
                     <div className="flex items-center gap-1.5">
@@ -531,7 +592,7 @@ const PredictionDialog = ({
                     <span className="text-[10px] font-black text-muted-foreground tracking-wider">VS</span>
                   </div>
                   <div>
-                    <label className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold mb-1 block">Opponent <span className="text-muted-foreground/60">(optional)</span></label>
+                    <label className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold mb-1 block">Away Team</label>
                     {selectedTeamB ? (
                       <div className="flex items-center justify-between border border-border bg-muted/30 px-2 py-1.5 rounded-sm">
                         <div className="flex items-center gap-1.5">
@@ -560,62 +621,86 @@ const PredictionDialog = ({
             </div>
           )}
 
-          {/* ── STATS COMPARISON (sectioned) ── */}
-          {hasBothTeams && !prediction && (
-            <div className="border border-border bg-card rounded-sm overflow-hidden">
-              {/* Section: Performance */}
-              <div className="px-2 py-1 bg-muted/60 border-b border-border">
-                <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">📊 Performance</span>
-              </div>
-              <ComparisonRow label="Win %" a={`${statsA!.winProbability.toFixed(0)}%`} b={`${statsB!.winProbability.toFixed(0)}%`} better={statsA!.winProbability > statsB!.winProbability ? "a" : statsA!.winProbability < statsB!.winProbability ? "b" : "none"} />
-              <ComparisonRow label="GF/G" a={(statsA!.goalsFor / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsFor / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsFor / statsA!.matchesPlayed > statsB!.goalsFor / statsB!.matchesPlayed ? "a" : "b"} />
-              <ComparisonRow label="GA/G" a={(statsA!.goalsAgainst / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsAgainst / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsAgainst / statsA!.matchesPlayed < statsB!.goalsAgainst / statsB!.matchesPlayed ? "a" : "b"} />
-
-              {/* Section: Attacking */}
-              <div className="px-2 py-1 bg-muted/60 border-y border-border">
-                <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">⚔️ Attacking</span>
-              </div>
-              <ComparisonRow label="Shots" a={statsA!.avgShotsFor.toFixed(1)} b={statsB!.avgShotsFor.toFixed(1)} better={statsA!.avgShotsFor > statsB!.avgShotsFor ? "a" : "b"} />
-              <ComparisonRow label="SOT" a={statsA!.avgShotsOnTargetFor.toFixed(1)} b={statsB!.avgShotsOnTargetFor.toFixed(1)} better={statsA!.avgShotsOnTargetFor > statsB!.avgShotsOnTargetFor ? "a" : "b"} />
-              <ComparisonRow label="Corners" a={statsA!.avgCornersFor.toFixed(1)} b={statsB!.avgCornersFor.toFixed(1)} better={statsA!.avgCornersFor > statsB!.avgCornersFor ? "a" : "b"} />
-
-              {/* Section: Discipline */}
-              <div className="px-2 py-1 bg-muted/60 border-y border-border">
-                <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">🟡 Discipline</span>
-              </div>
-              <ComparisonRow label="Fouls" a={statsA!.avgFoulsCommitted.toFixed(1)} b={statsB!.avgFoulsCommitted.toFixed(1)} better={statsA!.avgFoulsCommitted < statsB!.avgFoulsCommitted ? "a" : "b"} />
-              <ComparisonRow label="Yellows" a={statsA!.avgYellowCards.toFixed(1)} b={statsB!.avgYellowCards.toFixed(1)} better={statsA!.avgYellowCards < statsB!.avgYellowCards ? "a" : "b"} />
-
-              {/* Section: Probabilities */}
-              <div className="px-2 py-1 bg-muted/60 border-y border-border">
-                <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">📈 Probabilities</span>
-              </div>
-              <ComparisonRow label="Clean Sheets" a={`${statsA!.matchesPlayed > 0 ? ((statsA!.cleanSheets / statsA!.matchesPlayed) * 100).toFixed(0) : 0}%`} b={`${statsB!.matchesPlayed > 0 ? ((statsB!.cleanSheets / statsB!.matchesPlayed) * 100).toFixed(0) : 0}%`} better={statsA!.cleanSheets > statsB!.cleanSheets ? "a" : "b"} />
-              <ComparisonRow label="BTTS" a={`${statsA!.bttsPercentage.toFixed(0)}%`} b={`${statsB!.bttsPercentage.toFixed(0)}%`} better="none" />
-              <ComparisonRow label="Over 2.5" a={`${statsA!.over25Percentage.toFixed(0)}%`} b={`${statsB!.over25Percentage.toFixed(0)}%`} better="none" />
-
-              {/* Section: Tactical */}
-              <div className="px-2 py-1 bg-muted/60 border-y border-border">
-                <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">🧠 Tactical Style</span>
-              </div>
-              <ComparisonRow label="Style" a={statsA!.tacticalProfile.style} b={statsB!.tacticalProfile.style} better="none" />
-
-              {/* Form dots */}
-              <div className="px-2 py-1.5 border-t border-border flex items-center justify-between bg-muted/30">
-                <div className="flex items-center gap-1">
-                  <span className="text-[7px] text-muted-foreground font-semibold">Form</span>
-                  <div className="flex gap-[2px]">{statsA!.formLast5.map((r, i) => <span key={i} className={cn("w-[5px] h-[5px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
+          {/* ── DIXON-COLES STATISTICAL PREDICTION ── */}
+          {dcResult && hasBothTeams && !showAI && (
+            <div className="space-y-2">
+              {/* Win probabilities */}
+              <div className="border border-border bg-card rounded-sm overflow-hidden">
+                <div className="px-2 py-1 bg-primary/10 border-b border-border">
+                  <span className="text-[8px] uppercase tracking-wider font-bold text-primary">📊 Match Probabilities</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="flex gap-[2px]">{statsB!.formLast5.map((r, i) => <span key={i} className={cn("w-[5px] h-[5px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
-                  <span className="text-[7px] text-muted-foreground font-semibold">Form</span>
+                <div className="p-2.5 space-y-2">
+                  <ProbBar label={selectedTeamA} value={dcResult.homeWin} color="bg-stat-positive" />
+                  <ProbBar label="Draw" value={dcResult.draw} color="bg-stat-warn" />
+                  <ProbBar label={selectedTeamB} value={dcResult.awayWin} color="bg-stat-negative" />
+                </div>
+              </div>
+
+              {/* Expected goals */}
+              <div className="border border-border bg-card rounded-sm overflow-hidden">
+                <div className="px-2 py-1 bg-muted/60 border-b border-border">
+                  <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">⚽ Expected Goals</span>
+                </div>
+                <div className="flex items-center justify-around py-2.5">
+                  <div className="text-center">
+                    <p className="font-mono text-2xl font-bold text-foreground">{dcResult.lambdaHome.toFixed(2)}</p>
+                    <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">{selectedTeamA}</p>
+                  </div>
+                  <div className="text-[10px] font-black text-muted-foreground">xG</div>
+                  <div className="text-center">
+                    <p className="font-mono text-2xl font-bold text-foreground">{dcResult.lambdaAway.toFixed(2)}</p>
+                    <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">{selectedTeamB}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top scorelines */}
+              <div className="border border-border bg-card rounded-sm overflow-hidden">
+                <div className="px-2 py-1 bg-muted/60 border-b border-border">
+                  <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">🎯 Most Likely Scorelines</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {dcResult.topScorelines.slice(0, 5).map((s, i) => (
+                    <div key={i} className="flex items-center px-2.5 py-1.5">
+                      <span className="text-[9px] text-muted-foreground font-mono w-4">#{i + 1}</span>
+                      <span className="font-mono text-[12px] font-bold flex-1 text-center">
+                        {s.home} – {s.away}
+                      </span>
+                      <span className="font-mono text-[11px] font-bold text-primary">{(s.probability * 100).toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats comparison */}
+              <div className="border border-border bg-card rounded-sm overflow-hidden">
+                <div className="px-2 py-1 bg-muted/60 border-b border-border">
+                  <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">📈 Head to Head Stats</span>
+                </div>
+                <ComparisonRow label="Win %" a={`${statsA!.winProbability.toFixed(0)}%`} b={`${statsB!.winProbability.toFixed(0)}%`} better={statsA!.winProbability > statsB!.winProbability ? "a" : statsA!.winProbability < statsB!.winProbability ? "b" : "none"} />
+                <ComparisonRow label="GF/G" a={(statsA!.goalsFor / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsFor / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsFor / statsA!.matchesPlayed > statsB!.goalsFor / statsB!.matchesPlayed ? "a" : "b"} />
+                <ComparisonRow label="GA/G" a={(statsA!.goalsAgainst / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsAgainst / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsAgainst / statsA!.matchesPlayed < statsB!.goalsAgainst / statsB!.matchesPlayed ? "a" : "b"} />
+                <ComparisonRow label="Shots" a={statsA!.avgShotsFor.toFixed(1)} b={statsB!.avgShotsFor.toFixed(1)} better={statsA!.avgShotsFor > statsB!.avgShotsFor ? "a" : "b"} />
+                <ComparisonRow label="BTTS" a={`${statsA!.bttsPercentage.toFixed(0)}%`} b={`${statsB!.bttsPercentage.toFixed(0)}%`} better="none" />
+                <ComparisonRow label="O2.5" a={`${statsA!.over25Percentage.toFixed(0)}%`} b={`${statsB!.over25Percentage.toFixed(0)}%`} better="none" />
+
+                {/* Form dots */}
+                <div className="px-2 py-1.5 border-t border-border flex items-center justify-between bg-muted/30">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[7px] text-muted-foreground font-semibold">Form</span>
+                    <div className="flex gap-[2px]">{statsA!.formLast5.map((r, i) => <span key={i} className={cn("w-[5px] h-[5px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="flex gap-[2px]">{statsB!.formLast5.map((r, i) => <span key={i} className={cn("w-[5px] h-[5px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
+                    <span className="text-[7px] text-muted-foreground font-semibold">Form</span>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── PREDICTION RESULT ── */}
-          {prediction && (
+          {/* ── AI PREDICTION RESULT ── */}
+          {showAI && prediction && (
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5">
@@ -632,6 +717,25 @@ const PredictionDialog = ({
                   </>
                 )}
               </div>
+
+              {/* Show DC probabilities summary even in AI view */}
+              {dcResult && (
+                <div className="border border-border bg-card rounded-sm p-2 flex items-center justify-around">
+                  <div className="text-center">
+                    <p className="font-mono text-sm font-bold text-stat-positive">{dcResult.homeWin.toFixed(0)}%</p>
+                    <p className="text-[7px] uppercase text-muted-foreground">Home</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-mono text-sm font-bold text-stat-warn">{dcResult.draw.toFixed(0)}%</p>
+                    <p className="text-[7px] uppercase text-muted-foreground">Draw</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="font-mono text-sm font-bold text-stat-negative">{dcResult.awayWin.toFixed(0)}%</p>
+                    <p className="text-[7px] uppercase text-muted-foreground">Away</p>
+                  </div>
+                </div>
+              )}
+
               <div className="border border-primary/20 bg-primary/5 p-2.5 rounded-sm">
                 <div className="text-[11px] text-foreground leading-relaxed whitespace-pre-wrap">{prediction}</div>
               </div>
@@ -643,24 +747,24 @@ const PredictionDialog = ({
           )}
         </div>
 
-        {/* Sticky bottom: Generate button + footer */}
+        {/* Sticky bottom */}
         <div className="flex-shrink-0 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))]">
-          {selectedTeamA && !prediction && (
-            <div className="px-2.5 pt-2 pb-1">
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <div className="px-2.5 pt-2 pb-1 flex gap-2">
               <button onClick={handleRunPredict} disabled={predicting || !statsA}
                 className={cn(
-                  "w-full flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
+                  "flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
                   "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
                   "shadow-[2px_2px_0_hsl(var(--primary)/0.3)]",
                   (predicting || !statsA) && "opacity-70 cursor-wait"
                 )}>
                 {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                {predicting ? "Analyzing…" : "Generate Prediction"}
+                {predicting ? "Analyzing…" : "AI Deep Analysis"}
               </button>
             </div>
           )}
           <p className="text-[7px] text-muted-foreground text-center uppercase tracking-wider px-2.5 py-1">
-            AI-powered · Last {pastN} matches
+            Poisson-Dixon-Coles model · Last {pastN} matches
           </p>
         </div>
       </DialogContent>
