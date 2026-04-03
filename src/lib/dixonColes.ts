@@ -1,32 +1,55 @@
 /**
  * Dixon-Coles Match Prediction Engine
- * Uses Poisson distribution with Dixon-Coles low-score correction.
+ * Poisson distribution with Dixon-Coles low-score correction
+ * + player / psychological / fatigue context multipliers.
  */
 
+// ── Types ──
+
 export type TeamInput = {
-  goalsScored: number;       // total goals scored
-  goalsConceded: number;     // total goals conceded
+  goalsScored: number;
+  goalsConceded: number;
   matchesPlayed: number;
-  // Optional: home/away splits
+  // Optional home/away splits
   homeGoalsScored?: number;
   homeGoalsConceded?: number;
   homeMatches?: number;
   awayGoalsScored?: number;
   awayGoalsConceded?: number;
   awayMatches?: number;
-  // Optional: last-5 form (same shape)
+  // Last-5 form
   recentGoalsScored?: number;
   recentGoalsConceded?: number;
   recentMatches?: number;
 };
 
+/** Context factors that modify expected goals beyond pure stats */
+export type MatchContext = {
+  /** Key player returning – rating 0-1 (e.g. 0.9 = world-class) */
+  playerReturnRating?: number;
+  /** Availability fraction 0-1 (1 = fully fit) */
+  playerReturnAvailability?: number;
+  /** Key player missing – rating 0-1 */
+  missingPlayerRating?: number;
+  /** Derby / rivalry flag (0 or 1) */
+  rivalryFlag?: number;
+  /** Revenge flag – lost previous meeting (0 or 1) */
+  revengeFlag?: number;
+  /** Match importance 0-1 (0 = dead rubber, 1 = title decider) */
+  importance?: number;
+  /** Games played in last 7 days (1 = normal, 2+ = congestion) */
+  matchesLast7Days?: number;
+  /** Strong home crowd (true adds 5 % attack boost) */
+  strongCrowd?: boolean;
+};
+
 export type PredictionConfig = {
-  homeAdvantage: number;  // default 1.2
-  rho: number;            // Dixon-Coles correction, default -0.1
-  maxGoals: number;       // default 5
-  formWeight: number;     // weight for recent form, default 0.3
-  lambdaMin: number;      // clamp min, default 0.2
-  lambdaMax: number;      // clamp max, default 3.5
+  homeAdvantage: number;
+  rho: number;
+  maxGoals: number;
+  formWeight: number;
+  lambdaMin: number;
+  lambdaMax: number;
 };
 
 export type ScorelineProbability = {
@@ -43,6 +66,20 @@ export type PredictionResult = {
   lambdaAway: number;
   topScorelines: ScorelineProbability[];
   scoreMatrix: number[][];
+  /** Multiplier breakdowns for transparency */
+  contextMultipliers?: { home: ContextBreakdown; away: ContextBreakdown };
+};
+
+export type ContextBreakdown = {
+  playerReturn: number;
+  missingPlayer: number;
+  motivation: number;
+  importanceAttack: number;
+  importanceDefense: number;
+  fatigue: number;
+  crowd: number;
+  totalAttack: number;
+  totalDefense: number;
 };
 
 const DEFAULT_CONFIG: PredictionConfig = {
@@ -54,7 +91,8 @@ const DEFAULT_CONFIG: PredictionConfig = {
   lambdaMax: 3.5,
 };
 
-/** Factorial (small n only) */
+// ── Helpers ──
+
 function factorial(n: number): number {
   if (n <= 1) return 1;
   let r = 1;
@@ -62,31 +100,17 @@ function factorial(n: number): number {
   return r;
 }
 
-/** Poisson PMF: P(X=k) = (λ^k * e^-λ) / k! */
 function poissonPMF(lambda: number, k: number): number {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
 }
 
-/** Dixon-Coles correction factor τ for low scores */
 function dixonColesTau(
-  homeGoals: number,
-  awayGoals: number,
-  lambdaHome: number,
-  lambdaAway: number,
-  rho: number,
+  hg: number, ag: number, lh: number, la: number, rho: number,
 ): number {
-  if (homeGoals === 0 && awayGoals === 0) {
-    return 1 - lambdaHome * lambdaAway * rho;
-  }
-  if (homeGoals === 1 && awayGoals === 0) {
-    return 1 + lambdaAway * rho;
-  }
-  if (homeGoals === 0 && awayGoals === 1) {
-    return 1 + lambdaHome * rho;
-  }
-  if (homeGoals === 1 && awayGoals === 1) {
-    return 1 - rho;
-  }
+  if (hg === 0 && ag === 0) return 1 - lh * la * rho;
+  if (hg === 1 && ag === 0) return 1 + la * rho;
+  if (hg === 0 && ag === 1) return 1 + lh * rho;
+  if (hg === 1 && ag === 1) return 1 - rho;
   return 1;
 }
 
@@ -94,15 +118,9 @@ function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
-/**
- * Compute blended goals-per-game using season + recent form.
- */
 function blendedRate(
-  seasonTotal: number,
-  seasonMatches: number,
-  recentTotal?: number,
-  recentMatches?: number,
-  formWeight = 0.3,
+  seasonTotal: number, seasonMatches: number,
+  recentTotal?: number, recentMatches?: number, formWeight = 0.3,
 ): number {
   const seasonRate = seasonMatches > 0 ? seasonTotal / seasonMatches : 1;
   if (recentTotal != null && recentMatches != null && recentMatches > 0) {
@@ -112,29 +130,105 @@ function blendedRate(
   return seasonRate;
 }
 
-/**
- * Main prediction function.
- * 
- * @param home - Home team stats
- * @param away - Away team stats
- * @param leagueAvgGoals - League average goals per team per game (typically ~1.3-1.5)
- * @param config - Optional configuration overrides
- */
+// ── Context multiplier calculation ──
+
+function computeContext(ctx?: MatchContext): ContextBreakdown {
+  if (!ctx) {
+    return {
+      playerReturn: 1, missingPlayer: 1, motivation: 1,
+      importanceAttack: 1, importanceDefense: 1,
+      fatigue: 1, crowd: 1, totalAttack: 1, totalDefense: 1,
+    };
+  }
+
+  // Player return: impact = 1 + (rating * availability * 0.1)
+  const playerReturn = 1 + ((ctx.playerReturnRating ?? 0) * (ctx.playerReturnAvailability ?? 0) * 0.1);
+
+  // Missing player: loss = 1 - (rating * 0.15)
+  const missingPlayer = 1 - ((ctx.missingPlayerRating ?? 0) * 0.15);
+
+  // Motivation: 1 + 0.05*rivalry + 0.03*revenge
+  const motivation = 1 + (0.05 * (ctx.rivalryFlag ?? 0)) + (0.03 * (ctx.revengeFlag ?? 0));
+
+  // Importance: attack boost & defense risk
+  const imp = ctx.importance ?? 0;
+  const importanceAttack = 1 + (0.1 * imp);
+  const importanceDefense = 1 + (0.05 * imp);
+
+  // Fatigue: max(0.8, 1 - 0.05 * (matches_last_7 - 1))
+  const matchesLast7 = ctx.matchesLast7Days ?? 1;
+  const fatigue = Math.max(0.8, 1 - 0.05 * (matchesLast7 - 1));
+
+  // Crowd: 1.05 for strong home
+  const crowd = ctx.strongCrowd ? 1.05 : 1;
+
+  // Combine attack factors (clamped 0.6–1.6)
+  const rawAttack = playerReturn * missingPlayer * motivation * importanceAttack * fatigue * crowd;
+  const totalAttack = clamp(rawAttack, 0.6, 1.6);
+
+  // Combine defense factors (opponent defense risk) — clamped same
+  const rawDefense = missingPlayer * importanceDefense * fatigue;
+  const totalDefense = clamp(rawDefense, 0.6, 1.6);
+
+  return {
+    playerReturn, missingPlayer, motivation,
+    importanceAttack, importanceDefense,
+    fatigue, crowd, totalAttack, totalDefense,
+  };
+}
+
+// ── Auto-infer context from stats ──
+
+/** Derive reasonable context values from available team stats */
+export function inferContext(
+  team: TeamInput,
+  opponent: TeamInput,
+  isHome: boolean,
+): MatchContext {
+  const gfPerGame = team.matchesPlayed > 0 ? team.goalsScored / team.matchesPlayed : 1;
+  const gaPerGame = team.matchesPlayed > 0 ? team.goalsConceded / team.matchesPlayed : 1;
+  const oppGfPerGame = opponent.matchesPlayed > 0 ? opponent.goalsScored / opponent.matchesPlayed : 1;
+
+  // Importance: closer teams in strength → higher importance
+  const strengthDiff = Math.abs(gfPerGame - oppGfPerGame);
+  const importance = clamp(1 - strengthDiff / 2, 0, 1);
+
+  // Crowd effect for home team
+  const strongCrowd = isHome;
+
+  // Fatigue proxy: more matches → more likely congested
+  const matchesLast7 = team.matchesPlayed > 20 ? 2 : 1;
+
+  // Motivation: if team concedes more than scores → revenge/fight mode
+  const revengeFlag = gaPerGame > gfPerGame ? 1 : 0;
+
+  return {
+    importance,
+    strongCrowd,
+    matchesLast7Days: matchesLast7,
+    revengeFlag,
+    rivalryFlag: 0,
+  };
+}
+
+// ── Main prediction ──
+
 export function predictMatch(
   home: TeamInput,
   away: TeamInput,
   leagueAvgGoals?: number,
   config?: Partial<PredictionConfig>,
+  homeContext?: MatchContext,
+  awayContext?: MatchContext,
 ): PredictionResult {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
-  // Calculate league average from both teams if not provided
   const avgGoals = leagueAvgGoals ?? (
     (home.goalsScored + home.goalsConceded + away.goalsScored + away.goalsConceded) /
     (2 * (home.matchesPlayed + away.matchesPlayed)) || 1.3
   );
 
-  // ── Attack & Defense strengths ──
+  // Attack & Defense strengths
   const homeAttack = blendedRate(
     home.goalsScored, home.matchesPlayed,
     home.recentGoalsScored, home.recentMatches, cfg.formWeight,
@@ -155,32 +249,32 @@ export function predictMatch(
     away.recentGoalsConceded, away.recentMatches, cfg.formWeight,
   ) / avgGoals;
 
-  // ── Expected goals (λ) ──
-  let lambdaHome = homeAttack * awayDefense * avgGoals * cfg.homeAdvantage;
-  let lambdaAway = awayAttack * homeDefense * avgGoals;
+  // Context multipliers (auto-infer if not provided)
+  const hCtx = computeContext(homeContext ?? inferContext(home, away, true));
+  const aCtx = computeContext(awayContext ?? inferContext(away, home, false));
+
+  // Expected goals with context
+  // lambda_home = base * attack_factors_home * defense_factors_away
+  let lambdaHome = homeAttack * awayDefense * avgGoals * cfg.homeAdvantage * hCtx.totalAttack * aCtx.totalDefense;
+  let lambdaAway = awayAttack * homeDefense * avgGoals * aCtx.totalAttack * hCtx.totalDefense;
 
   lambdaHome = clamp(lambdaHome, cfg.lambdaMin, cfg.lambdaMax);
   lambdaAway = clamp(lambdaAway, cfg.lambdaMin, cfg.lambdaMax);
 
-  // ── Score matrix with Dixon-Coles correction ──
+  // Score matrix
   const n = cfg.maxGoals + 1;
   const matrix: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
 
   for (let i = 0; i < n; i++) {
     for (let j = 0; j < n; j++) {
-      const pHome = poissonPMF(lambdaHome, i);
-      const pAway = poissonPMF(lambdaAway, j);
       const tau = dixonColesTau(i, j, lambdaHome, lambdaAway, cfg.rho);
-      matrix[i][j] = pHome * pAway * tau;
+      matrix[i][j] = poissonPMF(lambdaHome, i) * poissonPMF(lambdaAway, j) * tau;
     }
   }
 
-  // ── Normalize matrix (tau can make total != 1) ──
   const total = matrix.reduce((s, row) => s + row.reduce((a, b) => a + b, 0), 0);
 
-  let homeWin = 0;
-  let draw = 0;
-  let awayWin = 0;
+  let homeWin = 0, draw = 0, awayWin = 0;
   const scorelines: ScorelineProbability[] = [];
 
   for (let i = 0; i < n; i++) {
@@ -204,12 +298,10 @@ export function predictMatch(
     lambdaAway,
     topScorelines: scorelines.slice(0, 5),
     scoreMatrix: matrix,
+    contextMultipliers: { home: hCtx, away: aCtx },
   };
 }
 
-/**
- * Compute league average goals per team per game from match data.
- */
 export function computeLeagueAvgGoals(
   matches: { ft_home_goals: number; ft_away_goals: number }[],
 ): number {
