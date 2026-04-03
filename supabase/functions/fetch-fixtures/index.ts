@@ -8,10 +8,19 @@ const corsHeaders = {
 
 const LEAGUES: Record<string, { code: string; name: string }> = {
   E0: { code: "E0", name: "Premier League" },
+  E1: { code: "E1", name: "Championship" },
+  E2: { code: "E2", name: "League One" },
+  E3: { code: "E3", name: "League Two" },
+  EC: { code: "EC", name: "Conference" },
   SP1: { code: "SP1", name: "La Liga" },
+  SP2: { code: "SP2", name: "La Liga 2" },
   D1: { code: "D1", name: "Bundesliga" },
+  D2: { code: "D2", name: "Bundesliga 2" },
   I1: { code: "I1", name: "Serie A" },
+  I2: { code: "I2", name: "Serie B" },
   F1: { code: "F1", name: "Ligue 1" },
+  F2: { code: "F2", name: "Ligue 2" },
+  P1: { code: "P1", name: "Primeira Liga" },
 };
 
 function parseCSV(csv: string): Record<string, string>[] {
