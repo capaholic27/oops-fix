@@ -374,6 +374,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         </div>
       </div>
 
+      <MomentumChart views={teamViews} teamName={selectedTeam} />
       <RecentResults views={teamViews} />
       {leagueCode && leagueMatches.length > 0 && (
         <RankingsTable matches={leagueMatches} leagueName={currentLeagueName} />
