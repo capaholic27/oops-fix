@@ -20,6 +20,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
@@ -374,8 +375,22 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         </div>
       </div>
 
+      {/* Upcoming Fixtures */}
+      <UpcomingFixtures
+        teamName={selectedTeam}
+        allMatches={allMatches}
+        onSelectFixture={(home, away) => {
+          onOpenPredict();
+        }}
+      />
+
+      {/* Performance Analysis */}
       <MomentumChart views={teamViews} teamName={selectedTeam} />
+
+      {/* Recent Results */}
       <RecentResults views={teamViews} />
+
+      {/* League Table */}
       {leagueCode && leagueMatches.length > 0 && (
         <RankingsTable matches={leagueMatches} leagueName={currentLeagueName} />
       )}

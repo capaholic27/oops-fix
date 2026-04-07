@@ -56,7 +56,6 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Fetch the fixtures CSV
     const resp = await fetch("https://www.football-data.co.uk/fixtures.csv");
     if (!resp.ok) {
       return new Response(
@@ -68,7 +67,6 @@ Deno.serve(async (req) => {
     const csvText = await resp.text();
     const rows = parseCSV(csvText);
 
-    // Filter only our tracked leagues
     const fixtures = rows
       .filter((r) => LEAGUES[r.Div])
       .map((r) => {
@@ -89,20 +87,35 @@ Deno.serve(async (req) => {
 
     let inserted = 0;
     if (fixtures.length > 0) {
-      // Clear old fixtures first, then insert fresh
-      await supabase.from("fixtures").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      
-      const { error } = await supabase.from("fixtures").upsert(fixtures, {
-        onConflict: "league_code,match_date,home_team,away_team",
-      });
-      if (error) {
-        console.error("Upsert error:", error);
-        return new Response(
-          JSON.stringify({ success: false, error: error.message }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      // Clear all existing fixtures first
+      const { error: delError } = await supabase.from("fixtures").delete().gte("match_date", "2000-01-01");
+      if (delError) {
+        console.error("Delete error:", delError);
       }
-      inserted = fixtures.length;
+
+      // Deduplicate fixtures by composite key before inserting
+      const seen = new Set<string>();
+      const uniqueFixtures = fixtures.filter((f: any) => {
+        const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Insert in batches to avoid payload limits
+      const batchSize = 100;
+      for (let i = 0; i < uniqueFixtures.length; i += batchSize) {
+        const batch = uniqueFixtures.slice(i, i + batchSize);
+        const { error } = await supabase.from("fixtures").insert(batch);
+        if (error) {
+          console.error("Insert error:", error);
+          return new Response(
+            JSON.stringify({ success: false, error: error.message }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+      inserted = uniqueFixtures.length;
     }
 
     return new Response(
