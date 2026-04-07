@@ -20,6 +20,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
