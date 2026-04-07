@@ -375,8 +375,22 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         </div>
       </div>
 
+      {/* Upcoming Fixtures */}
+      <UpcomingFixtures
+        teamName={selectedTeam}
+        allMatches={allMatches}
+        onSelectFixture={(home, away) => {
+          onOpenPredict();
+        }}
+      />
+
+      {/* Performance Analysis */}
       <MomentumChart views={teamViews} teamName={selectedTeam} />
+
+      {/* Recent Results */}
       <RecentResults views={teamViews} />
+
+      {/* League Table */}
       {leagueCode && leagueMatches.length > 0 && (
         <RankingsTable matches={leagueMatches} leagueName={currentLeagueName} />
       )}
