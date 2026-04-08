@@ -350,6 +350,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
           opponentStats={nextOpponentStats}
           opponentName={nextOpponentName}
           nextFixture={nextFixture ? { date: nextFixture.match_date, isHome: nextFixture.home_team === selectedTeam } : undefined}
+          allFixtures={allFixtures}
+          allMatches={allMatches}
+          onFixtureChange={(f) => setSelectedFixtureId(f.id)}
         />
         <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
           <span className="stat-label mb-3 block">Shot Efficiency</span>
