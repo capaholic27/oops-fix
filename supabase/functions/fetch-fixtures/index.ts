@@ -6,21 +6,19 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const LEAGUES: Record<string, { code: string; name: string }> = {
-  E0: { code: "E0", name: "Premier League" },
-  E1: { code: "E1", name: "Championship" },
-  E2: { code: "E2", name: "League One" },
-  E3: { code: "E3", name: "League Two" },
-  EC: { code: "EC", name: "Conference" },
-  SP1: { code: "SP1", name: "La Liga" },
-  SP2: { code: "SP2", name: "La Liga 2" },
-  D1: { code: "D1", name: "Bundesliga" },
-  D2: { code: "D2", name: "Bundesliga 2" },
-  I1: { code: "I1", name: "Serie A" },
-  I2: { code: "I2", name: "Serie B" },
-  F1: { code: "F1", name: "Ligue 1" },
-  F2: { code: "F2", name: "Ligue 2" },
-  P1: { code: "P1", name: "Primeira Liga" },
+/* Known league names — fallback to code itself for unknown ones */
+const LEAGUE_NAMES: Record<string, string> = {
+  E0: "Premier League", E1: "Championship", E2: "League One", E3: "League Two", EC: "Conference",
+  SP1: "La Liga", SP2: "La Liga 2",
+  D1: "Bundesliga", D2: "Bundesliga 2",
+  I1: "Serie A", I2: "Serie B",
+  F1: "Ligue 1", F2: "Ligue 2",
+  P1: "Primeira Liga",
+  N1: "Eredivisie",
+  B1: "Jupiler League",
+  T1: "Super Lig",
+  G1: "Super League Greece",
+  SC0: "Scottish Premiership", SC1: "Scottish Championship", SC2: "Scottish League One", SC3: "Scottish League Two",
 };
 
 function parseCSV(csv: string): Record<string, string>[] {
@@ -67,15 +65,17 @@ Deno.serve(async (req) => {
     const csvText = await resp.text();
     const rows = parseCSV(csvText);
 
+    // Accept ALL leagues found in the CSV, not just a hardcoded subset
     const fixtures = rows
-      .filter((r) => LEAGUES[r.Div])
+      .filter((r) => r.Div && r.Date && r.HomeTeam && r.AwayTeam)
       .map((r) => {
         const matchDate = parseDate(r.Date);
-        if (!matchDate || !r.HomeTeam || !r.AwayTeam) return null;
-        const league = LEAGUES[r.Div];
+        if (!matchDate) return null;
+        const code = r.Div;
+        const name = LEAGUE_NAMES[code] || code;
         return {
-          league_code: league.code,
-          league_name: league.name,
+          league_code: code,
+          league_name: name,
           match_date: matchDate,
           match_time: r.Time || null,
           home_team: r.HomeTeam,
@@ -87,13 +87,10 @@ Deno.serve(async (req) => {
 
     let inserted = 0;
     if (fixtures.length > 0) {
-      // Clear all existing fixtures first
       const { error: delError } = await supabase.from("fixtures").delete().gte("match_date", "2000-01-01");
-      if (delError) {
-        console.error("Delete error:", delError);
-      }
+      if (delError) console.error("Delete error:", delError);
 
-      // Deduplicate fixtures by composite key before inserting
+      // Deduplicate
       const seen = new Set<string>();
       const uniqueFixtures = fixtures.filter((f: any) => {
         const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
@@ -102,7 +99,6 @@ Deno.serve(async (req) => {
         return true;
       });
 
-      // Insert in batches to avoid payload limits
       const batchSize = 100;
       for (let i = 0; i < uniqueFixtures.length; i += batchSize) {
         const batch = uniqueFixtures.slice(i, i + batchSize);
