@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const API_HOST = "v3.football.api-sports.io";
+const RAPIDAPI_HOST = "v3.football.api-sports.io";
 
 // Top leagues to fetch fixtures for (league IDs from API-Football)
 const LEAGUES: { id: number; code: string; name: string }[] = [
