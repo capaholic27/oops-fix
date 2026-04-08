@@ -36,8 +36,11 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
 const SEASON = 2025;
 
 async function apiFetch(endpoint: string, params: Record<string, string>, apiKey: string) {
-  const url = new URL(`https://${API_HOST}${endpoint}`);
+  // Try RapidAPI format first
+  const url = new URL(`https://${RAPIDAPI_HOST}${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+
+  console.log(`Fetching: ${url.toString()}`);
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -47,10 +50,17 @@ async function apiFetch(endpoint: string, params: Record<string, string>, apiKey
 
   if (!res.ok) {
     const text = await res.text();
+    console.error(`API error ${res.status}: ${text}`);
     throw new Error(`API-Football ${res.status}: ${text}`);
   }
 
   const json = await res.json();
+  console.log(`Response results: ${json.results}, errors: ${JSON.stringify(json.errors)}`);
+  
+  if (json.errors && Object.keys(json.errors).length > 0) {
+    console.error("API errors:", JSON.stringify(json.errors));
+  }
+  
   return json.response || [];
 }
 
