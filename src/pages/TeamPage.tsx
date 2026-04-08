@@ -207,18 +207,23 @@ type StatsProps = {
 
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict }: StatsProps) => {
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
+  const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
   const { data: fixtures = [] } = useFixtures(selectedTeam);
+  const { data: allFixtures = [] } = useFixtures();
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
 
-  // Find next fixture for this team
+  // Find next fixture for this team (auto or user-selected)
   const nextFixture = useMemo(() => {
+    if (selectedFixtureId) {
+      return fixtures.find((f) => f.id === selectedFixtureId) ?? null;
+    }
     if (fixtures.length === 0) return null;
     const today = new Date().toISOString().split("T")[0];
     return fixtures.find((f) => f.match_date >= today) ?? null;
-  }, [fixtures]);
+  }, [fixtures, selectedFixtureId]);
 
   const nextOpponentName = useMemo(() => {
     if (!nextFixture) return undefined;
@@ -345,6 +350,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
           opponentStats={nextOpponentStats}
           opponentName={nextOpponentName}
           nextFixture={nextFixture ? { date: nextFixture.match_date, isHome: nextFixture.home_team === selectedTeam } : undefined}
+          allFixtures={allFixtures}
+          allMatches={allMatches}
+          onFixtureChange={(f) => setSelectedFixtureId(f.id)}
         />
         <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
           <span className="stat-label mb-3 block">Shot Efficiency</span>
