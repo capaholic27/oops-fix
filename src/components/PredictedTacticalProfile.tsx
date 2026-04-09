@@ -16,11 +16,15 @@ type Props = {
   allFixtures?: Fixture[];
   allMatches?: any[];
   onFixtureChange?: (fixture: Fixture) => void;
+  /** Opponents derived from match history for when no fixtures exist */
+  leagueOpponents?: string[];
+  onOpponentSelect?: (opponent: string) => void;
 };
 
 export const PredictedTacticalProfile = ({
   stats, teamName, views, opponentStats, opponentName, nextFixture,
   allFixtures = [], allMatches = [], onFixtureChange,
+  leagueOpponents = [], onOpponentSelect,
 }: Props) => {
   const [showPicker, setShowPicker] = useState(false);
 
@@ -36,6 +40,21 @@ export const PredictedTacticalProfile = ({
     [allFixtures, today, teamName]
   );
 
+  // Fallback: unique opponents from match history (when no fixtures)
+  const opponentOptions = useMemo(() => {
+    if (upcomingFixtures.length > 0) return [];
+    if (leagueOpponents.length > 0) return leagueOpponents.slice(0, 10);
+    // Derive from allMatches
+    const opps = new Set<string>();
+    for (const m of allMatches) {
+      if (m.home_team === teamName) opps.add(m.away_team);
+      else if (m.away_team === teamName) opps.add(m.home_team);
+    }
+    return [...opps].sort().slice(0, 10);
+  }, [upcomingFixtures, leagueOpponents, allMatches, teamName]);
+
+  const hasOptions = upcomingFixtures.length > 0 || opponentOptions.length > 0;
+
   const fixtureDate = nextFixture
     ? new Date(nextFixture.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })
     : null;
@@ -45,27 +64,29 @@ export const PredictedTacticalProfile = ({
       <div className="flex items-center justify-between mb-1">
         <span className="stat-label">Predicted Game Style</span>
         <button
-          onClick={() => upcomingFixtures.length > 0 && setShowPicker(!showPicker)}
+          onClick={() => hasOptions && setShowPicker(!showPicker)}
           className={cn(
-            "flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider transition-colors",
-            upcomingFixtures.length > 0
-              ? "text-primary hover:text-primary/80 cursor-pointer"
+            "flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider transition-colors px-2 py-1 rounded-sm",
+            hasOptions
+              ? "text-primary hover:text-primary/80 hover:bg-primary/5 cursor-pointer"
               : "text-muted-foreground cursor-default"
           )}
         >
-          Next match
-          {upcomingFixtures.length > 0 && (
+          {opponentName ? `vs ${opponentName}` : "Select opponent"}
+          {hasOptions && (
             <ChevronDown className={cn("w-2.5 h-2.5 transition-transform", showPicker && "rotate-180")} />
           )}
         </button>
       </div>
 
-      {/* Fixture picker dropdown */}
-      {showPicker && upcomingFixtures.length > 0 && (
-        <div className="mb-3 border border-border rounded-sm bg-muted/30 overflow-hidden">
-          <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold px-2 pt-1.5 pb-1">
-            Select fixture to predict
+      {/* Fixture / opponent picker dropdown */}
+      {showPicker && hasOptions && (
+        <div className="mb-3 border border-border rounded-sm bg-muted/30 overflow-hidden max-h-52 overflow-y-auto">
+          <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold px-2 pt-1.5 pb-1 sticky top-0 bg-muted/80 backdrop-blur-sm">
+            {upcomingFixtures.length > 0 ? "Upcoming fixtures" : "Select opponent to predict"}
           </p>
+
+          {/* Real fixtures */}
           {upcomingFixtures.map((f) => {
             const isHome = f.home_team === teamName;
             const opponent = isHome ? f.away_team : f.home_team;
@@ -97,23 +118,45 @@ export const PredictedTacticalProfile = ({
               </button>
             );
           })}
+
+          {/* Opponent list fallback (from match history) */}
+          {upcomingFixtures.length === 0 && opponentOptions.map((opp) => {
+            const isSelected = opponentName === opp;
+            return (
+              <button
+                key={opp}
+                onClick={() => {
+                  onOpponentSelect?.(opp);
+                  setShowPicker(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-primary/10 transition-colors border-t border-border first:border-t-0",
+                  isSelected && "bg-primary/10"
+                )}
+              >
+                <TeamLogo teamName={opp} size="xs" />
+                <p className="text-[10px] font-bold truncate flex-1">{opp}</p>
+                {isSelected && <span className="text-[8px] text-primary font-bold">●</span>}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Next fixture info */}
-      {nextFixture && opponentName ? (
+      {/* Selected opponent info */}
+      {opponentName ? (
         <div className="flex items-center gap-2 mb-3 px-2 py-1.5 border border-border bg-muted/30 rounded-sm">
           <Calendar className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           <p className="text-[11px] text-muted-foreground">
             <span className="font-semibold text-foreground">{teamName}</span>
-            {nextFixture.isHome ? " vs " : " @ "}
+            {nextFixture ? (nextFixture.isHome ? " vs " : " @ ") : " vs "}
             <span className="font-semibold text-foreground">{opponentName}</span>
-            <span className="text-[10px] ml-1.5 font-mono">({fixtureDate})</span>
+            {fixtureDate && <span className="text-[10px] ml-1.5 font-mono">({fixtureDate})</span>}
           </p>
         </div>
       ) : (
         <p className="text-xs text-muted-foreground mb-4">
-          Prediction based on {teamName}'s recent patterns & form
+          Tap an opponent above to predict match style
         </p>
       )}
 
@@ -151,7 +194,7 @@ export const PredictedTacticalProfile = ({
       <div className="mt-4 pt-3 border-t border-border">
         <p className="text-[11px] text-muted-foreground leading-relaxed">
           {topStyle.probability > 30
-            ? `${teamName} will most likely play a ${topStyle.style.toLowerCase()} style. ${topStyle.description}.`
+            ? `${teamName} will most likely play a ${topStyle.style.toLowerCase()} style${opponentName ? ` against ${opponentName}` : ""}. ${topStyle.description}.`
             : `${teamName} shows a balanced approach — no dominant style predicted.`}
         </p>
       </div>
