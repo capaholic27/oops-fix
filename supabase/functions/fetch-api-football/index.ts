@@ -24,8 +24,8 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
   { id: 179, code: "SC0", name: "Scottish Premiership" },
 ];
 
-// Free plan supports 2022-2024
-const SEASON = 2024;
+// Try current and previous seasons
+const SEASONS = [2025, 2024];
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -94,70 +94,72 @@ Deno.serve(async (req) => {
     const allFixtures: any[] = [];
     const allResults: any[] = [];
     let apiCalls = 0;
-    const maxCalls = 10; // Stay within rate limits
+    const maxCalls = 80; // Free plan allows 100/day
 
-    for (const league of LEAGUES) {
-      if (apiCalls >= maxCalls) break;
+    for (const season of SEASONS) {
+      for (const league of LEAGUES) {
+        if (apiCalls >= maxCalls) break;
 
-      try {
-        // Single call per league: get all fixtures for the season
-        const data = await apiFetch("/fixtures", {
-          league: String(league.id),
-          season: String(SEASON),
-        }, apiKey);
-        apiCalls++;
+        try {
+          const data = await apiFetch("/fixtures", {
+            league: String(league.id),
+            season: String(season),
+          }, apiKey);
+          apiCalls++;
 
-        for (const f of data) {
-          const fixture = f.fixture;
-          const teams = f.teams;
-          const goals = f.goals;
-          const score = f.score;
-          const matchDate = fixture.date ? fixture.date.slice(0, 10) : null;
-          const matchTime = fixture.date ? fixture.date.slice(11, 16) : null;
-          const status = fixture.status?.short;
+          for (const f of data) {
+            const fixture = f.fixture;
+            const teams = f.teams;
+            const goals = f.goals;
+            const score = f.score;
+            const matchDate = fixture.date ? fixture.date.slice(0, 10) : null;
+            const matchTime = fixture.date ? fixture.date.slice(11, 16) : null;
+            const status = fixture.status?.short;
 
-          if (!matchDate || !teams.home?.name || !teams.away?.name) continue;
+            if (!matchDate || !teams.home?.name || !teams.away?.name) continue;
 
-          // Upcoming (not started yet)
-          if (status === "NS" || status === "TBD") {
-            if (mode === "fixtures" || mode === "both") {
-              allFixtures.push({
-                league_code: league.code,
-                league_name: league.name,
-                match_date: matchDate,
-                match_time: matchTime || null,
-                home_team: teams.home.name,
-                away_team: teams.away.name,
-                referee: fixture.referee || null,
-              });
+            // Upcoming (not started yet)
+            if (status === "NS" || status === "TBD") {
+              if (mode === "fixtures" || mode === "both") {
+                allFixtures.push({
+                  league_code: league.code,
+                  league_name: league.name,
+                  match_date: matchDate,
+                  match_time: matchTime || null,
+                  home_team: teams.home.name,
+                  away_team: teams.away.name,
+                  referee: fixture.referee || null,
+                });
+              }
+            }
+            // Finished
+            else if (status === "FT" && goals.home !== null && goals.away !== null) {
+              if (mode === "results" || mode === "both") {
+                allResults.push({
+                  league_code: league.code,
+                  league_name: league.name,
+                  season: `${season % 100}${(season + 1) % 100}`,
+                  match_date: matchDate,
+                  home_team: teams.home.name,
+                  away_team: teams.away.name,
+                  ft_home_goals: goals.home,
+                  ft_away_goals: goals.away,
+                  ft_result: goals.home > goals.away ? "H" : goals.home < goals.away ? "A" : "D",
+                  ht_home_goals: score.halftime?.home ?? null,
+                  ht_away_goals: score.halftime?.away ?? null,
+                  ht_result: score.halftime?.home != null && score.halftime?.away != null
+                    ? (score.halftime.home > score.halftime.away ? "H" : score.halftime.home < score.halftime.away ? "A" : "D")
+                    : null,
+                  referee: fixture.referee || null,
+                });
+              }
             }
           }
-          // Finished
-          else if (status === "FT" && goals.home !== null && goals.away !== null) {
-            if (mode === "results" || mode === "both") {
-              allResults.push({
-                league_code: league.code,
-                league_name: league.name,
-                season: `${SEASON % 100}${(SEASON + 1) % 100}`,
-                match_date: matchDate,
-                home_team: teams.home.name,
-                away_team: teams.away.name,
-                ft_home_goals: goals.home,
-                ft_away_goals: goals.away,
-                ft_result: goals.home > goals.away ? "H" : goals.home < goals.away ? "A" : "D",
-                ht_home_goals: score.halftime?.home ?? null,
-                ht_away_goals: score.halftime?.away ?? null,
-                ht_result: score.halftime?.home != null && score.halftime?.away != null
-                  ? (score.halftime.home > score.halftime.away ? "H" : score.halftime.home < score.halftime.away ? "A" : "D")
-                  : null,
-                referee: fixture.referee || null,
-              });
-            }
-          }
+        } catch (err) {
+          console.error(`Error for ${league.name} (${season}):`, err);
         }
-      } catch (err) {
-        console.error(`Error for ${league.name}:`, err);
       }
+      if (apiCalls >= maxCalls) break;
     }
 
     // Insert fixtures
