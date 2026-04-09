@@ -227,9 +227,10 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   }, [fixtures, selectedFixtureId]);
 
   const nextOpponentName = useMemo(() => {
+    if (manualOpponent) return manualOpponent;
     if (!nextFixture) return undefined;
     return nextFixture.home_team === selectedTeam ? nextFixture.away_team : nextFixture.home_team;
-  }, [nextFixture, selectedTeam]);
+  }, [nextFixture, selectedTeam, manualOpponent]);
 
   // Get opponent stats if we have a next fixture
   const nextOpponentStats = useMemo(() => {
