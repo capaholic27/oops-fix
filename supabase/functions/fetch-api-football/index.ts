@@ -24,8 +24,8 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
   { id: 179, code: "SC0", name: "Scottish Premiership" },
 ];
 
-// Free plan supports 2022-2024
-const SEASON = 2024;
+// Try current and previous seasons
+const SEASONS = [2025, 2024];
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
