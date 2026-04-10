@@ -29,7 +29,6 @@ const Index = () => {
   
   const syncData = useSyncData();
 
-  // Apply stored theme on mount
   useEffect(() => {
     applyTheme(getStoredTheme());
   }, []);
@@ -55,74 +54,62 @@ const Index = () => {
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="border-b-2 border-foreground bg-card flex-shrink-0 z-50">
-        <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 border-2 border-foreground bg-primary flex items-center justify-center shadow-[2px_2px_0_hsl(var(--foreground))]">
-              <Zap className="w-3.5 h-3.5 text-primary-foreground" />
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm flex-shrink-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-sm leading-none">FootballEdge</h1>
-              <p className="text-[8px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">25/26</p>
+              <h1 className="text-sm font-bold leading-none tracking-tight">FootballEdge</h1>
+              <p className="text-[10px] text-muted-foreground font-medium mt-0.5">2025/26 Season</p>
             </div>
           </div>
           <button
             onClick={handleSync}
             disabled={syncData.isPending}
-            className="flex items-center gap-1 px-2 h-7 text-[10px] font-bold uppercase tracking-wider border-2 border-foreground bg-card shadow-[2px_2px_0_hsl(var(--foreground))] hover:shadow-[3px_3px_0_hsl(var(--foreground))] transition-shadow"
+            className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors"
           >
-            <RefreshCw className={cn("w-3 h-3", syncData.isPending && "animate-spin")} />
+            <RefreshCw className={cn("w-3.5 h-3.5", syncData.isPending && "animate-spin")} />
             {syncData.isPending ? "…" : "Sync"}
           </button>
         </div>
       </header>
 
-      {/* Page dots indicator */}
-      <div className="flex justify-center gap-1.5 py-1.5 bg-card/80 border-b border-border flex-shrink-0">
-        {PAGES.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => goToPage(i)}
-            className={cn(
-              "w-1.5 h-1.5 rounded-full transition-all",
-              i === activePage ? "bg-primary w-4" : "bg-border hover:bg-muted-foreground"
-            )}
-          />
-        ))}
-      </div>
-
-      {/* Page area with optional sidebar */}
+      {/* Page area */}
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 relative overflow-hidden overflow-y-auto retro-stripe">
+        <div className="flex-1 relative overflow-hidden overflow-y-auto">
           {PAGE_COMPONENTS.map((PageComp, i) => (
             <div key={i} className={cn("w-full h-full", i !== activePage && "hidden")}>
               <PageComp />
             </div>
           ))}
         </div>
-
-        {/* Desktop sidebar ad */}
         <AdBanner variant="sidebar" />
       </div>
 
       {/* Bottom Nav */}
-      <nav className="flex-shrink-0 border-t-2 border-foreground bg-card">
-        <div className="flex">
+      <nav className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-sm">
+        <div className="flex max-w-md mx-auto">
           {PAGES.map((page, i) => {
             const Icon = page.icon;
+            const isActive = i === activePage;
             return (
               <button
                 key={page.id}
                 onClick={() => goToPage(i)}
                 className={cn(
-                  "flex-1 flex flex-col items-center gap-0.5 py-2 transition-colors",
-                  i === activePage
+                  "flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors relative",
+                  isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className="w-4 h-4" />
-                <span className="text-[9px] font-bold uppercase tracking-wider">{page.label}</span>
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-primary" />
+                )}
+                <Icon className="w-5 h-5" />
+                <span className="text-[10px] font-medium">{page.label}</span>
               </button>
             );
           })}
