@@ -34,42 +34,9 @@ const Index = () => {
     applyTheme(getStoredTheme());
   }, []);
 
-  // Swipe handling
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const [swiping, setSwiping] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-
   const goToPage = useCallback((idx: number) => {
     setActivePage(Math.max(0, Math.min(4, idx)));
-    setSwipeOffset(0);
   }, []);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    setSwiping(true);
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const dx = e.touches[0].clientX - touchStart.current.x;
-    const dy = e.touches[0].clientY - touchStart.current.y;
-    // Only horizontal swipe
-    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-      setSwipeOffset(dx);
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (Math.abs(swipeOffset) > 80) {
-      if (swipeOffset > 0 && activePage > 0) goToPage(activePage - 1);
-      else if (swipeOffset < 0 && activePage < 4) goToPage(activePage + 1);
-      else setSwipeOffset(0);
-    } else {
-      setSwipeOffset(0);
-    }
-    touchStart.current = null;
-    setSwiping(false);
-  }, [swipeOffset, activePage, goToPage]);
 
   const handleSync = () => {
     toast.info("Syncing…");
