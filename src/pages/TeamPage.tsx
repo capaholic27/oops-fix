@@ -24,6 +24,7 @@ import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
+  Search, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
@@ -31,6 +32,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
+
+/* Top 10 leagues for the box grid */
+const TOP_LEAGUES = [
+  "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1",
+  "Champions League", "Championship", "La Liga 2", "Bundesliga 2", "Allsvenskan",
+];
 
 /* ─── Form Strip ─── */
 const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
@@ -43,40 +50,40 @@ const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("
 
   return (
     <div>
-      <div className="flex items-center gap-1.5">
-        <div className="flex gap-0.5">
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
           {formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
           className={cn(
-            "px-2 py-1 text-[10px] font-bold uppercase tracking-wider border-2 transition-all",
+            "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
             expanded
-              ? "border-foreground bg-foreground text-background shadow-none"
-              : "border-border bg-card text-muted-foreground shadow-[2px_2px_0_hsl(var(--border))]"
+              ? "bg-foreground text-background"
+              : "bg-muted text-muted-foreground hover:text-foreground"
           )}
         >
           {expanded ? "Less" : "More"}
         </button>
       </div>
       {expanded && (
-        <div className="mt-2 border-2 border-border bg-card p-3 shadow-[3px_3px_0_hsl(var(--border))]">
+        <div className="mt-2 rounded-xl border border-border bg-card p-3">
           <div className="flex items-center gap-1 mb-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Last</span>
+            <span className="text-[10px] text-muted-foreground font-medium">Last</span>
             {([10, 20, 30, 40, 50] as const).map((n) => (
               <button key={n} onClick={() => setRange(n)} className={cn(
-                "px-1.5 py-0.5 text-[10px] font-mono font-bold border transition-colors",
-                range === n ? "border-foreground bg-foreground text-background" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                "px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md transition-colors",
+                range === n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
               )}>{n}</button>
             ))}
           </div>
-          <div className="flex gap-2 mb-2 text-xs font-bold">
+          <div className="flex gap-3 mb-2 text-xs font-semibold">
             <span className="text-stat-positive">{wins}W</span>
             <span className="text-stat-warn">{draws}D</span>
             <span className="text-stat-negative">{losses}L</span>
             <span className="text-muted-foreground ml-auto font-mono text-[10px]">{extendedForm.length} matches</span>
           </div>
-          <div className="flex flex-wrap gap-0.5">
+          <div className="flex flex-wrap gap-1">
             {extendedForm.map((r, i) => <FormBadge key={i} result={r} />)}
           </div>
         </div>
@@ -85,8 +92,8 @@ const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("
   );
 };
 
-/* ─── Team Selector Screen ─── */
-const TeamSelector = ({
+/* ─── League Selection Screen (Box Logo Grid + All Leagues) ─── */
+const LeagueSelector = ({
   leagues,
   allMatches,
   onSelectTeam,
@@ -97,7 +104,8 @@ const TeamSelector = ({
   onSelectTeam: (team: string, league: string) => void;
   onOpenPredict: () => void;
 }) => {
-  const [expandedLeague, setExpandedLeague] = useState<string | null>(null);
+  const [page, setPage] = useState<"top" | "all">("top");
+  const [selectedLeague, setSelectedLeague] = useState<{ code: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
 
   const teamsByLeague = useMemo(() => {
@@ -124,73 +132,169 @@ const TeamSelector = ({
     return results;
   }, [searchLower, leagues, teamsByLeague]);
 
+  // Top leagues that exist in our data
+  const topLeagues = useMemo(() => {
+    return TOP_LEAGUES
+      .map(name => leagues.find(l => l.name === name))
+      .filter(Boolean) as { code: string; name: string }[];
+  }, [leagues]);
+
+  const otherLeagues = useMemo(() => {
+    const topNames = new Set(TOP_LEAGUES);
+    return leagues.filter(l => !topNames.has(l.name));
+  }, [leagues]);
+
+  // Team list for a selected league
+  if (selectedLeague) {
+    const teams = teamsByLeague[selectedLeague.code] || [];
+    return (
+      <div className="p-4 space-y-3 max-w-lg mx-auto pb-20">
+        <button
+          onClick={() => setSelectedLeague(null)}
+          className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="flex items-center gap-3 mb-2">
+          <LeagueLogo leagueName={selectedLeague.name} size="md" />
+          <h2 className="text-lg font-bold">{selectedLeague.name}</h2>
+        </div>
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {teams.map((team) => (
+            <button
+              key={team}
+              onClick={() => onSelectTeam(team, selectedLeague.code)}
+              className="w-full text-left px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors border-b border-border last:border-b-0 flex items-center gap-3"
+            >
+              <TeamLogo teamName={team} size="sm" />
+              {team}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-3 space-y-2 max-w-lg mx-auto pb-20">
-      <h2 className="text-lg text-center mb-3">Select Team</h2>
+    <div className="p-4 space-y-4 max-w-lg mx-auto pb-20">
+      <h2 className="text-xl font-bold text-center">Select League</h2>
 
-      <input
-        type="text"
-        placeholder="Search team…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full h-8 px-3 text-xs border-2 border-border bg-background font-medium placeholder:text-muted-foreground focus:outline-none focus:border-primary shadow-[2px_2px_0_hsl(var(--border))]"
-      />
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search leagues..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full h-10 pl-10 pr-4 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+        />
+      </div>
 
+      {/* Search results */}
       {searchResults ? (
-        <div className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))] max-h-64 overflow-y-auto">
+        <div className="rounded-xl border border-border bg-card overflow-hidden max-h-72 overflow-y-auto">
           {searchResults.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4">No teams found</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No teams found</p>
           )}
           {searchResults.map(({ team, league: l }) => (
             <button
               key={`${l.code}-${team}`}
               onClick={() => onSelectTeam(team, l.code)}
-              className="w-full text-left px-4 py-2 text-xs text-foreground hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0"
+              className="w-full text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors border-b border-border last:border-b-0 flex items-center gap-3"
             >
-              <span className="font-semibold">{team}</span>
-              <span className="text-muted-foreground ml-2 text-[10px]">{l.name}</span>
+              <TeamLogo teamName={team} size="sm" />
+              <div>
+                <span className="font-medium">{team}</span>
+                <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
+              </div>
             </button>
           ))}
         </div>
       ) : (
-        leagues.map((l) => (
-          <div key={l.code} className="border-2 border-border bg-card shadow-[3px_3px_0_hsl(var(--border))]">
+        <>
+          {/* Page indicator */}
+          <div className="flex items-center justify-center gap-2">
             <button
-              onClick={() => setExpandedLeague(expandedLeague === l.code ? null : l.code)}
-              className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground hover:bg-muted transition-colors"
-            >
-              <span>{l.name}</span>
-              <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", expandedLeague === l.code && "rotate-90")} />
-            </button>
-            {expandedLeague === l.code && (
-              <div className="border-t-2 border-border max-h-52 overflow-y-auto">
-                {(teamsByLeague[l.code] || []).map((team) => (
+              onClick={() => setPage("top")}
+              className={cn(
+                "w-2 h-2 rounded-full transition-all",
+                page === "top" ? "bg-primary w-6" : "bg-border"
+              )}
+            />
+            <button
+              onClick={() => setPage("all")}
+              className={cn(
+                "w-2 h-2 rounded-full transition-all",
+                page === "all" ? "bg-primary w-6" : "bg-border"
+              )}
+            />
+          </div>
+
+          {page === "top" ? (
+            <>
+              {/* Box logo grid for top leagues */}
+              <div className="grid grid-cols-3 gap-3">
+                {topLeagues.map((l) => (
                   <button
-                    key={team}
-                    onClick={() => onSelectTeam(team, l.code)}
-                    className="w-full text-left px-4 py-2 text-xs text-foreground hover:bg-primary hover:text-primary-foreground transition-colors border-b border-border last:border-b-0"
+                    key={l.code}
+                    onClick={() => setSelectedLeague(l)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
                   >
-                    {team}
+                    <LeagueLogo leagueName={l.name} size="md" />
+                    <span className="text-[11px] font-medium text-center leading-tight">{l.name}</span>
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-        ))
-      )}
 
-      {/* Predict menu item */}
-      <button
-        onClick={onOpenPredict}
-        className={cn(
-          "w-full flex items-center justify-center gap-2 py-3 mt-4 text-xs font-bold uppercase tracking-wider border-2 transition-all",
-          "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
-          "shadow-[3px_3px_0_hsl(var(--primary))]",
-        )}
-      >
-        <Sparkles className="w-4 h-4" />
-        AI Match Prediction
-      </button>
+              {/* Swipe hint */}
+              {otherLeagues.length > 0 && (
+                <button
+                  onClick={() => setPage("all")}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>All leagues</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {/* All leagues list */}
+              <div className="space-y-2">
+                {leagues.map((l) => (
+                  <button
+                    key={l.code}
+                    onClick={() => setSelectedLeague(l)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
+                  >
+                    <LeagueLogo leagueName={l.name} size="sm" />
+                    <span className="text-sm font-medium flex-1">{l.name}</span>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setPage("top")}
+                className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Top leagues</span>
+              </button>
+            </>
+          )}
+
+          {/* Generate Prediction button */}
+          <button
+            onClick={onOpenPredict}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors shadow-sm"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate Prediction
+          </button>
+        </>
+      )}
     </div>
   );
 };
@@ -216,7 +320,6 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
 
-  // Find next fixture for this team (auto or user-selected)
   const nextFixture = useMemo(() => {
     if (selectedFixtureId) {
       return fixtures.find((f) => f.id === selectedFixtureId) ?? null;
@@ -232,7 +335,6 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     return nextFixture.home_team === selectedTeam ? nextFixture.away_team : nextFixture.home_team;
   }, [nextFixture, selectedTeam, manualOpponent]);
 
-  // Get opponent stats if we have a next fixture
   const nextOpponentStats = useMemo(() => {
     if (!nextOpponentName) return null;
     const oppViews = allMatches
@@ -250,7 +352,6 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   }, [teamMatches, selectedTeam]);
 
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
-
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
 
@@ -259,29 +360,28 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     [allMatches, leagueCode]
   );
 
-
   if (stats.matchesPlayed === 0) {
     return (
       <div className="p-6 text-center">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">No match data for {selectedTeam}</p>
-        <button onClick={onBack} className="mt-3 text-xs text-primary font-bold uppercase hover:underline">← Pick another team</button>
+        <p className="text-sm text-muted-foreground">No match data for {selectedTeam}</p>
+        <button onClick={onBack} className="mt-3 text-sm text-primary font-medium hover:underline">← Pick another team</button>
       </div>
     );
   }
 
   return (
-    <div className="p-3 space-y-3 pb-20">
+    <div className="p-4 space-y-4 pb-20">
       {/* Back + Past N controls */}
       <div className="flex items-center justify-between gap-2">
-        <button onClick={onBack} className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronLeft className="w-3 h-3" /> Teams
+        <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="w-4 h-4" /> Back
         </button>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Last</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Last</span>
           <select
             value={pastN}
             onChange={(e) => setPastN(Number(e.target.value))}
-            className="h-6 px-1.5 text-[10px] font-mono font-bold border-2 border-border bg-card shadow-[2px_2px_0_hsl(var(--border))] focus:outline-none focus:border-foreground"
+            className="h-7 px-2 text-xs font-mono font-medium rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
               <option key={n} value={n}>{n}</option>
@@ -291,15 +391,15 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       </div>
 
       {/* Team Banner */}
-      <section className="border-2 border-foreground bg-card p-3 shadow-[4px_4px_0_hsl(var(--foreground))]">
-        <div className="flex items-start justify-between gap-2 mb-2">
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-3">
             <TeamLogo teamName={selectedTeam} size="lg" />
             <div>
-              <h2 className="text-xl leading-none">{selectedTeam}</h2>
-              <div className="flex items-center gap-1 mt-0.5">
+              <h2 className="text-xl font-bold leading-none">{selectedTeam}</h2>
+              <div className="flex items-center gap-1.5 mt-1">
                 <LeagueLogo leagueName={currentLeagueName} size="xs" />
-                <p className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground font-semibold">
+                <p className="text-xs text-muted-foreground font-medium">
                   {currentLeagueName} · {stats.matchesPlayed} matches
                 </p>
               </div>
@@ -307,7 +407,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
           </div>
           <div className="text-right">
             <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
-            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Win Rate</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Win Rate</p>
           </div>
         </div>
         <div className="flex items-start justify-between mt-2 gap-2">
@@ -316,11 +416,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
           </div>
           <button
             onClick={onOpenPredict}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border-2 transition-all flex-shrink-0 mt-0.5",
-              "border-primary bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground",
-              "shadow-[2px_2px_0_hsl(var(--primary))]",
-            )}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex-shrink-0"
           >
             <Sparkles className="w-3 h-3" />
             Predict
@@ -329,7 +425,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       </section>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <WinProbabilityGauge probability={stats.winProbability} teamName={selectedTeam} />
         <StatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend={parseFloat(winRate) > 50 ? "positive" : "neutral"} subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={150} onClick={() => setOpenStat("record")} />
         <StatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Total ${(stats.avgCornersFor + stats.avgCornersAgainst).toFixed(1)}`} delay={200} onClick={() => setOpenStat("corners")} />
@@ -340,11 +436,10 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
       </div>
 
-      {/* Ad placement */}
       <AdBanner variant="inline" />
 
       {/* Tactical + Efficiency */}
-      <div className="grid grid-cols-1 gap-2">
+      <div className="grid grid-cols-1 gap-3">
         <PredictedTacticalProfile
           stats={stats}
           teamName={selectedTeam}
@@ -367,9 +462,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
           <span className="stat-label mb-3 block">Shot Efficiency</span>
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between text-[10px] uppercase tracking-wider mb-1">
-                <span className="text-muted-foreground font-semibold">SOT / Shots</span>
-                <span className="font-mono font-bold text-foreground">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-muted-foreground font-medium">SOT / Shots</span>
+                <span className="font-mono font-semibold text-foreground">
                   {stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(1) : "0"}%
                 </span>
               </div>
@@ -378,21 +473,20 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
               </div>
             </div>
             <div>
-              <div className="flex justify-between text-[10px] uppercase tracking-wider mb-1">
-                <span className="text-muted-foreground font-semibold">Goals / SOT</span>
-                <span className="font-mono font-bold text-foreground">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-muted-foreground font-medium">Goals / SOT</span>
+                <span className="font-mono font-semibold text-foreground">
                   {stats.avgShotsOnTargetFor > 0 ? (((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100).toFixed(1) : "0"}%
                 </span>
               </div>
               <div className="probability-bar">
-                <div className="h-full transition-all duration-700 ease-out bg-accent" style={{ width: `${stats.avgShotsOnTargetFor > 0 ? Math.min(100, ((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100) : 0}%` }} />
+                <div className="h-full rounded-full transition-all duration-700 ease-out bg-stat-warn" style={{ width: `${stats.avgShotsOnTargetFor > 0 ? Math.min(100, ((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100) : 0}%` }} />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Upcoming Fixtures */}
       <UpcomingFixtures
         teamName={selectedTeam}
         allMatches={allMatches}
@@ -401,13 +495,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         }}
       />
 
-      {/* Performance Analysis */}
       <MomentumChart views={teamViews} teamName={selectedTeam} />
-
-      {/* Recent Results */}
       <RecentResults views={teamViews} />
 
-      {/* League Table */}
       {leagueCode && leagueMatches.length > 0 && (
         <RankingsTable matches={leagueMatches} leagueName={currentLeagueName} />
       )}
@@ -456,13 +546,9 @@ const PredictionDialog = ({
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
   const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
 
-  // ── Dixon-Coles prediction ──
   const dcResult = useMemo<PredictionResult | null>(() => {
     if (!statsA || !statsB || !selectedTeamA || !selectedTeamB) return null;
-
     const leagueAvg = computeLeagueAvgGoals(allMatches);
-
-    // Build recent form stats (last 5)
     const getRecentStats = (teamName: string) => {
       const views = allMatches
         .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
@@ -470,34 +556,12 @@ const PredictionDialog = ({
         .filter((v: any): v is TeamMatchView => v !== null)
         .slice(-5);
       if (views.length === 0) return { scored: 0, conceded: 0, n: 0 };
-      return {
-        scored: views.reduce((s, v) => s + v.goalsFor, 0),
-        conceded: views.reduce((s, v) => s + v.goalsAgainst, 0),
-        n: views.length,
-      };
+      return { scored: views.reduce((s, v) => s + v.goalsFor, 0), conceded: views.reduce((s, v) => s + v.goalsAgainst, 0), n: views.length };
     };
-
     const recentA = getRecentStats(selectedTeamA);
     const recentB = getRecentStats(selectedTeamB);
-
-    const homeInput: TeamInput = {
-      goalsScored: statsA.goalsFor,
-      goalsConceded: statsA.goalsAgainst,
-      matchesPlayed: statsA.matchesPlayed,
-      recentGoalsScored: recentA.scored,
-      recentGoalsConceded: recentA.conceded,
-      recentMatches: recentA.n,
-    };
-
-    const awayInput: TeamInput = {
-      goalsScored: statsB.goalsFor,
-      goalsConceded: statsB.goalsAgainst,
-      matchesPlayed: statsB.matchesPlayed,
-      recentGoalsScored: recentB.scored,
-      recentGoalsConceded: recentB.conceded,
-      recentMatches: recentB.n,
-    };
-
+    const homeInput: TeamInput = { goalsScored: statsA.goalsFor, goalsConceded: statsA.goalsAgainst, matchesPlayed: statsA.matchesPlayed, recentGoalsScored: recentA.scored, recentGoalsConceded: recentA.conceded, recentMatches: recentA.n };
+    const awayInput: TeamInput = { goalsScored: statsB.goalsFor, goalsConceded: statsB.goalsAgainst, matchesPlayed: statsB.matchesPlayed, recentGoalsScored: recentB.scored, recentGoalsConceded: recentB.conceded, recentMatches: recentB.n };
     return predictMatch(homeInput, awayInput, leagueAvg);
   }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches]);
 
@@ -515,11 +579,7 @@ const PredictionDialog = ({
     setPredicting(true);
     setPrediction(null);
     try {
-      const body: any = {
-        teamName: selectedTeamA,
-        stats: statsA,
-        recentForm: statsA.formLast5,
-      };
+      const body: any = { teamName: selectedTeamA, stats: statsA, recentForm: statsA.formLast5 };
       if (selectedTeamB && statsB) {
         body.upcomingOpponent = selectedTeamB;
         body.opponentStats = statsB;
@@ -527,14 +587,7 @@ const PredictionDialog = ({
       }
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify(body),
-        }
+        { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` }, body: JSON.stringify(body) }
       );
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || `Error ${response.status}`);
@@ -550,23 +603,21 @@ const PredictionDialog = ({
     }
   }, [selectedTeamA, statsA, selectedTeamB, statsB]);
 
-  /* Helper: compact stat row */
   const ComparisonRow = ({ label, a, b, better }: { label: string; a: string; b: string; better: "a" | "b" | "none" }) => (
-    <div className="flex items-center py-[5px] px-2">
-      <span className={cn("font-mono text-[11px] font-bold w-16 text-right", better === "a" && "text-stat-positive")}>{a}</span>
-      <span className="flex-1 text-center text-[8px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
-      <span className={cn("font-mono text-[11px] font-bold w-16", better === "b" && "text-stat-positive")}>{b}</span>
+    <div className="flex items-center py-2 px-3">
+      <span className={cn("font-mono text-xs font-semibold w-16 text-right", better === "a" && "text-stat-positive")}>{a}</span>
+      <span className="flex-1 text-center text-[10px] text-muted-foreground font-medium">{label}</span>
+      <span className={cn("font-mono text-xs font-semibold w-16", better === "b" && "text-stat-positive")}>{b}</span>
     </div>
   );
 
   const hasBothTeams = selectedTeamA && statsA && selectedTeamB && statsB;
 
-  /* Probability bar helper */
   const ProbBar = ({ label, value, color }: { label: string; value: number; color: string }) => (
-    <div className="space-y-0.5">
+    <div className="space-y-1">
       <div className="flex justify-between">
-        <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
-        <span className="font-mono text-[11px] font-bold">{value.toFixed(1)}%</span>
+        <span className="text-xs text-muted-foreground font-medium">{label}</span>
+        <span className="font-mono text-xs font-semibold">{value.toFixed(1)}%</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
         <div className={cn("h-full rounded-full transition-all duration-700", color)} style={{ width: `${value}%` }} />
@@ -576,41 +627,39 @@ const PredictionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 border-2 border-primary shadow-[4px_4px_0_hsl(var(--primary)/0.3)] [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
+      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 rounded-2xl border border-border shadow-xl [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-3 py-1.5 border-b-2 border-primary/20 bg-primary/5">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-primary" />
-            <span className="text-[9px] uppercase tracking-[0.15em] font-bold text-primary">Match Prediction</span>
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-card">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold">Match Prediction</span>
           </div>
-          <button onClick={() => onOpenChange(false)} className="p-1 hover:bg-muted transition-colors border border-border rounded-sm">
-            <X className="w-3.5 h-3.5 text-muted-foreground" />
+          <button onClick={() => onOpenChange(false)} className="p-1.5 hover:bg-muted transition-colors rounded-lg">
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 space-y-2.5" style={{ minHeight: 0, WebkitOverflowScrolling: "touch" }}>
-          {/* ── TEAM SELECTION ── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-3" style={{ minHeight: 0, WebkitOverflowScrolling: "touch" }}>
           {!showAI && (
-            <div className="space-y-2">
-              {/* Team A */}
+            <div className="space-y-3">
               <div>
-                <label className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold mb-1 block">Home Team</label>
+                <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Home Team</label>
                 {selectedTeamA ? (
-                  <div className="flex items-center justify-between border border-primary bg-primary/5 px-2 py-1.5 rounded-sm">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+                    <div className="flex items-center gap-2">
                       <TeamLogo teamName={selectedTeamA} size="sm" />
-                      <p className="text-[11px] font-bold">{selectedTeamA}</p>
+                      <p className="text-sm font-semibold">{selectedTeamA}</p>
                     </div>
-                    <button onClick={() => setSelectedTeamA("")} className="text-[8px] text-primary uppercase tracking-wider hover:underline">Change</button>
+                    <button onClick={() => setSelectedTeamA("")} className="text-xs text-primary font-medium hover:underline">Change</button>
                   </div>
                 ) : (
                   <>
                     <input type="text" placeholder="Search team…" value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)}
-                      className="w-full h-6 px-2 text-[11px] border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:border-primary rounded-sm" autoFocus />
-                    <div className="max-h-28 overflow-y-auto border border-border bg-card rounded-sm mt-1">
+                      className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" autoFocus />
+                    <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
                       {allTeams.filter((t) => !teamSearch || t.toLowerCase().includes(teamSearch.toLowerCase())).slice(0, 15).map((team) => (
                         <button key={team} onClick={() => { setSelectedTeamA(team); setTeamSearch(""); }}
-                          className="w-full text-left px-2 py-1 text-[11px] border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-1.5">
+                          className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
                           <TeamLogo teamName={team} size="xs" />{team}
                         </button>
                       ))}
@@ -619,30 +668,29 @@ const PredictionDialog = ({
                 )}
               </div>
 
-              {/* VS + Team B */}
               {selectedTeamA && (
                 <>
-                  <div className="flex items-center justify-center py-0.5">
-                    <span className="text-[10px] font-black text-muted-foreground tracking-wider">VS</span>
+                  <div className="flex items-center justify-center py-1">
+                    <span className="text-xs font-bold text-muted-foreground">VS</span>
                   </div>
                   <div>
-                    <label className="text-[8px] uppercase tracking-wider text-muted-foreground font-bold mb-1 block">Away Team</label>
+                    <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Away Team</label>
                     {selectedTeamB ? (
-                      <div className="flex items-center justify-between border border-border bg-muted/30 px-2 py-1.5 rounded-sm">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-3 py-2">
+                        <div className="flex items-center gap-2">
                           <TeamLogo teamName={selectedTeamB} size="sm" />
-                          <p className="text-[11px] font-bold">{selectedTeamB}</p>
+                          <p className="text-sm font-semibold">{selectedTeamB}</p>
                         </div>
-                        <button onClick={() => setSelectedTeamB("")} className="text-[8px] text-primary uppercase tracking-wider hover:underline">Change</button>
+                        <button onClick={() => setSelectedTeamB("")} className="text-xs text-primary font-medium hover:underline">Change</button>
                       </div>
                     ) : (
                       <>
                         <input type="text" placeholder="Search opponent…" value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)}
-                          className="w-full h-6 px-2 text-[11px] border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:border-primary rounded-sm" />
-                        <div className="max-h-24 overflow-y-auto border border-border bg-card rounded-sm mt-1">
+                          className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                        <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
                           {allTeams.filter((t) => t !== selectedTeamA && (!opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))).slice(0, 12).map((team) => (
                             <button key={team} onClick={() => { setSelectedTeamB(team); setOpponentSearch(""); }}
-                              className="w-full text-left px-2 py-1 text-[11px] border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-1.5">
+                              className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
                               <TeamLogo teamName={team} size="xs" />{team}
                             </button>
                           ))}
@@ -655,61 +703,54 @@ const PredictionDialog = ({
             </div>
           )}
 
-          {/* ── DIXON-COLES STATISTICAL PREDICTION ── */}
           {dcResult && hasBothTeams && !showAI && (
-            <div className="space-y-2">
-              {/* Win probabilities */}
-              <div className="border border-border bg-card rounded-sm overflow-hidden">
-                <div className="px-2 py-1 bg-primary/10 border-b border-border">
-                  <span className="text-[8px] uppercase tracking-wider font-bold text-primary">📊 Match Probabilities</span>
+            <div className="space-y-3">
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-3 py-2 bg-primary/5 border-b border-border">
+                  <span className="text-xs font-semibold text-primary">📊 Match Probabilities</span>
                 </div>
-                <div className="p-2.5 space-y-2">
+                <div className="p-3 space-y-2">
                   <ProbBar label={selectedTeamA} value={dcResult.homeWin} color="bg-stat-positive" />
                   <ProbBar label="Draw" value={dcResult.draw} color="bg-stat-warn" />
                   <ProbBar label={selectedTeamB} value={dcResult.awayWin} color="bg-stat-negative" />
                 </div>
               </div>
 
-              {/* Expected goals */}
-              <div className="border border-border bg-card rounded-sm overflow-hidden">
-                <div className="px-2 py-1 bg-muted/60 border-b border-border">
-                  <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">⚽ Expected Goals</span>
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-3 py-2 bg-muted/40 border-b border-border">
+                  <span className="text-xs font-semibold text-muted-foreground">⚽ Expected Goals</span>
                 </div>
-                <div className="flex items-center justify-around py-2.5">
+                <div className="flex items-center justify-around py-3">
                   <div className="text-center">
-                    <p className="font-mono text-2xl font-bold text-foreground">{dcResult.lambdaHome.toFixed(2)}</p>
-                    <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">{selectedTeamA}</p>
+                    <p className="font-mono text-2xl font-bold">{dcResult.lambdaHome.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{selectedTeamA}</p>
                   </div>
-                  <div className="text-[10px] font-black text-muted-foreground">xG</div>
+                  <div className="text-xs font-bold text-muted-foreground">xG</div>
                   <div className="text-center">
-                    <p className="font-mono text-2xl font-bold text-foreground">{dcResult.lambdaAway.toFixed(2)}</p>
-                    <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">{selectedTeamB}</p>
+                    <p className="font-mono text-2xl font-bold">{dcResult.lambdaAway.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{selectedTeamB}</p>
                   </div>
                 </div>
               </div>
 
-              {/* Top scorelines */}
-              <div className="border border-border bg-card rounded-sm overflow-hidden">
-                <div className="px-2 py-1 bg-muted/60 border-b border-border">
-                  <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">🎯 Most Likely Scorelines</span>
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-3 py-2 bg-muted/40 border-b border-border">
+                  <span className="text-xs font-semibold text-muted-foreground">🎯 Most Likely Scorelines</span>
                 </div>
                 <div className="divide-y divide-border">
                   {dcResult.topScorelines.slice(0, 5).map((s, i) => (
-                    <div key={i} className="flex items-center px-2.5 py-1.5">
-                      <span className="text-[9px] text-muted-foreground font-mono w-4">#{i + 1}</span>
-                      <span className="font-mono text-[12px] font-bold flex-1 text-center">
-                        {s.home} – {s.away}
-                      </span>
-                      <span className="font-mono text-[11px] font-bold text-primary">{(s.probability * 100).toFixed(1)}%</span>
+                    <div key={i} className="flex items-center px-3 py-2">
+                      <span className="text-xs text-muted-foreground font-mono w-5">#{i + 1}</span>
+                      <span className="font-mono text-sm font-semibold flex-1 text-center">{s.home} – {s.away}</span>
+                      <span className="font-mono text-xs font-semibold text-primary">{(s.probability * 100).toFixed(1)}%</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Stats comparison */}
-              <div className="border border-border bg-card rounded-sm overflow-hidden">
-                <div className="px-2 py-1 bg-muted/60 border-b border-border">
-                  <span className="text-[8px] uppercase tracking-wider font-bold text-muted-foreground">📈 Head to Head Stats</span>
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-3 py-2 bg-muted/40 border-b border-border">
+                  <span className="text-xs font-semibold text-muted-foreground">📈 Head to Head Stats</span>
                 </div>
                 <ComparisonRow label="Win %" a={`${statsA!.winProbability.toFixed(0)}%`} b={`${statsB!.winProbability.toFixed(0)}%`} better={statsA!.winProbability > statsB!.winProbability ? "a" : statsA!.winProbability < statsB!.winProbability ? "b" : "none"} />
                 <ComparisonRow label="GF/G" a={(statsA!.goalsFor / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsFor / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsFor / statsA!.matchesPlayed > statsB!.goalsFor / statsB!.matchesPlayed ? "a" : "b"} />
@@ -718,63 +759,60 @@ const PredictionDialog = ({
                 <ComparisonRow label="BTTS" a={`${statsA!.bttsPercentage.toFixed(0)}%`} b={`${statsB!.bttsPercentage.toFixed(0)}%`} better="none" />
                 <ComparisonRow label="O2.5" a={`${statsA!.over25Percentage.toFixed(0)}%`} b={`${statsB!.over25Percentage.toFixed(0)}%`} better="none" />
 
-                {/* Form dots */}
-                <div className="px-2 py-1.5 border-t border-border flex items-center justify-between bg-muted/30">
+                <div className="px-3 py-2 border-t border-border flex items-center justify-between bg-muted/20">
                   <div className="flex items-center gap-1">
-                    <span className="text-[7px] text-muted-foreground font-semibold">Form</span>
-                    <div className="flex gap-[2px]">{statsA!.formLast5.map((r, i) => <span key={i} className={cn("w-[5px] h-[5px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
+                    <span className="text-[8px] text-muted-foreground font-medium">Form</span>
+                    <div className="flex gap-[2px]">{statsA!.formLast5.map((r, i) => <span key={i} className={cn("w-[6px] h-[6px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <div className="flex gap-[2px]">{statsB!.formLast5.map((r, i) => <span key={i} className={cn("w-[5px] h-[5px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
-                    <span className="text-[7px] text-muted-foreground font-semibold">Form</span>
+                    <div className="flex gap-[2px]">{statsB!.formLast5.map((r, i) => <span key={i} className={cn("w-[6px] h-[6px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
+                    <span className="text-[8px] text-muted-foreground font-medium">Form</span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── AI PREDICTION RESULT ── */}
           {showAI && prediction && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <TeamLogo teamName={selectedTeamA} size="sm" />
-                  <p className="text-[11px] font-bold">{selectedTeamA}</p>
+                  <p className="text-sm font-semibold">{selectedTeamA}</p>
                 </div>
                 {selectedTeamB && (
                   <>
-                    <span className="text-[10px] font-black text-muted-foreground">VS</span>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-[11px] font-bold">{selectedTeamB}</p>
+                    <span className="text-xs font-bold text-muted-foreground">VS</span>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">{selectedTeamB}</p>
                       <TeamLogo teamName={selectedTeamB} size="sm" />
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Show DC probabilities summary even in AI view */}
               {dcResult && (
-                <div className="border border-border bg-card rounded-sm p-2 flex items-center justify-around">
+                <div className="rounded-xl border border-border bg-card p-3 flex items-center justify-around">
                   <div className="text-center">
                     <p className="font-mono text-sm font-bold text-stat-positive">{dcResult.homeWin.toFixed(0)}%</p>
-                    <p className="text-[7px] uppercase text-muted-foreground">Home</p>
+                    <p className="text-[8px] text-muted-foreground">Home</p>
                   </div>
                   <div className="text-center">
                     <p className="font-mono text-sm font-bold text-stat-warn">{dcResult.draw.toFixed(0)}%</p>
-                    <p className="text-[7px] uppercase text-muted-foreground">Draw</p>
+                    <p className="text-[8px] text-muted-foreground">Draw</p>
                   </div>
                   <div className="text-center">
                     <p className="font-mono text-sm font-bold text-stat-negative">{dcResult.awayWin.toFixed(0)}%</p>
-                    <p className="text-[7px] uppercase text-muted-foreground">Away</p>
+                    <p className="text-[8px] text-muted-foreground">Away</p>
                   </div>
                 </div>
               )}
 
-              <div className="border border-primary/20 bg-primary/5 p-2.5 rounded-sm">
-                <div className="text-[11px] text-foreground leading-relaxed whitespace-pre-wrap">{prediction}</div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{prediction}</div>
               </div>
               <button onClick={handleReset}
-                className="w-full py-1.5 text-[9px] font-bold uppercase tracking-wider border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors rounded-sm">
+                className="w-full py-2 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
                 New Prediction
               </button>
             </div>
@@ -784,20 +822,19 @@ const PredictionDialog = ({
         {/* Sticky bottom */}
         <div className="flex-shrink-0 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))]">
           {selectedTeamA && selectedTeamB && !showAI && (
-            <div className="px-2.5 pt-2 pb-1 flex gap-2">
+            <div className="px-4 pt-3 pb-1 flex gap-2">
               <button onClick={handleRunPredict} disabled={predicting || !statsA}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-2 text-[10px] font-bold uppercase tracking-wider border-2 transition-all rounded-sm",
-                  "border-primary bg-primary text-primary-foreground hover:bg-primary/90",
-                  "shadow-[2px_2px_0_hsl(var(--primary)/0.3)]",
+                  "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all",
+                  "bg-primary text-primary-foreground hover:bg-primary/90",
                   (predicting || !statsA) && "opacity-70 cursor-wait"
                 )}>
-                {predicting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                {predicting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {predicting ? "Analyzing…" : "AI Deep Analysis"}
               </button>
             </div>
           )}
-          <p className="text-[7px] text-muted-foreground text-center uppercase tracking-wider px-2.5 py-1">
+          <p className="text-[10px] text-muted-foreground text-center px-4 py-2">
             Poisson-Dixon-Coles model · Last {pastN} matches
           </p>
         </div>
@@ -851,7 +888,6 @@ const TeamPage = () => {
         },
         onError: (err) => {
           toast.error(`API-Football sync failed: ${err.message}`);
-          // Fallback to football-data.co.uk
           toast.info("Falling back to football-data.co.uk…");
           syncData.mutate({ season: "2526" }, {
             onSuccess: (data) => {
@@ -866,13 +902,13 @@ const TeamPage = () => {
           });
         },
       }
-    )
+    );
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider">Loading…</p>
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -880,10 +916,10 @@ const TeamPage = () => {
   if (allMatches.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
-        <div className="retro-border bg-card p-6 text-center">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">No data yet</p>
-          <Button onClick={handleSync} disabled={syncData.isPending} className="gap-1.5 uppercase tracking-wider text-xs font-bold rounded-none border-2 border-foreground shadow-[3px_3px_0_hsl(var(--foreground))]">
-            <RefreshCw className={`w-3.5 h-3.5 ${syncData.isPending ? "animate-spin" : ""}`} />
+        <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+          <p className="text-sm text-muted-foreground mb-4">No data yet</p>
+          <Button onClick={handleSync} disabled={syncData.isPending} className="gap-2 rounded-xl">
+            <RefreshCw className={`w-4 h-4 ${syncData.isPending ? "animate-spin" : ""}`} />
             Sync Now
           </Button>
         </div>
@@ -903,7 +939,7 @@ const TeamPage = () => {
           onOpenPredict={() => setShowPredictionModal(true)}
         />
       ) : (
-        <TeamSelector
+        <LeagueSelector
           leagues={leagues}
           allMatches={allMatches}
           onSelectTeam={handleSelectTeam}
