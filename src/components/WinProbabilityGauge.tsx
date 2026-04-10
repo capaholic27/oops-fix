@@ -7,11 +7,11 @@ export const WinProbabilityGauge = ({ probability, teamName }: WinProbabilityGau
   return (
     <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "100ms" }}>
       <span className="stat-label">Win Probability</span>
-      <div className="mt-4 mb-2 flex items-end gap-3">
-        <span className="font-mono text-5xl font-bold tracking-tighter leading-none text-foreground">
+      <div className="mt-4 mb-2 flex items-end gap-2">
+        <span className="font-mono text-4xl font-bold tracking-tighter leading-none text-foreground">
           {probability.toFixed(1)}
         </span>
-        <span className="text-2xl font-mono text-muted-foreground mb-0.5">%</span>
+        <span className="text-xl font-mono text-muted-foreground mb-0.5">%</span>
       </div>
       <p className="text-xs text-muted-foreground mb-4">
         Based on {teamName}'s season performance

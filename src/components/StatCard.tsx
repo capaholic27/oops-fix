@@ -24,7 +24,7 @@ export const StatCard = ({ label, value, icon, trend, subtitle, className, delay
     <div
       className={cn(
         "stat-card opacity-0 animate-fade-up",
-        onClick && "cursor-pointer active:scale-[0.97] transition-transform",
+        onClick && "cursor-pointer active:scale-[0.98] transition-transform",
         className
       )}
       style={{ animationDelay: `${delay}ms` }}
@@ -32,10 +32,7 @@ export const StatCard = ({ label, value, icon, trend, subtitle, className, delay
     >
       <div className="flex items-start justify-between mb-3">
         <span className="stat-label">{label}</span>
-        <span className="flex items-center gap-1">
-          {onClick && <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Tap</span>}
-          {icon && <span className="text-muted-foreground">{icon}</span>}
-        </span>
+        {icon && <span className="text-muted-foreground">{icon}</span>}
       </div>
       <div className={cn("stat-value", trend ? trendColor[trend] : "text-foreground")}>
         {value}
