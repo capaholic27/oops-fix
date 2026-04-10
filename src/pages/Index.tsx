@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   CalendarDays, Lock, Zap, Newspaper, User, RefreshCw,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const PAGE_COMPONENTS = [UpcomingGamesPage, PremiumPage, TeamPage, NewsPage, Pro
 
 const Index = () => {
   const [activePage, setActivePage] = useState(2);
-  const containerRef = useRef<HTMLDivElement>(null);
+  
   const syncData = useSyncData();
 
   // Apply stored theme on mount
@@ -34,42 +34,9 @@ const Index = () => {
     applyTheme(getStoredTheme());
   }, []);
 
-  // Swipe handling
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const [swiping, setSwiping] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-
   const goToPage = useCallback((idx: number) => {
     setActivePage(Math.max(0, Math.min(4, idx)));
-    setSwipeOffset(0);
   }, []);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    setSwiping(true);
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart.current) return;
-    const dx = e.touches[0].clientX - touchStart.current.x;
-    const dy = e.touches[0].clientY - touchStart.current.y;
-    // Only horizontal swipe
-    if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-      setSwipeOffset(dx);
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (Math.abs(swipeOffset) > 80) {
-      if (swipeOffset > 0 && activePage > 0) goToPage(activePage - 1);
-      else if (swipeOffset < 0 && activePage < 4) goToPage(activePage + 1);
-      else setSwipeOffset(0);
-    } else {
-      setSwipeOffset(0);
-    }
-    touchStart.current = null;
-    setSwiping(false);
-  }, [swipeOffset, activePage, goToPage]);
 
   const handleSync = () => {
     toast.info("Syncing…");
@@ -124,25 +91,14 @@ const Index = () => {
         ))}
       </div>
 
-      {/* Swipeable page area with optional sidebar */}
+      {/* Page area with optional sidebar */}
       <div className="flex-1 flex overflow-hidden">
-        <div
-          ref={containerRef}
-          className="flex-1 relative overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div
-            className={cn("flex h-full", !swiping && "transition-transform duration-300 ease-out")}
-            style={{ transform: `translateX(calc(-${activePage * 100}% + ${swipeOffset}px))` }}
-          >
-            {PAGE_COMPONENTS.map((PageComp, i) => (
-              <div key={i} className="w-full h-full flex-shrink-0 overflow-y-auto retro-stripe">
-                <PageComp />
-              </div>
-            ))}
-          </div>
+        <div className="flex-1 relative overflow-hidden overflow-y-auto retro-stripe">
+          {PAGE_COMPONENTS.map((PageComp, i) => (
+            <div key={i} className={cn("w-full h-full", i !== activePage && "hidden")}>
+              <PageComp />
+            </div>
+          ))}
         </div>
 
         {/* Desktop sidebar ad */}
