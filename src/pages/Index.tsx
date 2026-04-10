@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   CalendarDays, Lock, Zap, Newspaper, User, RefreshCw,
 } from "lucide-react";
@@ -91,25 +91,14 @@ const Index = () => {
         ))}
       </div>
 
-      {/* Swipeable page area with optional sidebar */}
+      {/* Page area with optional sidebar */}
       <div className="flex-1 flex overflow-hidden">
-        <div
-          ref={containerRef}
-          className="flex-1 relative overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          <div
-            className={cn("flex h-full", !swiping && "transition-transform duration-300 ease-out")}
-            style={{ transform: `translateX(calc(-${activePage * 100}% + ${swipeOffset}px))` }}
-          >
-            {PAGE_COMPONENTS.map((PageComp, i) => (
-              <div key={i} className="w-full h-full flex-shrink-0 overflow-y-auto retro-stripe">
-                <PageComp />
-              </div>
-            ))}
-          </div>
+        <div className="flex-1 relative overflow-hidden overflow-y-auto retro-stripe">
+          {PAGE_COMPONENTS.map((PageComp, i) => (
+            <div key={i} className={cn("w-full h-full", i !== activePage && "hidden")}>
+              <PageComp />
+            </div>
+          ))}
         </div>
 
         {/* Desktop sidebar ad */}
