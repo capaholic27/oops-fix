@@ -26,7 +26,7 @@ const PAGE_COMPONENTS = [UpcomingGamesPage, PremiumPage, TeamPage, NewsPage, Pro
 
 const Index = () => {
   const [activePage, setActivePage] = useState(2);
-  const containerRef = useRef<HTMLDivElement>(null);
+  
   const syncData = useSyncData();
 
   // Apply stored theme on mount
