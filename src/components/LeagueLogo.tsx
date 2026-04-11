@@ -6,6 +6,17 @@ const LEAGUE_LOGOS: Record<string, string> = {
   "Serie A": "https://www.thesportsdb.com/images/media/league/badge/ocy2fe1566216901.png",
   "Bundesliga": "https://www.thesportsdb.com/images/media/league/badge/0j55yv1534764799.png",
   "Ligue 1": "https://www.thesportsdb.com/images/media/league/badge/8f5jmf1516458074.png",
+  "Championship": "https://www.thesportsdb.com/images/media/league/badge/wsvyvq1535811932.png",
+  "Eredivisie": "https://www.thesportsdb.com/images/media/league/badge/b0pam11637935089.png",
+  "Primeira Liga": "https://www.thesportsdb.com/images/media/league/badge/dqo6r91549878326.png",
+  "Champions League": "https://www.thesportsdb.com/images/media/league/badge/ygfwz71679951586.png",
+  "Europa League": "https://www.thesportsdb.com/images/media/league/badge/b3fgmu1621772739.png",
+  "Super Lig": "https://www.thesportsdb.com/images/media/league/badge/cjjji01637935101.png",
+  "Super League Greece": "https://www.thesportsdb.com/images/media/league/badge/xrtxqx1549879000.png",
+  "Scottish Premiership": "https://www.thesportsdb.com/images/media/league/badge/r2yvlq1535815090.png",
+  "Scottish Championship": "https://www.thesportsdb.com/images/media/league/badge/auu7or1558105917.png",
+  "League One": "https://www.thesportsdb.com/images/media/league/badge/jqkq1e1637935090.png",
+  "League Two": "https://www.thesportsdb.com/images/media/league/badge/pzxzp51637935094.png",
 };
 
 const LEAGUE_SHORT: Record<string, string> = {
@@ -14,6 +25,17 @@ const LEAGUE_SHORT: Record<string, string> = {
   "Serie A": "SA",
   "Bundesliga": "BL",
   "Ligue 1": "L1",
+  "Championship": "CH",
+  "Eredivisie": "ED",
+  "Primeira Liga": "PT",
+  "Champions League": "CL",
+  "Europa League": "EL",
+  "Super Lig": "TR",
+  "Super League Greece": "GR",
+  "Scottish Premiership": "SP",
+  "Scottish Championship": "SC",
+  "League One": "L1",
+  "League Two": "L2",
 };
 
 type Props = {
@@ -35,7 +57,7 @@ export const LeagueLogo = ({ leagueName, size = "sm", className }: Props) => {
   if (url) {
     return (
       <img
-        src={url + "/tiny"}
+        src={url}
         alt={leagueName}
         className={cn("flex-shrink-0 object-contain", sizeClass, className)}
         loading="lazy"

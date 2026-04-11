@@ -8,8 +8,13 @@ async function fetchTeamBadge(teamName: string): Promise<string | null> {
 
   try {
     const res = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`
+      `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`,
+      { signal: AbortSignal.timeout(5000) }
     );
+    if (!res.ok) {
+      logoCache.set(teamName, null);
+      return null;
+    }
     const data = await res.json();
     const badge = data?.teams?.[0]?.strBadge ?? null;
     logoCache.set(teamName, badge);
@@ -49,7 +54,12 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
 
   useEffect(() => {
     let cancelled = false;
-    if (!logoCache.has(teamName)) {
+    setLoaded(false);
+    setErrored(false);
+
+    if (logoCache.has(teamName)) {
+      setBadge(logoCache.get(teamName)!);
+    } else {
       fetchTeamBadge(teamName).then((url) => {
         if (!cancelled) setBadge(url);
       });
@@ -61,14 +71,21 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
 
   if (badge && !errored) {
     return (
-      <img
-        src={badge + "/tiny"}
-        alt={teamName}
-        className={cn("flex-shrink-0 object-contain", sizeClass, loaded ? "opacity-100" : "opacity-0", className)}
-        onLoad={() => setLoaded(true)}
-        onError={() => setErrored(true)}
-        loading="lazy"
-      />
+      <div className={cn("flex-shrink-0 relative", sizeClass, className)}>
+        {!loaded && (
+          <div className={cn("absolute inset-0 rounded-full flex items-center justify-center font-bold font-mono bg-muted text-muted-foreground border border-border text-[inherit]", sizeClass)}>
+            {getInitials(teamName)}
+          </div>
+        )}
+        <img
+          src={badge}
+          alt={teamName}
+          className={cn("w-full h-full object-contain", loaded ? "opacity-100" : "opacity-0")}
+          onLoad={() => setLoaded(true)}
+          onError={() => setErrored(true)}
+          loading="lazy"
+        />
+      </div>
     );
   }
 
