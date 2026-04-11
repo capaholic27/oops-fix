@@ -30,9 +30,9 @@ Give a confident, detailed prediction with:
 3. Key factors that will decide the game
 4. Risk assessment (what could go wrong)
 5. Betting insights (over/under, BTTS, corners, cards)
-${matchContext ? "6. How the match context specifically impacts this prediction" : ""}
+${matchContext ? `6. **IMPORTANT** — Explicitly address the match context provided ("${matchContext}") and explain how it changes the prediction, tactics, and betting angles` : ""}
 
-Keep it punchy and insightful, like a premium tipster. Use data to back every claim. 300 words max.`;
+Keep it punchy and insightful, like a premium tipster. Use data to back every claim. 350 words max.`;
 
     const userPrompt = `TEAM: ${teamName}
 STATS (last ${stats.matchesPlayed} games):
