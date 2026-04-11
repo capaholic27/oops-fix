@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   CalendarDays, Lock, Zap, Newspaper, User, RefreshCw,
 } from "lucide-react";
@@ -22,10 +22,12 @@ const PAGES = [
   { id: "profile", label: "You", icon: User },
 ];
 
-const PAGE_COMPONENTS = [UpcomingGamesPage, PremiumPage, TeamPage, NewsPage, ProfilePage];
+const DOUBLE_TAP_MS = 350;
 
 const Index = () => {
   const [activePage, setActivePage] = useState(2);
+  const [resetKeys, setResetKeys] = useState([0, 0, 0, 0, 0]);
+  const lastTapRef = useRef<{ idx: number; time: number }>({ idx: -1, time: 0 });
   
   const syncData = useSyncData();
 
@@ -33,9 +35,23 @@ const Index = () => {
     applyTheme(getStoredTheme());
   }, []);
 
-  const goToPage = useCallback((idx: number) => {
-    setActivePage(Math.max(0, Math.min(4, idx)));
-  }, []);
+  const handleNavTap = useCallback((idx: number) => {
+    const now = Date.now();
+    const last = lastTapRef.current;
+
+    if (idx === activePage && idx === last.idx && now - last.time < DOUBLE_TAP_MS) {
+      // Double tap on active page → reset it
+      setResetKeys(prev => {
+        const next = [...prev];
+        next[idx] = prev[idx] + 1;
+        return next;
+      });
+      lastTapRef.current = { idx: -1, time: 0 };
+    } else {
+      setActivePage(idx);
+      lastTapRef.current = { idx, time: now };
+    }
+  }, [activePage]);
 
   const handleSync = () => {
     toast.info("Syncing…");
@@ -79,11 +95,21 @@ const Index = () => {
       {/* Page area */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 relative overflow-hidden overflow-y-auto">
-          {PAGE_COMPONENTS.map((PageComp, i) => (
-            <div key={i} className={cn("w-full h-full", i !== activePage && "hidden")}>
-              <PageComp />
-            </div>
-          ))}
+          <div className={cn("w-full h-full", 0 !== activePage && "hidden")}>
+            <UpcomingGamesPage key={resetKeys[0]} />
+          </div>
+          <div className={cn("w-full h-full", 1 !== activePage && "hidden")}>
+            <PremiumPage key={resetKeys[1]} />
+          </div>
+          <div className={cn("w-full h-full", 2 !== activePage && "hidden")}>
+            <TeamPage key={resetKeys[2]} />
+          </div>
+          <div className={cn("w-full h-full", 3 !== activePage && "hidden")}>
+            <NewsPage key={resetKeys[3]} />
+          </div>
+          <div className={cn("w-full h-full", 4 !== activePage && "hidden")}>
+            <ProfilePage key={resetKeys[4]} />
+          </div>
         </div>
         <AdBanner variant="sidebar" />
       </div>
@@ -97,7 +123,7 @@ const Index = () => {
             return (
               <button
                 key={page.id}
-                onClick={() => goToPage(i)}
+                onClick={() => handleNavTap(i)}
                 className={cn(
                   "flex-1 flex flex-col items-center gap-1 py-2.5 transition-colors relative",
                   isActive
