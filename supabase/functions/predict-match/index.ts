@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { teamName, stats, recentForm, upcomingOpponent, opponentStats, opponentForm } = await req.json();
+    const { teamName, stats, recentForm, upcomingOpponent, opponentStats, opponentForm, matchContext } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -22,6 +22,7 @@ serve(async (req) => {
 - Scoring patterns (over/under trends, clean sheets, BTTS)
 - Home/away advantage
 - Head-to-head implied tendencies
+- ANY match context the user provides (derby, cup final, key player out, must-win, aggregate legs, managerial changes, etc.) — weigh these factors heavily as they significantly impact real-world outcomes
 
 Give a confident, detailed prediction with:
 1. Predicted score (e.g. "2-1")
@@ -29,6 +30,7 @@ Give a confident, detailed prediction with:
 3. Key factors that will decide the game
 4. Risk assessment (what could go wrong)
 5. Betting insights (over/under, BTTS, corners, cards)
+${matchContext ? "6. How the match context specifically impacts this prediction" : ""}
 
 Keep it punchy and insightful, like a premium tipster. Use data to back every claim. 300 words max.`;
 
@@ -54,6 +56,7 @@ OPPONENT STATS (last ${opponentStats?.matchesPlayed ?? "?"} games):
 - Win rate: ${opponentStats?.winProbability?.toFixed(1) ?? "?"}%
 - Style: ${opponentStats?.tacticalProfile?.style ?? "Unknown"}
 - Form last 5: ${opponentForm?.join(" ") ?? "N/A"}` : "No specific opponent selected — predict their general next match outlook."}
+${matchContext ? `\nMATCH CONTEXT: ${matchContext}` : ""}
 
 Predict the outcome.`;
 
