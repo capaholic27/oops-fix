@@ -455,7 +455,12 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
           <div className="flex items-center gap-3">
             <TeamLogo teamName={selectedTeam} size="lg" />
             <div>
-              <h2 className="text-xl font-bold leading-none">{selectedTeam}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold leading-none">{selectedTeam}</h2>
+                <button onClick={() => toggleFavorite(selectedTeam)} className="p-0.5">
+                  <Star className={cn("w-4 h-4 transition-colors", isFavorite(selectedTeam) ? "fill-primary text-primary" : "text-muted-foreground")} />
+                </button>
+              </div>
               <div className="flex items-center gap-1.5 mt-1">
                 <LeagueLogo leagueName={currentLeagueName} size="xs" />
                 <p className="text-xs text-muted-foreground font-medium">
