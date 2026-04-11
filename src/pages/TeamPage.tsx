@@ -21,10 +21,11 @@ import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
+import { useFavorites } from "@/hooks/useFavorites";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
-  Search, ArrowRight,
+  Search, ArrowRight, Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent } from "@/components/ui/dialog";
