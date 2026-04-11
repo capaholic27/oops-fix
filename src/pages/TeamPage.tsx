@@ -590,6 +590,7 @@ const PredictionDialog = ({
   const [teamSearch, setTeamSearch] = useState("");
   const [opponentSearch, setOpponentSearch] = useState("");
   const [showAI, setShowAI] = useState(false);
+  const [matchContext, setMatchContext] = useState("");
   const pastN = 10;
 
   const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
@@ -635,6 +636,7 @@ const PredictionDialog = ({
     setSelectedTeamB("");
     setTeamSearch("");
     setOpponentSearch("");
+    setMatchContext("");
     setShowAI(false);
   };
 
@@ -648,6 +650,9 @@ const PredictionDialog = ({
         body.upcomingOpponent = selectedTeamB;
         body.opponentStats = statsB;
         body.opponentForm = statsB.formLast5;
+      }
+      if (matchContext.trim()) {
+        body.matchContext = matchContext.trim();
       }
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
@@ -764,6 +769,21 @@ const PredictionDialog = ({
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Match context input */}
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <div>
+              <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Match Context (optional)</label>
+              <textarea
+                value={matchContext}
+                onChange={(e) => setMatchContext(e.target.value)}
+                placeholder="e.g. Derby match, Champions League final, key player injured, must-win game, 2nd leg aggregate…"
+                className="w-full px-3 py-2 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none min-h-[60px]"
+                maxLength={300}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">{matchContext.length}/300</p>
             </div>
           )}
 
