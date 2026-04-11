@@ -1,22 +1,22 @@
 import { cn } from "@/lib/utils";
 
 const LEAGUE_LOGOS: Record<string, string> = {
-  "Premier League": "https://www.thesportsdb.com/images/media/league/badge/i6o0kh1549879062.png",
-  "La Liga": "https://www.thesportsdb.com/images/media/league/badge/7onmyv1534768460.png",
-  "Serie A": "https://www.thesportsdb.com/images/media/league/badge/ocy2fe1566216901.png",
-  "Bundesliga": "https://www.thesportsdb.com/images/media/league/badge/0j55yv1534764799.png",
-  "Ligue 1": "https://www.thesportsdb.com/images/media/league/badge/8f5jmf1516458074.png",
-  "Championship": "https://www.thesportsdb.com/images/media/league/badge/wsvyvq1535811932.png",
-  "Eredivisie": "https://www.thesportsdb.com/images/media/league/badge/b0pam11637935089.png",
-  "Primeira Liga": "https://www.thesportsdb.com/images/media/league/badge/dqo6r91549878326.png",
-  "Champions League": "https://www.thesportsdb.com/images/media/league/badge/ygfwz71679951586.png",
-  "Europa League": "https://www.thesportsdb.com/images/media/league/badge/b3fgmu1621772739.png",
-  "Super Lig": "https://www.thesportsdb.com/images/media/league/badge/cjjji01637935101.png",
-  "Super League Greece": "https://www.thesportsdb.com/images/media/league/badge/xrtxqx1549879000.png",
-  "Scottish Premiership": "https://www.thesportsdb.com/images/media/league/badge/r2yvlq1535815090.png",
-  "Scottish Championship": "https://www.thesportsdb.com/images/media/league/badge/auu7or1558105917.png",
-  "League One": "https://www.thesportsdb.com/images/media/league/badge/jqkq1e1637935090.png",
-  "League Two": "https://www.thesportsdb.com/images/media/league/badge/pzxzp51637935094.png",
+  "Premier League": "https://r2.thesportsdb.com/images/media/league/badge/ramih51688553550.png",
+  "La Liga": "https://r2.thesportsdb.com/images/media/league/badge/ja4it51687628717.png",
+  "Serie A": "https://r2.thesportsdb.com/images/media/league/badge/67q3q21679951383.png",
+  "Bundesliga": "https://r2.thesportsdb.com/images/media/league/badge/teqh1b1679952008.png",
+  "Ligue 1": "https://r2.thesportsdb.com/images/media/league/badge/9f7z9d1742983155.png",
+  "Championship": "https://r2.thesportsdb.com/images/media/league/badge/ty5a681688770169.png",
+  "Champions League": "https://r2.thesportsdb.com/images/media/league/badge/facv1u1742998896.png",
+  "Europa League": "https://r2.thesportsdb.com/images/media/league/badge/mlsr7d1718774547.png",
+  "Primeira Liga": "https://r2.thesportsdb.com/images/media/league/badge/lkfko71751917970.png",
+  "Super Lig": "https://r2.thesportsdb.com/images/media/league/badge/h7xx231601671132.png",
+  "Scottish Premiership": "https://r2.thesportsdb.com/images/media/league/badge/72d3zc1688333496.png",
+  "Scottish Championship": "https://r2.thesportsdb.com/images/media/league/badge/i57nok1721301867.png",
+  "League One": "https://r2.thesportsdb.com/images/media/league/badge/afedb31688770443.png",
+  "League Two": "https://r2.thesportsdb.com/images/media/league/badge/jmb3ms1688770451.png",
+  "La Liga 2": "https://r2.thesportsdb.com/images/media/league/badge/r7u6821688425700.png",
+  "Bundesliga 2": "https://r2.thesportsdb.com/images/media/league/badge/hl40981534764789.png",
 };
 
 const LEAGUE_SHORT: Record<string, string> = {
@@ -36,6 +36,8 @@ const LEAGUE_SHORT: Record<string, string> = {
   "Scottish Championship": "SC",
   "League One": "L1",
   "League Two": "L2",
+  "La Liga 2": "L2",
+  "Bundesliga 2": "B2",
 };
 
 type Props = {
