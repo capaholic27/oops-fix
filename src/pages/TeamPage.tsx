@@ -369,6 +369,7 @@ type StatsProps = {
 
 const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict }: StatsProps) => {
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
+  const { toggleFavorite, isFavorite } = useFavorites();
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
