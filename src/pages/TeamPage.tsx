@@ -93,6 +93,8 @@ const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("
   );
 };
 
+type FilterTab = "top" | "favorites" | "all";
+
 /* ─── League Selection Screen (Box Logo Grid + All Leagues) ─── */
 const LeagueSelector = ({
   leagues,
@@ -105,9 +107,10 @@ const LeagueSelector = ({
   onSelectTeam: (team: string, league: string) => void;
   onOpenPredict: () => void;
 }) => {
-  const [page, setPage] = useState<"top" | "all">("top");
+  const [filter, setFilter] = useState<FilterTab>("top");
   const [selectedLeague, setSelectedLeague] = useState<{ code: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
+  const { favorites, toggleFavorite, isFavorite } = useFavorites();
 
   const teamsByLeague = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -140,10 +143,18 @@ const LeagueSelector = ({
       .filter(Boolean) as { code: string; name: string }[];
   }, [leagues]);
 
-  const otherLeagues = useMemo(() => {
-    const topNames = new Set(TOP_LEAGUES);
-    return leagues.filter(l => !topNames.has(l.name));
-  }, [leagues]);
+  // Favorite teams mapped to their leagues
+  const favoriteTeams = useMemo(() => {
+    const results: { team: string; league: { code: string; name: string } }[] = [];
+    leagues.forEach((l) => {
+      (teamsByLeague[l.code] || []).forEach((team) => {
+        if (isFavorite(team)) {
+          results.push({ team, league: l });
+        }
+      });
+    });
+    return results;
+  }, [leagues, teamsByLeague, favorites]);
 
   // Team list for a selected league
   if (selectedLeague) {
@@ -162,14 +173,31 @@ const LeagueSelector = ({
         </div>
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {teams.map((team) => (
-            <button
+            <div
               key={team}
-              onClick={() => onSelectTeam(team, selectedLeague.code)}
-              className="w-full text-left px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors border-b border-border last:border-b-0 flex items-center gap-3"
+              className="flex items-center border-b border-border last:border-b-0"
             >
-              <TeamLogo teamName={team} size="sm" />
-              {team}
-            </button>
+              <button
+                onClick={() => onSelectTeam(team, selectedLeague.code)}
+                className="flex-1 text-left px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-3"
+              >
+                <TeamLogo teamName={team} size="sm" />
+                {team}
+              </button>
+              <button
+                onClick={() => toggleFavorite(team)}
+                className="px-3 py-3 hover:bg-muted transition-colors"
+              >
+                <Star
+                  className={cn(
+                    "w-4 h-4 transition-colors",
+                    isFavorite(team)
+                      ? "fill-primary text-primary"
+                      : "text-muted-foreground"
+                  )}
+                />
+              </button>
+            </div>
           ))}
         </div>
       </div>
@@ -180,12 +208,37 @@ const LeagueSelector = ({
     <div className="p-4 space-y-4 max-w-lg mx-auto pb-20">
       <h2 className="text-xl font-bold text-center">Select League</h2>
 
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1 p-1 rounded-xl bg-muted">
+        {([
+          { id: "top" as FilterTab, label: "Top Leagues" },
+          { id: "favorites" as FilterTab, label: "Favorites" },
+          { id: "all" as FilterTab, label: "All" },
+        ]).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setFilter(tab.id)}
+            className={cn(
+              "flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all",
+              filter === tab.id
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+            {tab.id === "favorites" && favorites.length > 0 && (
+              <span className="ml-1 text-[10px] opacity-60">({favorites.length})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Search leagues..."
+          placeholder="Search teams or leagues..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full h-10 pl-10 pr-4 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -199,91 +252,95 @@ const LeagueSelector = ({
             <p className="text-sm text-muted-foreground text-center py-6">No teams found</p>
           )}
           {searchResults.map(({ team, league: l }) => (
-            <button
-              key={`${l.code}-${team}`}
-              onClick={() => onSelectTeam(team, l.code)}
-              className="w-full text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors border-b border-border last:border-b-0 flex items-center gap-3"
-            >
-              <TeamLogo teamName={team} size="sm" />
-              <div>
-                <span className="font-medium">{team}</span>
-                <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
-              </div>
-            </button>
+            <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
+              <button
+                onClick={() => onSelectTeam(team, l.code)}
+                className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
+              >
+                <TeamLogo teamName={team} size="sm" />
+                <div>
+                  <span className="font-medium">{team}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
+                </div>
+              </button>
+              <button
+                onClick={() => toggleFavorite(team)}
+                className="px-3 py-3 hover:bg-muted transition-colors"
+              >
+                <Star className={cn("w-4 h-4 transition-colors", isFavorite(team) ? "fill-primary text-primary" : "text-muted-foreground")} />
+              </button>
+            </div>
           ))}
         </div>
       ) : (
         <>
-          {/* Page indicator */}
-          <div className="flex items-center justify-center gap-2">
-            <button
-              onClick={() => setPage("top")}
-              className={cn(
-                "w-2 h-2 rounded-full transition-all",
-                page === "top" ? "bg-primary w-6" : "bg-border"
-              )}
-            />
-            <button
-              onClick={() => setPage("all")}
-              className={cn(
-                "w-2 h-2 rounded-full transition-all",
-                page === "all" ? "bg-primary w-6" : "bg-border"
-              )}
-            />
-          </div>
-
-          {page === "top" ? (
+          {/* Favorites view */}
+          {filter === "favorites" && (
             <>
-              {/* Box logo grid for top leagues */}
-              <div className="grid grid-cols-3 gap-3">
-                {topLeagues.map((l) => (
-                  <button
-                    key={l.code}
-                    onClick={() => setSelectedLeague(l)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
-                  >
-                    <LeagueLogo leagueName={l.name} size="md" />
-                    <span className="text-[11px] font-medium text-center leading-tight">{l.name}</span>
-                  </button>
-                ))}
-              </div>
+              {favoriteTeams.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
+                  <Star className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No favorite teams yet</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Select a league and tap the star to add favorites</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  {favoriteTeams.map(({ team, league: l }) => (
+                    <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
+                      <button
+                        onClick={() => onSelectTeam(team, l.code)}
+                        className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
+                      >
+                        <TeamLogo teamName={team} size="sm" />
+                        <div>
+                          <span className="font-medium">{team}</span>
+                          <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => toggleFavorite(team)}
+                        className="px-3 py-3 hover:bg-muted transition-colors"
+                      >
+                        <Star className="w-4 h-4 fill-primary text-primary" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
 
-              {/* Swipe hint */}
-              {otherLeagues.length > 0 && (
+          {/* Top Leagues grid */}
+          {filter === "top" && (
+            <div className="grid grid-cols-3 gap-3">
+              {topLeagues.map((l) => (
                 <button
-                  onClick={() => setPage("all")}
-                  className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  key={l.code}
+                  onClick={() => setSelectedLeague(l)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
                 >
-                  <span>All leagues</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <LeagueLogo leagueName={l.name} size="md" />
+                  <span className="text-[11px] font-medium text-center leading-tight">{l.name}</span>
                 </button>
-              )}
-            </>
-          ) : (
-            <>
-              {/* All leagues list */}
-              <div className="space-y-2">
-                {leagues.map((l) => (
-                  <button
-                    key={l.code}
-                    onClick={() => setSelectedLeague(l)}
-                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
-                  >
-                    <LeagueLogo leagueName={l.name} size="sm" />
-                    <span className="text-sm font-medium flex-1">{l.name}</span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
+              ))}
+            </div>
+          )}
 
-              <button
-                onClick={() => setPage("top")}
-                className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Top leagues</span>
-              </button>
-            </>
+          {/* All leagues list */}
+          {filter === "all" && (
+            <div className="space-y-2">
+              {leagues.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => setSelectedLeague(l)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
+                >
+                  <LeagueLogo leagueName={l.name} size="sm" />
+                  <span className="text-sm font-medium flex-1">{l.name}</span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Generate Prediction button */}
