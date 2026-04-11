@@ -2,27 +2,38 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const logoCache = new Map<string, string | null>();
+const pendingRequests = new Map<string, Promise<string | null>>();
 
 async function fetchTeamBadge(teamName: string): Promise<string | null> {
   if (logoCache.has(teamName)) return logoCache.get(teamName)!;
+  
+  // Deduplicate concurrent requests for same team
+  if (pendingRequests.has(teamName)) return pendingRequests.get(teamName)!;
 
-  try {
-    const res = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    if (!res.ok) {
-      logoCache.set(teamName, null);
+  const promise = (async () => {
+    try {
+      const res = await fetch(
+        `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) {
+        logoCache.set(teamName, null);
+        return null;
+      }
+      const data = await res.json();
+      const badge = data?.teams?.[0]?.strBadge ?? null;
+      logoCache.set(teamName, badge);
+      return badge;
+    } catch {
+      // Don't cache failures permanently - allow retry
       return null;
+    } finally {
+      pendingRequests.delete(teamName);
     }
-    const data = await res.json();
-    const badge = data?.teams?.[0]?.strBadge ?? null;
-    logoCache.set(teamName, badge);
-    return badge;
-  } catch {
-    logoCache.set(teamName, null);
-    return null;
-  }
+  })();
+
+  pendingRequests.set(teamName, promise);
+  return promise;
 }
 
 function getInitials(name: string) {
@@ -51,6 +62,7 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
   const [badge, setBadge] = useState<string | null>(logoCache.get(teamName) ?? null);
   const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +73,22 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
       setBadge(logoCache.get(teamName)!);
     } else {
       fetchTeamBadge(teamName).then((url) => {
-        if (!cancelled) setBadge(url);
+        if (!cancelled) {
+          setBadge(url);
+          // If fetch returned null (network error), retry once after delay
+          if (!url && retryCount < 1) {
+            setTimeout(() => {
+              if (!cancelled) {
+                setRetryCount(c => c + 1);
+                fetchTeamBadge(teamName).then((retryUrl) => {
+                  if (!cancelled && retryUrl) {
+                    setBadge(retryUrl);
+                  }
+                });
+              }
+            }, 3000);
+          }
+        }
       });
     }
     return () => { cancelled = true; };
@@ -82,7 +109,11 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
           alt={teamName}
           className={cn("w-full h-full object-contain", loaded ? "opacity-100" : "opacity-0")}
           onLoad={() => setLoaded(true)}
-          onError={() => setErrored(true)}
+          onError={() => {
+            setErrored(true);
+            // Clear bad cache entry so it can retry
+            logoCache.delete(teamName);
+          }}
           loading="lazy"
         />
       </div>
