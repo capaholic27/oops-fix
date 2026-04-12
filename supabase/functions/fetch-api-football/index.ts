@@ -22,6 +22,8 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
   { id: 3, code: "UEL", name: "Europa League" },
   { id: 203, code: "T1", name: "Super Lig" },
   { id: 179, code: "SC0", name: "Scottish Premiership" },
+  { id: 253, code: "SWE1", name: "Allsvenskan" },
+  { id: 253, code: "MLS", name: "Major League Soccer" },
 ];
 
 // Try current and previous seasons
