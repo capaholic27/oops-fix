@@ -1,3 +1,5 @@
+import { normalizeTeamName } from "@/lib/teamNormalize";
+
 export type Match = {
   id: string;
   league_code: string;
@@ -219,7 +221,6 @@ function calculateVariance(numbers: number[]): number {
 
 // Get unique team names from matches (normalized)
 export function getUniqueTeams(matches: Match[]): string[] {
-  const { normalizeTeamName } = require("@/lib/teamNormalize");
   const teams = new Set<string>();
   matches.forEach(m => {
     teams.add(normalizeTeamName(m.home_team));
