@@ -35,10 +35,11 @@ import { cn } from "@/lib/utils";
 
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
-/* Top 10 leagues for the box grid (domestic leagues only, no tournaments) */
+/* Top leagues for the box grid (domestic leagues only, no tournaments) */
 const TOP_LEAGUES = [
   "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1",
   "Championship", "Eredivisie", "Primeira Liga", "Super Lig", "Scottish Premiership",
+  "Major League Soccer",
 ];
 
 /* ─── Form Strip ─── */
@@ -111,6 +112,8 @@ const LeagueSelector = ({
   const [filter, setFilter] = useState<FilterTab>("top");
   const [selectedLeague, setSelectedLeague] = useState<{ code: string; name: string } | null>(null);
   const [search, setSearch] = useState("");
+  const [favSearch, setFavSearch] = useState("");
+  const [showFavSearch, setShowFavSearch] = useState(false);
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
 
   const teamsByLeague = useMemo(() => {
@@ -294,41 +297,91 @@ const LeagueSelector = ({
           {/* Favorites view */}
           {filter === "favorites" && (
             <>
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                {favoriteTeams.map(({ team, league: l }) => (
-                  <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
+              {/* Favorites as 3x3 box grid */}
+              <div className="grid grid-cols-3 gap-3">
+                {Array.from({ length: 9 }).map((_, i) => {
+                  const fav = favoriteTeams[i];
+                  if (fav) {
+                    return (
+                      <button
+                        key={`fav-${fav.team}`}
+                        onClick={() => onSelectTeam(fav.team, fav.league.code)}
+                        className="relative flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(fav.team); }}
+                          className="absolute top-1.5 right-1.5 p-1"
+                        >
+                          <Star className="w-3 h-3 fill-primary text-primary" />
+                        </button>
+                        <TeamLogo teamName={fav.team} size="md" />
+                        <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">{fav.team}</span>
+                      </button>
+                    );
+                  }
+                  return (
                     <button
-                      onClick={() => onSelectTeam(team, l.code)}
-                      className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
+                      key={`empty-${i}`}
+                      onClick={() => setShowFavSearch(true)}
+                      className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center cursor-pointer"
                     >
-                      <TeamLogo teamName={team} size="sm" />
-                      <div>
-                        <span className="font-medium">{team}</span>
-                        <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
+                      <div className="w-8 h-8 rounded-full border-2 border-dashed border-muted-foreground/25 flex items-center justify-center">
+                        <span className="text-muted-foreground/40 text-lg leading-none">+</span>
                       </div>
+                      <span className="text-[10px] text-muted-foreground/40">Add team</span>
                     </button>
-                    <button
-                      onClick={() => toggleFavorite(team)}
-                      className="px-3 py-3 hover:bg-muted transition-colors"
-                    >
-                      <Star className="w-4 h-4 fill-primary text-primary" />
-                    </button>
-                  </div>
-                ))}
-                {/* Empty slots to invite adding more favorites */}
-                {Array.from({ length: Math.max(0, 5 - favoriteTeams.length) }).map((_, i) => (
-                  <div
-                    key={`empty-${i}`}
-                    onClick={() => setFilter("top")}
-                    className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
-                      <span className="text-muted-foreground/40 text-xs">+</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground/50">Add a team</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
+              {/* Inline search to add favorites */}
+              {showFavSearch && (
+                <div className="rounded-xl border border-border bg-card p-3 space-y-2 animate-fade-up">
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Search team to add..."
+                        value={favSearch}
+                        onChange={(e) => setFavSearch(e.target.value)}
+                        className="w-full h-9 pl-8 pr-3 text-sm rounded-lg border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+                    <button onClick={() => { setShowFavSearch(false); setFavSearch(""); }} className="p-2 hover:bg-muted rounded-lg">
+                      <X className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </div>
+                  {favSearch.trim() && (() => {
+                    const q = favSearch.toLowerCase();
+                    const results: { team: string; league: { code: string; name: string } }[] = [];
+                    leagues.forEach((l) => {
+                      (teamsByLeague[l.code] || []).forEach((team) => {
+                        if (team.toLowerCase().includes(q) && !isFavorite(team)) {
+                          results.push({ team, league: l });
+                        }
+                      });
+                    });
+                    if (results.length === 0) return <p className="text-xs text-muted-foreground text-center py-2">No teams found</p>;
+                    return (
+                      <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
+                        {results.slice(0, 10).map(({ team, league: l }) => (
+                          <button
+                            key={`${l.code}-${team}`}
+                            onClick={() => { toggleFavorite(team); setFavSearch(""); setShowFavSearch(false); }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                          >
+                            <TeamLogo teamName={team} size="sm" />
+                            <span className="font-medium">{team}</span>
+                            <span className="text-muted-foreground text-xs ml-auto">{l.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </>
           )}
 
