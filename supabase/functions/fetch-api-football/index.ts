@@ -100,6 +100,7 @@ Deno.serve(async (req) => {
     let apiCalls = 0;
     const maxCalls = 80;
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const statusCounts: Record<string, number> = {};
 
     const leaguesToSync = leagueFilter
       ? LEAGUES.filter(l => leagueFilter!.includes(l.code))
