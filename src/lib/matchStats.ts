@@ -49,8 +49,9 @@ export type TeamMatchView = {
 };
 
 export function getTeamMatchView(match: Match, teamName: string): TeamMatchView | null {
-  const isHome = match.home_team === teamName;
-  const isAway = match.away_team === teamName;
+  const normalizedTeam = normalizeTeamName(teamName);
+  const isHome = normalizeTeamName(match.home_team) === normalizedTeam;
+  const isAway = normalizeTeamName(match.away_team) === normalizedTeam;
   if (!isHome && !isAway) return null;
 
   const goalsFor = isHome ? match.ft_home_goals : match.ft_away_goals;
