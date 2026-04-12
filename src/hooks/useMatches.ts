@@ -98,7 +98,9 @@ export function useFixtures(teamName?: string) {
         .order("match_date", { ascending: true });
 
       if (teamName) {
-        query = query.or(`home_team.eq.${teamName},away_team.eq.${teamName}`);
+        const aliases = getTeamAliases(teamName);
+        const parts = aliases.flatMap(a => [`home_team.eq.${a}`, `away_team.eq.${a}`]);
+        query = query.or(parts.join(","));
       }
 
       const { data, error } = await query;
