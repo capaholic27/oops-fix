@@ -294,36 +294,41 @@ const LeagueSelector = ({
           {/* Favorites view */}
           {filter === "favorites" && (
             <>
-              {favoriteTeams.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
-                  <Star className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No favorite teams yet</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Select a league and tap the star to add favorites</p>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-border bg-card overflow-hidden">
-                  {favoriteTeams.map(({ team, league: l }) => (
-                    <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
-                      <button
-                        onClick={() => onSelectTeam(team, l.code)}
-                        className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
-                      >
-                        <TeamLogo teamName={team} size="sm" />
-                        <div>
-                          <span className="font-medium">{team}</span>
-                          <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => toggleFavorite(team)}
-                        className="px-3 py-3 hover:bg-muted transition-colors"
-                      >
-                        <Star className="w-4 h-4 fill-primary text-primary" />
-                      </button>
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                {favoriteTeams.map(({ team, league: l }) => (
+                  <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
+                    <button
+                      onClick={() => onSelectTeam(team, l.code)}
+                      className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
+                    >
+                      <TeamLogo teamName={team} size="sm" />
+                      <div>
+                        <span className="font-medium">{team}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => toggleFavorite(team)}
+                      className="px-3 py-3 hover:bg-muted transition-colors"
+                    >
+                      <Star className="w-4 h-4 fill-primary text-primary" />
+                    </button>
+                  </div>
+                ))}
+                {/* Empty slots to invite adding more favorites */}
+                {Array.from({ length: Math.max(0, 5 - favoriteTeams.length) }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    onClick={() => setFilter("top")}
+                    className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="w-6 h-6 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                      <span className="text-muted-foreground/40 text-xs">+</span>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <span className="text-sm text-muted-foreground/50">Add a team</span>
+                  </div>
+                ))}
+              </div>
             </>
           )}
 
