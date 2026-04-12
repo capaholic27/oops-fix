@@ -12,6 +12,15 @@ export function normalizeTeamName(name: string): string {
   return ALIASES[name] ?? name;
 }
 
+/** Get all name variants for a team (canonical + aliases) */
+export function getTeamAliases(teamName: string): string[] {
+  const canonical = normalizeTeamName(teamName);
+  const aliases = Object.entries(ALIASES)
+    .filter(([, v]) => v === canonical)
+    .map(([k]) => k);
+  return [canonical, ...aliases.filter(a => a !== canonical)];
+}
+
 /**
  * Leagues that are tournaments (not domestic leagues).
  * Teams in these leagues should not be shown as separate favorites.
