@@ -144,12 +144,28 @@ const LeagueSelector = ({
       .filter(Boolean) as { code: string; name: string }[];
   }, [leagues]);
 
-  // Favorite teams mapped to their leagues
+  // Favorite teams mapped to their primary (non-tournament) league only
   const favoriteTeams = useMemo(() => {
     const results: { team: string; league: { code: string; name: string } }[] = [];
+    const seen = new Set<string>();
+    // First pass: add from domestic leagues
     leagues.forEach((l) => {
+      if (isTournamentLeague(l.name)) return;
       (teamsByLeague[l.code] || []).forEach((team) => {
-        if (isFavorite(team)) {
+        const norm = normalizeTeamName(team);
+        if (isFavorite(team) && !seen.has(norm)) {
+          seen.add(norm);
+          results.push({ team, league: l });
+        }
+      });
+    });
+    // Second pass: add tournament-only teams that weren't found in domestic
+    leagues.forEach((l) => {
+      if (!isTournamentLeague(l.name)) return;
+      (teamsByLeague[l.code] || []).forEach((team) => {
+        const norm = normalizeTeamName(team);
+        if (isFavorite(team) && !seen.has(norm)) {
+          seen.add(norm);
           results.push({ team, league: l });
         }
       });
