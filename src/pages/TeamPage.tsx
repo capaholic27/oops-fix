@@ -35,10 +35,10 @@ import { cn } from "@/lib/utils";
 
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
-/* Top 10 leagues for the box grid */
+/* Top 10 leagues for the box grid (domestic leagues only, no tournaments) */
 const TOP_LEAGUES = [
   "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1",
-  "Champions League", "Championship", "La Liga 2", "Bundesliga 2", "Allsvenskan",
+  "Championship", "Eredivisie", "Primeira Liga", "Super Lig", "Scottish Premiership",
 ];
 
 /* ─── Form Strip ─── */

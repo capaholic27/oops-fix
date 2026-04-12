@@ -22,6 +22,12 @@ const LEAGUE_LOGOS: Record<string, string> = {
   "Bundesliga 2": "https://r2.thesportsdb.com/images/media/league/badge/hl40981534764789.png",
   "Allsvenskan": "https://r2.thesportsdb.com/images/media/league/badge/denok11707459183.png",
   "Scottish League One": "https://r2.thesportsdb.com/images/media/league/badge/i57nok1721301867.png",
+  "Conference League": "https://r2.thesportsdb.com/images/media/league/badge/e5j0kd1718774650.png",
+  "World Cup": "https://r2.thesportsdb.com/images/media/league/badge/z0kkx41679951498.png",
+  "Euros": "https://r2.thesportsdb.com/images/media/league/badge/u0igkn1687622466.png",
+  "AFCON": "https://r2.thesportsdb.com/images/media/league/badge/2ozyuh1547275239.png",
+  "FIFA Club World Cup": "https://r2.thesportsdb.com/images/media/league/badge/rsyyrq1471617835.png",
+  "Copa America": "https://r2.thesportsdb.com/images/media/league/badge/bwp1bj1625084862.png",
 };
 
 const LEAGUE_SHORT: Record<string, string> = {
@@ -44,6 +50,12 @@ const LEAGUE_SHORT: Record<string, string> = {
   "La Liga 2": "L2",
   "Bundesliga 2": "B2",
   "Allsvenskan": "AS",
+  "Conference League": "CL",
+  "World Cup": "WC",
+  "Euros": "EU",
+  "AFCON": "AF",
+  "FIFA Club World Cup": "CW",
+  "Copa America": "CA",
 };
 
 type Props = {
