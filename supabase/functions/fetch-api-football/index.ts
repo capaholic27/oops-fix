@@ -151,8 +151,7 @@ Deno.serve(async (req) => {
                 });
               }
             }
-            // Finished
-            else if (status === "FT" && goals.home !== null && goals.away !== null) {
+            else if ((status === "FT" || status === "AET" || status === "PEN") && goals.home !== null && goals.away !== null) {
               if (mode === "results" || mode === "both") {
                 allResults.push({
                   league_code: league.code,
