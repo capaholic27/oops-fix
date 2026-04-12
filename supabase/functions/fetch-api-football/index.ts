@@ -22,10 +22,12 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
   { id: 3, code: "UEL", name: "Europa League" },
   { id: 203, code: "T1", name: "Super Lig" },
   { id: 179, code: "SC0", name: "Scottish Premiership" },
+  { id: 113, code: "SWE1", name: "Allsvenskan" },
+  { id: 253, code: "MLS", name: "Major League Soccer" },
 ];
 
 // Try current and previous seasons
-const SEASONS = [2025, 2024];
+const SEASONS = [2024];
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -77,9 +79,11 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     let mode = "both";
+    let leagueFilter: string[] | null = null;
     try {
       const body = await req.json();
       if (body.mode) mode = body.mode;
+      if (body.leagues) leagueFilter = body.leagues;
     } catch { /* no body */ }
 
     // Use date range approach (works on free plan)
@@ -94,11 +98,20 @@ Deno.serve(async (req) => {
     const allFixtures: any[] = [];
     const allResults: any[] = [];
     let apiCalls = 0;
-    const maxCalls = 80; // Free plan allows 100/day
+    const maxCalls = 80;
+    const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+    const leaguesToSync = leagueFilter
+      ? LEAGUES.filter(l => leagueFilter!.includes(l.code))
+      : LEAGUES;
 
     for (const season of SEASONS) {
-      for (const league of LEAGUES) {
+      for (const league of leaguesToSync) {
         if (apiCalls >= maxCalls) break;
+
+        // Rate limit: wait 7s between calls (10 req/min limit)
+        if (apiCalls > 0 && apiCalls % 9 === 0) await delay(60000);
+        else if (apiCalls > 0) await delay(3000);
 
         try {
           const data = await apiFetch("/fixtures", {
@@ -132,8 +145,7 @@ Deno.serve(async (req) => {
                 });
               }
             }
-            // Finished
-            else if (status === "FT" && goals.home !== null && goals.away !== null) {
+            else if ((status === "FT" || status === "AET" || status === "PEN") && goals.home !== null && goals.away !== null) {
               if (mode === "results" || mode === "both") {
                 allResults.push({
                   league_code: league.code,
@@ -220,7 +232,7 @@ Deno.serve(async (req) => {
         fixtures: fixturesInserted,
         results: resultsInserted,
         apiCalls,
-        leaguesFetched: Math.min(LEAGUES.length, maxCalls),
+        leaguesFetched: leaguesToSync.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
