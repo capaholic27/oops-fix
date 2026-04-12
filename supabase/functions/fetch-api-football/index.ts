@@ -96,11 +96,15 @@ Deno.serve(async (req) => {
     const allFixtures: any[] = [];
     const allResults: any[] = [];
     let apiCalls = 0;
-    const maxCalls = 80; // Free plan allows 100/day
+    const maxCalls = 80;
+    const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     for (const season of SEASONS) {
       for (const league of LEAGUES) {
         if (apiCalls >= maxCalls) break;
+
+        // Rate limit: wait 7s between calls (10 req/min limit)
+        if (apiCalls > 0) await delay(7000);
 
         try {
           const data = await apiFetch("/fixtures", {
