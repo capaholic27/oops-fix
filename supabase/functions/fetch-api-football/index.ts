@@ -132,11 +132,6 @@ Deno.serve(async (req) => {
 
             if (!matchDate || !teams.home?.name || !teams.away?.name) continue;
 
-            // Count statuses for debugging
-            if (apiCalls <= 4) {
-              statusCounts[status] = (statusCounts[status] || 0) + 1;
-            }
-
             // Upcoming (not started yet)
             if (status === "NS" || status === "TBD") {
               if (mode === "fixtures" || mode === "both") {
