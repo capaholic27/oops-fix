@@ -51,6 +51,7 @@ const LEAGUE_SHORT: Record<string, string> = {
   "La Liga 2": "L2",
   "Bundesliga 2": "B2",
   "Allsvenskan": "AS",
+  "Major League Soccer": "ML",
   "Conference League": "CL",
   "World Cup": "WC",
   "Euros": "EU",
