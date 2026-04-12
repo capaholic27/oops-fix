@@ -28,6 +28,12 @@ export function getTeamAliases(teamName: string): string[] {
 export const TOURNAMENT_LEAGUES = [
   "Champions League",
   "Europa League",
+  "Conference League",
+  "World Cup",
+  "Euros",
+  "AFCON",
+  "FIFA Club World Cup",
+  "Copa America",
 ];
 
 export function isTournamentLeague(leagueName: string): boolean {
