@@ -27,7 +27,7 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
 ];
 
 // Try current and previous seasons
-const SEASONS = [2025, 2024];
+const SEASONS = [2024, 2023];
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
