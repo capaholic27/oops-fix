@@ -232,6 +232,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log("Status counts:", JSON.stringify(statusCounts));
+    console.log(`Total results collected: ${allResults.length}, fixtures: ${allFixtures.length}`);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -239,6 +242,8 @@ Deno.serve(async (req) => {
         results: resultsInserted,
         apiCalls,
         leaguesFetched: Math.min(LEAGUES.length, maxCalls),
+        statusCounts,
+        totalCollected: { results: allResults.length, fixtures: allFixtures.length },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
