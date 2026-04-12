@@ -101,8 +101,12 @@ Deno.serve(async (req) => {
     const maxCalls = 80;
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+    const leaguesToSync = leagueFilter
+      ? LEAGUES.filter(l => leagueFilter!.includes(l.code))
+      : LEAGUES;
+
     for (const season of SEASONS) {
-      for (const league of LEAGUES) {
+      for (const league of leaguesToSync) {
         if (apiCalls >= maxCalls) break;
 
         // Rate limit: wait 7s between calls (10 req/min limit)
