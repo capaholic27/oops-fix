@@ -357,7 +357,68 @@ const LeagueSelector = ({
   );
 };
 
-/* ─── Stats Dashboard ─── */
+/* ─── Player Highlights (Top Scorer / Assists / Shots) ─── */
+type PlayerHighlightCategory = "scorer" | "assists" | "shots";
+type PlayerHighlight = { name: string; value: number; label: string };
+
+// Mock player leaders data keyed by team name
+const PLAYER_LEADERS: Record<string, Record<PlayerHighlightCategory, PlayerHighlight>> = {
+  "Arsenal": { scorer: { name: "B. Saka", value: 14, label: "goals" }, assists: { name: "M. Ødegaard", value: 11, label: "assists" }, shots: { name: "K. Havertz", value: 72, label: "shots" } },
+  "Liverpool": { scorer: { name: "M. Salah", value: 19, label: "goals" }, assists: { name: "M. Salah", value: 13, label: "assists" }, shots: { name: "M. Salah", value: 89, label: "shots" } },
+  "Manchester City": { scorer: { name: "E. Haaland", value: 22, label: "goals" }, assists: { name: "K. De Bruyne", value: 10, label: "assists" }, shots: { name: "E. Haaland", value: 95, label: "shots" } },
+  "Real Madrid": { scorer: { name: "Vinícius Jr", value: 15, label: "goals" }, assists: { name: "J. Bellingham", value: 9, label: "assists" }, shots: { name: "Vinícius Jr", value: 82, label: "shots" } },
+  "Barcelona": { scorer: { name: "R. Lewandowski", value: 18, label: "goals" }, assists: { name: "L. Yamal", value: 12, label: "assists" }, shots: { name: "R. Lewandowski", value: 88, label: "shots" } },
+};
+
+const PlayerHighlights = ({ teamName }: { teamName: string }) => {
+  const [active, setActive] = useState<PlayerHighlightCategory | null>(null);
+  const leaders = PLAYER_LEADERS[teamName];
+
+  // If no data for this team, show generic placeholder
+  const categories: { id: PlayerHighlightCategory; label: string; icon: React.ReactNode }[] = [
+    { id: "scorer", label: "Top Scorer", icon: <Target className="w-3 h-3" /> },
+    { id: "assists", label: "Top Assists", icon: <ArrowRight className="w-3 h-3" /> },
+    { id: "shots", label: "Top Shots", icon: <Crosshair className="w-3 h-3" /> },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Player Leaders</span>
+      <div className="flex gap-2 mt-2">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActive(active === cat.id ? null : cat.id)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all",
+              active === cat.id
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {cat.icon}
+            {cat.label}
+          </button>
+        ))}
+      </div>
+      {active && (
+        <div className="mt-2.5 flex items-center gap-3 px-1 animate-fade-up">
+          {leaders ? (
+            <>
+              <span className="text-sm font-bold text-foreground">{leaders[active].name}</span>
+              <span className="font-mono text-sm font-bold text-primary">{leaders[active].value}</span>
+              <span className="text-xs text-muted-foreground">{leaders[active].label}</span>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">No player data available</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 type StatsProps = {
   selectedTeam: string;
   leagueCode: string;
@@ -499,6 +560,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         <StatCard label="Over 2.5" value={`${stats.over25Percentage.toFixed(0)}%`} icon={<Target className="w-4 h-4" />} trend={stats.over25Percentage > 60 ? "positive" : "neutral"} subtitle={`O1.5: ${stats.over15Percentage.toFixed(0)}% · BTTS: ${stats.bttsPercentage.toFixed(0)}%`} delay={400} onClick={() => setOpenStat("over25")} />
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
       </div>
+
+      {/* Player Highlights */}
+      <PlayerHighlights teamName={selectedTeam} />
 
       <AdBanner variant="inline" />
 
