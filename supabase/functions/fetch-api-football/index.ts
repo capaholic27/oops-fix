@@ -79,9 +79,11 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     let mode = "both";
+    let leagueFilter: string[] | null = null;
     try {
       const body = await req.json();
       if (body.mode) mode = body.mode;
+      if (body.leagues) leagueFilter = body.leagues;
     } catch { /* no body */ }
 
     // Use date range approach (works on free plan)
