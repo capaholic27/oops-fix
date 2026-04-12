@@ -217,12 +217,13 @@ function calculateVariance(numbers: number[]): number {
   return numbers.reduce((s, n) => s + (n - mean) ** 2, 0) / numbers.length;
 }
 
-// Get unique team names from matches
+// Get unique team names from matches (normalized)
 export function getUniqueTeams(matches: Match[]): string[] {
+  const { normalizeTeamName } = require("@/lib/teamNormalize");
   const teams = new Set<string>();
   matches.forEach(m => {
-    teams.add(m.home_team);
-    teams.add(m.away_team);
+    teams.add(normalizeTeamName(m.home_team));
+    teams.add(normalizeTeamName(m.away_team));
   });
   return Array.from(teams).sort();
 }
