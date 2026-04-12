@@ -100,7 +100,6 @@ Deno.serve(async (req) => {
     let apiCalls = 0;
     const maxCalls = 80;
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
-    const statusCounts: Record<string, number> = {};
 
     const leaguesToSync = leagueFilter
       ? LEAGUES.filter(l => leagueFilter!.includes(l.code))
@@ -227,18 +226,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log("Status counts:", JSON.stringify(statusCounts));
-    console.log(`Total results collected: ${allResults.length}, fixtures: ${allFixtures.length}`);
-
     return new Response(
       JSON.stringify({
         success: true,
         fixtures: fixturesInserted,
         results: resultsInserted,
         apiCalls,
-        leaguesFetched: Math.min(LEAGUES.length, maxCalls),
-        statusCounts,
-        totalCollected: { results: allResults.length, fixtures: allFixtures.length },
+        leaguesFetched: leaguesToSync.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
