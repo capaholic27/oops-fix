@@ -588,6 +588,31 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         <StatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT: ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={350} onClick={() => setOpenStat("shots")} />
         <StatCard label="Over 2.5" value={`${stats.over25Percentage.toFixed(0)}%`} icon={<Target className="w-4 h-4" />} trend={stats.over25Percentage > 60 ? "positive" : "neutral"} subtitle={`O1.5: ${stats.over15Percentage.toFixed(0)}% · BTTS: ${stats.bttsPercentage.toFixed(0)}%`} delay={400} onClick={() => setOpenStat("over25")} />
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
+        {(() => {
+          const mentality = computeMentality(allTeamViews.map(v => v.result));
+          return (
+            <div className="stat-card opacity-0 animate-fade-up col-span-2" style={{ animationDelay: "475ms" }}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="stat-label">Mentality</span>
+                <span className="text-lg">{mentality.emoji}</span>
+              </div>
+              <span className="font-mono text-lg font-bold text-foreground leading-none">{mentality.label}</span>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{mentality.description}</p>
+              <div className="mt-2">
+                <div className="probability-bar">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `${mentality.intensity}%`,
+                      background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
+                    }}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground font-medium mt-0.5 block">Intensity: {mentality.intensity}%</span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Player Highlights */}
