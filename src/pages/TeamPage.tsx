@@ -94,7 +94,7 @@ const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("
   );
 };
 
-type FilterTab = "top" | "favorites" | "all";
+type FilterTab = "favorites" | "top" | "all";
 
 /* ─── League Selection Screen (Box Logo Grid + All Leagues) ─── */
 const LeagueSelector = ({
@@ -225,11 +225,11 @@ const LeagueSelector = ({
     <div className="p-4 space-y-4 max-w-lg mx-auto pb-20">
       <h2 className="text-xl font-bold text-center">Select League</h2>
 
-      {/* Filter Tabs */}
+      {/* Filter Tabs: Favorites | Top Leagues (default) | All */}
       <div className="flex items-center gap-1 p-1 rounded-xl bg-muted">
         {([
-          { id: "top" as FilterTab, label: "Top Leagues" },
           { id: "favorites" as FilterTab, label: "Favorites" },
+          { id: "top" as FilterTab, label: "Top Leagues" },
           { id: "all" as FilterTab, label: "All" },
         ]).map((tab) => (
           <button
