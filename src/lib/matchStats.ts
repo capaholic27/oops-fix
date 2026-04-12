@@ -74,7 +74,7 @@ export function getTeamMatchView(match: Match, teamName: string): TeamMatchView 
     cornersAgainst: isHome ? match.away_corners : match.home_corners,
     yellowCards: isHome ? match.home_yellows : match.away_yellows,
     redCards: isHome ? match.home_reds : match.away_reds,
-    opponent: isHome ? match.away_team : match.home_team,
+    opponent: normalizeTeamName(isHome ? match.away_team : match.home_team),
   };
 }
 
