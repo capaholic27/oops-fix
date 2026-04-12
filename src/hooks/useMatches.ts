@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
+import { getTeamAliases } from "@/lib/teamNormalize";
 
 export type Fixture = {
   id: string;
@@ -54,16 +55,21 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
     queryFn: async (): Promise<Match[]> => {
       if (!teamName) return [];
 
+      // Query all aliases for this team name (e.g. "Manchester City" and "Man City")
+      const aliases = getTeamAliases(teamName);
+      const homeFilter = aliases.map(a => `home_team.eq.${a}`).join(",");
+      const awayFilter = aliases.map(a => `away_team.eq.${a}`).join(",");
+
       let homeQuery = supabase
         .from("matches")
         .select("*")
-        .eq("home_team", teamName)
+        .or(homeFilter)
         .order("match_date", { ascending: true });
 
       let awayQuery = supabase
         .from("matches")
         .select("*")
-        .eq("away_team", teamName)
+        .or(awayFilter)
         .order("match_date", { ascending: true });
 
       if (leagueCode) {
@@ -92,7 +98,9 @@ export function useFixtures(teamName?: string) {
         .order("match_date", { ascending: true });
 
       if (teamName) {
-        query = query.or(`home_team.eq.${teamName},away_team.eq.${teamName}`);
+        const aliases = getTeamAliases(teamName);
+        const parts = aliases.flatMap(a => [`home_team.eq.${a}`, `away_team.eq.${a}`]);
+        query = query.or(parts.join(","));
       }
 
       const { data, error } = await query;

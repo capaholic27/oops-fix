@@ -1,3 +1,5 @@
+import { normalizeTeamName } from "@/lib/teamNormalize";
+
 export type Match = {
   id: string;
   league_code: string;
@@ -47,8 +49,9 @@ export type TeamMatchView = {
 };
 
 export function getTeamMatchView(match: Match, teamName: string): TeamMatchView | null {
-  const isHome = match.home_team === teamName;
-  const isAway = match.away_team === teamName;
+  const normalizedTeam = normalizeTeamName(teamName);
+  const isHome = normalizeTeamName(match.home_team) === normalizedTeam;
+  const isAway = normalizeTeamName(match.away_team) === normalizedTeam;
   if (!isHome && !isAway) return null;
 
   const goalsFor = isHome ? match.ft_home_goals : match.ft_away_goals;
@@ -71,7 +74,7 @@ export function getTeamMatchView(match: Match, teamName: string): TeamMatchView 
     cornersAgainst: isHome ? match.away_corners : match.home_corners,
     yellowCards: isHome ? match.home_yellows : match.away_yellows,
     redCards: isHome ? match.home_reds : match.away_reds,
-    opponent: isHome ? match.away_team : match.home_team,
+    opponent: normalizeTeamName(isHome ? match.away_team : match.home_team),
   };
 }
 
@@ -217,12 +220,12 @@ function calculateVariance(numbers: number[]): number {
   return numbers.reduce((s, n) => s + (n - mean) ** 2, 0) / numbers.length;
 }
 
-// Get unique team names from matches
+// Get unique team names from matches (normalized)
 export function getUniqueTeams(matches: Match[]): string[] {
   const teams = new Set<string>();
   matches.forEach(m => {
-    teams.add(m.home_team);
-    teams.add(m.away_team);
+    teams.add(normalizeTeamName(m.home_team));
+    teams.add(normalizeTeamName(m.away_team));
   });
   return Array.from(teams).sort();
 }
