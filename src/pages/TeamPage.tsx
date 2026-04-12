@@ -500,6 +500,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
       </div>
 
+      {/* Player Highlights */}
+      <PlayerHighlights teamName={selectedTeam} />
+
       <AdBanner variant="inline" />
 
       {/* Tactical + Efficiency */}
