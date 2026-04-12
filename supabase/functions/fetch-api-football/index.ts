@@ -27,7 +27,7 @@ const LEAGUES: { id: number; code: string; name: string }[] = [
 ];
 
 // Try current and previous seasons
-const SEASONS = [2024, 2023];
+const SEASONS = [2024];
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -110,7 +110,8 @@ Deno.serve(async (req) => {
         if (apiCalls >= maxCalls) break;
 
         // Rate limit: wait 7s between calls (10 req/min limit)
-        if (apiCalls > 0) await delay(7000);
+        if (apiCalls > 0 && apiCalls % 9 === 0) await delay(60000);
+        else if (apiCalls > 0) await delay(3000);
 
         try {
           const data = await apiFetch("/fixtures", {
