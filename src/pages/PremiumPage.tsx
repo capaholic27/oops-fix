@@ -387,7 +387,7 @@ const ProDashboard = ({
   allMatches: any[];
   unlocked: boolean;
 }) => {
-  const pastN = 15;
+  const [pastN, setPastN] = useState(15);
   const [statPrediction, setStatPrediction] = useState<StatPredictionCategory | null>(null);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
   const [oppSearch, setOppSearch] = useState("");
