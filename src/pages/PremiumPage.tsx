@@ -442,10 +442,24 @@ const ProDashboard = ({
 
   return (
     <div className="p-4 space-y-4 pb-24">
-      {/* Back */}
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Back
-      </button>
+      {/* Back + Filter */}
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Last</span>
+          <select
+            value={pastN}
+            onChange={(e) => setPastN(Number(e.target.value))}
+            className="h-7 px-2 text-xs font-mono font-medium rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {/* Premium Team Banner */}
       <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-4 shadow-lg relative overflow-hidden">
