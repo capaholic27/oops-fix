@@ -38,8 +38,7 @@ type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "
 /* Top leagues for the box grid (domestic leagues only, no tournaments) */
 const TOP_LEAGUES = [
   "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1",
-  "Championship", "Eredivisie", "Primeira Liga", "Super Lig", "Scottish Premiership",
-  "Major League Soccer",
+  "Eredivisie", "Primeira Liga", "Championship", "Major League Soccer",
 ];
 
 /* ─── Form Strip ─── */
@@ -334,11 +333,12 @@ const LeagueSelector = ({
                 })}
               </div>
 
-              {/* Inline search to add favorites */}
-              {showFavSearch && (
-                <div className="rounded-xl border border-border bg-card p-3 space-y-2 animate-fade-up">
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+              {/* Dialog popup to add favorites */}
+              <Dialog open={showFavSearch} onOpenChange={(open) => { setShowFavSearch(open); if (!open) setFavSearch(""); }}>
+                <DialogContent className="max-w-sm mx-auto p-4">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-center">Add Favorite Team</h3>
+                    <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                       <input
                         autoFocus
@@ -349,39 +349,38 @@ const LeagueSelector = ({
                         className="w-full h-9 pl-8 pr-3 text-sm rounded-lg border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
-                    <button onClick={() => { setShowFavSearch(false); setFavSearch(""); }} className="p-2 hover:bg-muted rounded-lg">
-                      <X className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  </div>
-                  {favSearch.trim() && (() => {
-                    const q = favSearch.toLowerCase();
-                    const results: { team: string; league: { code: string; name: string } }[] = [];
-                    leagues.forEach((l) => {
-                      (teamsByLeague[l.code] || []).forEach((team) => {
-                        if (team.toLowerCase().includes(q) && !isFavorite(team)) {
-                          results.push({ team, league: l });
-                        }
+                    {favSearch.trim() ? (() => {
+                      const q = favSearch.toLowerCase();
+                      const results: { team: string; league: { code: string; name: string } }[] = [];
+                      leagues.forEach((l) => {
+                        (teamsByLeague[l.code] || []).forEach((team) => {
+                          if (team.toLowerCase().includes(q) && !isFavorite(team)) {
+                            results.push({ team, league: l });
+                          }
+                        });
                       });
-                    });
-                    if (results.length === 0) return <p className="text-xs text-muted-foreground text-center py-2">No teams found</p>;
-                    return (
-                      <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
-                        {results.slice(0, 10).map(({ team, league: l }) => (
-                          <button
-                            key={`${l.code}-${team}`}
-                            onClick={() => { toggleFavorite(team); setFavSearch(""); setShowFavSearch(false); }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
-                          >
-                            <TeamLogo teamName={team} size="sm" />
-                            <span className="font-medium">{team}</span>
-                            <span className="text-muted-foreground text-xs ml-auto">{l.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
+                      if (results.length === 0) return <p className="text-xs text-muted-foreground text-center py-4">No teams found</p>;
+                      return (
+                        <div className="max-h-60 overflow-y-auto rounded-lg border border-border">
+                          {results.slice(0, 15).map(({ team, league: l }) => (
+                            <button
+                              key={`${l.code}-${team}`}
+                              onClick={() => { toggleFavorite(team); setFavSearch(""); setShowFavSearch(false); }}
+                              className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-2 border-b border-border last:border-b-0"
+                            >
+                              <TeamLogo teamName={team} size="sm" />
+                              <span className="font-medium">{team}</span>
+                              <span className="text-muted-foreground text-xs ml-auto">{l.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })() : (
+                      <p className="text-xs text-muted-foreground text-center py-4">Start typing to search teams</p>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </>
           )}
 
