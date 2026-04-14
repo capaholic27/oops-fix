@@ -466,18 +466,18 @@ const ProDashboard = ({
         <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary text-primary-foreground">PRO</div>
         <div className="flex items-start gap-3 mb-3">
           <TeamLogo teamName={teamName} size="lg" />
-          <div className="flex-1">
-            <h2 className="text-xl font-bold leading-none">{teamName}</h2>
-            <p className="text-xs text-muted-foreground font-medium mt-1">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold leading-tight truncate">{teamName}</h2>
+            <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
               Last {pastN} matches · {stats.matchesPlayed} analyzed
             </p>
-            <div className="flex gap-1 mt-2">
+            <div className="flex gap-1 mt-1.5">
               {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
             </div>
           </div>
-          <div className="text-right">
-            <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
-            <p className="text-[10px] text-muted-foreground font-medium">Win Rate</p>
+          <div className="text-right flex-shrink-0">
+            <span className="font-mono text-xl font-bold text-primary leading-none">{winRate}%</span>
+            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Win Rate</p>
           </div>
         </div>
       </section>
