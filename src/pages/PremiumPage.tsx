@@ -387,7 +387,7 @@ const ProDashboard = ({
   allMatches: any[];
   unlocked: boolean;
 }) => {
-  const pastN = 15;
+  const [pastN, setPastN] = useState(15);
   const [statPrediction, setStatPrediction] = useState<StatPredictionCategory | null>(null);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
   const [oppSearch, setOppSearch] = useState("");
@@ -442,28 +442,42 @@ const ProDashboard = ({
 
   return (
     <div className="p-4 space-y-4 pb-24">
-      {/* Back */}
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-        <ChevronLeft className="w-4 h-4" /> Back
-      </button>
+      {/* Back + Filter */}
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="w-4 h-4" /> Back
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground font-medium">Last</span>
+          <select
+            value={pastN}
+            onChange={(e) => setPastN(Number(e.target.value))}
+            className="h-7 px-2 text-xs font-mono font-medium rounded-lg border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       {/* Premium Team Banner */}
       <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-4 shadow-lg relative overflow-hidden">
         <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary text-primary-foreground">PRO</div>
         <div className="flex items-start gap-3 mb-3">
           <TeamLogo teamName={teamName} size="lg" />
-          <div className="flex-1">
-            <h2 className="text-xl font-bold leading-none">{teamName}</h2>
-            <p className="text-xs text-muted-foreground font-medium mt-1">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-bold leading-tight truncate">{teamName}</h2>
+            <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
               Last {pastN} matches · {stats.matchesPlayed} analyzed
             </p>
-            <div className="flex gap-1 mt-2">
+            <div className="flex gap-1 mt-1.5">
               {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
             </div>
           </div>
-          <div className="text-right">
-            <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
-            <p className="text-[10px] text-muted-foreground font-medium">Win Rate</p>
+          <div className="text-right flex-shrink-0">
+            <span className="font-mono text-xl font-bold text-primary leading-none">{winRate}%</span>
+            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Win Rate</p>
           </div>
         </div>
       </section>
