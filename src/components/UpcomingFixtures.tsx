@@ -5,7 +5,7 @@ import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixon
 import { aggregateStats, type TeamMatchView } from "@/lib/matchStats";
 import { TeamLogo } from "@/components/TeamLogo";
 import { cn } from "@/lib/utils";
-import { CalendarDays, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
 
 type Props = {
@@ -17,12 +17,15 @@ type Props = {
 export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Props) => {
   const { data: fixtures = [] } = useFixtures(teamName);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = useMemo(
-    () => fixtures.filter((f) => f.match_date >= today).slice(0, 5),
+  const allUpcoming = useMemo(
+    () => fixtures.filter((f) => f.match_date >= today).slice(0, 15),
     [fixtures, today]
   );
+
+  const upcoming = showAll ? allUpcoming : allUpcoming.slice(0, 3);
 
   const leagueAvg = useMemo(() => computeLeagueAvgGoals(allMatches), [allMatches]);
 
@@ -73,13 +76,27 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
     return predictMatch(homeInput, awayInput, leagueAvg);
   };
 
-  if (upcoming.length === 0) return null;
+  if (allUpcoming.length === 0) return null;
 
   return (
     <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "480ms" }}>
-      <div className="flex items-center gap-1.5 mb-3">
-        <CalendarDays className="w-3.5 h-3.5 text-primary" />
-        <span className="stat-label">Upcoming Fixtures</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <CalendarDays className="w-3.5 h-3.5 text-primary" />
+          <span className="stat-label">Upcoming Fixtures</span>
+        </div>
+        {allUpcoming.length > 3 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+              showAll ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {showAll ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {showAll ? "Less" : `All (${allUpcoming.length})`}
+          </button>
+        )}
       </div>
       <div className="space-y-1">
         {upcoming.map((f) => {
@@ -112,7 +129,6 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
 
               {isExpanded && pred && (
                 <div className="border-t border-border bg-muted/20 px-2.5 py-2 space-y-2">
-                  {/* Quick probabilities */}
                   <div className="flex items-center gap-1">
                     <div className="flex-1 text-center">
                       <p className="font-mono text-xs font-bold text-stat-positive">{pred.homeWin.toFixed(0)}%</p>
@@ -127,13 +143,11 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
                       <p className="text-[7px] uppercase text-muted-foreground">{f.away_team.slice(0, 8)}</p>
                     </div>
                   </div>
-                  {/* xG */}
                   <div className="flex items-center justify-center gap-3 text-[10px]">
                     <span className="font-mono font-bold">{pred.lambdaHome.toFixed(2)} xG</span>
                     <span className="text-muted-foreground">–</span>
                     <span className="font-mono font-bold">{pred.lambdaAway.toFixed(2)} xG</span>
                   </div>
-                  {/* Top scoreline */}
                   <div className="text-center">
                     <span className="text-[8px] uppercase tracking-wider text-muted-foreground">Most Likely: </span>
                     <span className="font-mono text-[11px] font-bold">

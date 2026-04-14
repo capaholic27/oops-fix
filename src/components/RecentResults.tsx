@@ -1,16 +1,35 @@
+import { useState } from "react";
 import type { TeamMatchView } from "@/lib/matchStats";
 import { FormBadge } from "./FormBadge";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   views: TeamMatchView[];
 };
 
 export const RecentResults = ({ views }: Props) => {
-  const recent = views.slice(-10).reverse();
+  const [showAll, setShowAll] = useState(false);
+  const allRecent = views.slice(-20).reverse();
+  const recent = showAll ? allRecent : allRecent.slice(0, 5);
 
   return (
     <div className="stat-card opacity-0 animate-fade-up col-span-full" style={{ animationDelay: "600ms" }}>
-      <span className="stat-label mb-4 block">Recent Results</span>
+      <div className="flex items-center justify-between mb-4">
+        <span className="stat-label">Recent Results</span>
+        {allRecent.length > 5 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+              showAll ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {showAll ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {showAll ? "Show Less" : `Show All (${allRecent.length})`}
+          </button>
+        )}
+      </div>
       <div className="overflow-x-auto -mx-5">
         <table className="w-full text-sm">
           <thead>

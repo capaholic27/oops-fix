@@ -1,5 +1,9 @@
+import { useState } from "react";
 import type { Match } from "@/lib/matchStats";
 import { getTeamMatchView, aggregateStats } from "@/lib/matchStats";
+import { normalizeTeamName } from "@/lib/teamNormalize";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Props = {
   matches: Match[];
@@ -21,19 +25,39 @@ type RankedTeam = {
 };
 
 export const RankingsTable = ({ matches, leagueName }: Props) => {
-  const teams = new Set<string>();
-  matches.forEach(m => { teams.add(m.home_team); teams.add(m.away_team); });
+  const [showAll, setShowAll] = useState(false);
 
-  const ranked: RankedTeam[] = Array.from(teams).map(team => {
-    const views = matches
-      .map(m => getTeamMatchView(m, team))
-      .filter(Boolean) as ReturnType<typeof getTeamMatchView>[];
+  // Group teams by normalized name to merge duplicates
+  const teamGroups = new Map<string, string[]>();
+  const allTeams = new Set<string>();
+  matches.forEach(m => { allTeams.add(m.home_team); allTeams.add(m.away_team); });
 
-    const validViews = views.filter((v): v is NonNullable<typeof v> => v !== null);
-    const stats = aggregateStats(validViews);
+  allTeams.forEach(team => {
+    const canonical = normalizeTeamName(team);
+    if (!teamGroups.has(canonical)) teamGroups.set(canonical, []);
+    if (!teamGroups.get(canonical)!.includes(team)) teamGroups.get(canonical)!.push(team);
+  });
+
+  const ranked: RankedTeam[] = Array.from(teamGroups.entries()).map(([canonical, variants]) => {
+    // Collect all match views across all name variants
+    const allViews = variants.flatMap(variant =>
+      matches
+        .map(m => getTeamMatchView(m, variant))
+        .filter((v): v is NonNullable<ReturnType<typeof getTeamMatchView>> => v !== null)
+    );
+
+    // Deduplicate by match id
+    const seen = new Set<string>();
+    const uniqueViews = allViews.filter(v => {
+      if (seen.has(v.match.id)) return false;
+      seen.add(v.match.id);
+      return true;
+    });
+
+    const stats = aggregateStats(uniqueViews);
 
     return {
-      name: team,
+      name: canonical,
       played: stats.matchesPlayed,
       wins: stats.wins,
       draws: stats.draws,
@@ -47,9 +71,25 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
     };
   }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
 
+  const displayed = showAll ? ranked : ranked.slice(0, 6);
+
   return (
     <div className="stat-card opacity-0 animate-fade-up col-span-full" style={{ animationDelay: "650ms" }}>
-      <span className="stat-label mb-4 block">{leagueName || "League"} Rankings</span>
+      <div className="flex items-center justify-between mb-4">
+        <span className="stat-label">{leagueName || "League"} Rankings</span>
+        {ranked.length > 6 && (
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+              showAll ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {showAll ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            {showAll ? "Show Less" : `Show All (${ranked.length})`}
+          </button>
+        )}
+      </div>
       <div className="overflow-x-auto -mx-5">
         <table className="w-full text-sm">
           <thead>
@@ -66,7 +106,7 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
             </tr>
           </thead>
           <tbody>
-            {ranked.map((t, i) => (
+            {displayed.map((t, i) => (
               <tr key={t.name} className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors">
                 <td className="px-5 py-2.5 font-mono text-xs text-muted-foreground">{i + 1}</td>
                 <td className="px-3 py-2.5 font-medium">{t.name}</td>
