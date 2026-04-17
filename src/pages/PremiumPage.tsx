@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback } from "react";
 import {
   Crown, Lock, Unlock, Target, Flag, AlertTriangle, Shield, TrendingUp,
   Crosshair, Sparkles, ChevronLeft, Search, Star, Loader2, Brain,
-  BarChart3, Eye, Zap, X, ChevronRight,
+  BarChart3, Eye, Zap, X, ChevronRight, Trophy, Users, Activity, Percent,
+  CheckCircle2, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
 import {
