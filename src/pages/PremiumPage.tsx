@@ -432,6 +432,23 @@ const ProDashboard = ({
     return allTeams.filter(t => t !== teamName && t.toLowerCase().includes(oppSearch.toLowerCase())).slice(0, 8);
   }, [allTeams, oppSearch, teamName]);
 
+  // ─── Derived insights ───
+  const gfPerGame = stats.matchesPlayed > 0 ? stats.goalsFor / stats.matchesPlayed : 0;
+  const gaPerGame = stats.matchesPlayed > 0 ? stats.goalsAgainst / stats.matchesPlayed : 0;
+  const scoredCount = teamViews.filter(v => v.goalsFor > 0).length;
+  const scoredPct = stats.matchesPlayed > 0 ? (scoredCount / stats.matchesPlayed) * 100 : 0;
+  const twoOrMoreCount = teamViews.filter(v => v.goalsFor >= 2).length;
+  const twoOrMorePct = stats.matchesPlayed > 0 ? (twoOrMoreCount / stats.matchesPlayed) * 100 : 0;
+  const concededCount = teamViews.filter(v => v.goalsAgainst > 0).length;
+  const concededPct = stats.matchesPlayed > 0 ? (concededCount / stats.matchesPlayed) * 100 : 0;
+  const over35Count = teamViews.filter(v => v.goalsFor + v.goalsAgainst > 3).length;
+  const over35Pct = stats.matchesPlayed > 0 ? (over35Count / stats.matchesPlayed) * 100 : 0;
+  const over45Count = teamViews.filter(v => v.goalsFor + v.goalsAgainst > 4).length;
+  const over45Pct = stats.matchesPlayed > 0 ? (over45Count / stats.matchesPlayed) * 100 : 0;
+  const totalCornersAvg = stats.avgCornersFor + stats.avgCornersAgainst;
+  const totalCardsAvg = stats.avgYellowCards + stats.avgRedCards * 2;
+  const totalSotAvg = stats.avgShotsOnTargetFor + stats.avgShotsOnTargetAgainst;
+
   if (stats.matchesPlayed === 0) {
     return (
       <div className="p-6 text-center">
@@ -442,7 +459,7 @@ const ProDashboard = ({
   }
 
   return (
-    <div className="p-4 space-y-4 pb-24">
+    <div className="p-3 space-y-4 pb-24 max-w-lg mx-auto">
       {/* Back + Filter */}
       <div className="flex items-center justify-between gap-2">
         <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -462,28 +479,45 @@ const ProDashboard = ({
         </div>
       </div>
 
-      {/* Premium Team Banner */}
-      <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 p-4 shadow-lg relative overflow-hidden">
-        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary text-primary-foreground">PRO</div>
-        <div className="flex items-start gap-3 mb-3">
+      {/* ─── Hero Banner ─── */}
+      <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/[0.06] p-4 shadow-lg relative overflow-hidden">
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary text-primary-foreground tracking-wider">PRO</div>
+        <div className="flex items-start gap-3">
           <TeamLogo teamName={teamName} size="lg" />
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-bold leading-tight truncate">{teamName}</h2>
-            <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
-              Last {pastN} matches · {stats.matchesPlayed} analyzed
+          <div className="flex-1 min-w-0 pr-12">
+            <h2 className="text-xl font-bold leading-tight truncate">{teamName}</h2>
+            <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate">
+              {teamMatches[0]?.league_name || "League"} · {stats.matchesPlayed} matches
             </p>
-            <div className="flex gap-1 mt-1.5">
-              {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
-            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex items-end justify-between gap-3">
+          <div className="flex gap-1 flex-wrap">
+            {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
           </div>
           <div className="text-right flex-shrink-0">
-            <span className="font-mono text-xl font-bold text-primary leading-none">{winRate}%</span>
-            <p className="text-[10px] text-muted-foreground font-medium mt-0.5">Win Rate</p>
+            <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
+            <p className="text-[10px] text-muted-foreground font-medium mt-1">Win Rate</p>
           </div>
         </div>
       </section>
 
-      {/* Opponent selector */}
+      {/* ─── Win Probability ─── */}
+      <WinProbabilityGauge
+        probability={stats.winProbability}
+        teamName={teamName}
+        allTeams={allTeams}
+        getOpponentWinProbability={(opp) => {
+          const oppViews = allMatches
+            .map((m: any) => getTeamMatchView(m, opp))
+            .filter((v): v is TeamMatchView => v !== null)
+            .slice(-pastN);
+          if (oppViews.length === 0) return null;
+          return aggregateStats(oppViews).winProbability;
+        }}
+      />
+
+      {/* ─── Opponent Selector ─── */}
       <div className="rounded-xl border border-border bg-card p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Next Opponent</span>
@@ -494,7 +528,7 @@ const ProDashboard = ({
         {nextOpponentName ? (
           <div className="flex items-center gap-2">
             <TeamLogo teamName={nextOpponentName} size="sm" />
-            <span className="text-sm font-semibold">{nextOpponentName}</span>
+            <span className="text-sm font-semibold truncate">{nextOpponentName}</span>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">No upcoming fixture found</p>
@@ -523,162 +557,184 @@ const ProDashboard = ({
         </div>
       </div>
 
-      {/* Premium Stats Grid with Predict buttons */}
+      {/* ─── Record + Mentality ─── */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "100ms" }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Record</span>
+            <TrendingUp className="w-3.5 h-3.5 text-stat-positive" />
+          </div>
+          <div className="font-mono text-2xl font-bold text-stat-positive leading-none tracking-tight">
+            {stats.wins}<span className="text-muted-foreground mx-1 font-normal">·</span>{stats.draws}<span className="text-muted-foreground mx-1 font-normal">·</span>{stats.losses}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+            {stats.goalsFor} GF · {stats.goalsAgainst} GA · {stats.wins * 3 + stats.draws} pts
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "150ms" }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
+            <span className="text-base leading-none">{mentality.emoji}</span>
+          </div>
+          <div className="font-mono text-sm font-bold text-foreground leading-tight">{mentality.label}</div>
+          <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700 ease-out"
+              style={{
+                width: `${mentality.intensity}%`,
+                background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
+              }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug line-clamp-2">{mentality.description}</p>
+        </div>
+      </div>
+
+      {/* ─── Pro Stats Grid ─── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Crown className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Analytics</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats · AI Predict</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <ProStatCard
-            label="Goals"
-            value={`${(stats.goalsFor / stats.matchesPlayed).toFixed(2)} / ${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)}`}
-            icon={<Target className="w-4 h-4" />}
-            trend={stats.goalsFor / stats.matchesPlayed > 1.5 ? "positive" : "neutral"}
-            subtitle={`GF: ${stats.goalsFor} · GA: ${stats.goalsAgainst}`}
-            onPredict={() => setStatPrediction("goals")}
-            locked={!unlocked}
-            delay={100}
-          />
-          <ProStatCard
-            label="Corners"
-            value={stats.avgCornersFor.toFixed(1)}
-            icon={<Flag className="w-4 h-4" />}
-            trend="neutral"
-            subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Total ${(stats.avgCornersFor + stats.avgCornersAgainst).toFixed(1)}`}
-            onPredict={() => setStatPrediction("corners")}
-            locked={!unlocked}
-            delay={150}
-          />
-          <ProStatCard
-            label="Shots"
-            value={stats.avgShotsFor.toFixed(1)}
-            icon={<Crosshair className="w-4 h-4" />}
-            trend="positive"
-            subtitle={`SOT: ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`}
-            onPredict={() => setStatPrediction("shots")}
-            locked={!unlocked}
-            delay={200}
-          />
-          <ProStatCard
-            label="Cards"
-            value={stats.avgYellowCards.toFixed(1)}
-            icon={<AlertTriangle className="w-4 h-4" />}
-            trend="warn"
-            subtitle={`🟡 Y · ${stats.avgRedCards.toFixed(2)} 🔴 R`}
-            onPredict={() => setStatPrediction("cards")}
-            locked={!unlocked}
-            delay={250}
-          />
-          <ProStatCard
-            label="Fouls"
-            value={stats.avgFoulsCommitted.toFixed(1)}
-            icon={<Shield className="w-4 h-4" />}
-            trend="negative"
-            subtitle={`Drawn: ${stats.avgFoulsDrawn.toFixed(1)}`}
-            onPredict={() => setStatPrediction("fouls")}
-            locked={!unlocked}
-            delay={300}
-          />
-          <ProStatCard
-            label="Clean Sheets"
-            value={`${stats.cleanSheets}/${stats.matchesPlayed}`}
-            icon={<Shield className="w-4 h-4" />}
-            trend="positive"
-            subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`}
-            onPredict={() => setStatPrediction("cleanSheets")}
-            locked={!unlocked}
-            delay={350}
-          />
-          <ProStatCard
-            label="BTTS"
-            value={`${stats.bttsPercentage.toFixed(0)}%`}
-            icon={<BarChart3 className="w-4 h-4" />}
-            trend={stats.bttsPercentage > 60 ? "warn" : "neutral"}
-            subtitle={`O2.5: ${stats.over25Percentage.toFixed(0)}% · O1.5: ${stats.over15Percentage.toFixed(0)}%`}
-            onPredict={() => setStatPrediction("btts")}
-            locked={!unlocked}
-            delay={400}
-          />
-          {/* Mentality card */}
-          <div className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden" style={{ animationDelay: "450ms" }}>
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] to-transparent pointer-events-none" />
-            <div className="relative">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
-                <span className="text-lg">{mentality.emoji}</span>
-              </div>
-              <span className="font-mono text-sm font-bold text-foreground leading-none">{mentality.label}</span>
-              <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{mentality.description}</p>
-              <div className="mt-2">
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700 ease-out"
-                    style={{
-                      width: `${mentality.intensity}%`,
-                      background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
-                    }}
-                  />
-                </div>
-              </div>
+          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} onPredict={() => setStatPrediction("goals")} locked={!unlocked} delay={200} />
+          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} onPredict={() => setStatPrediction("corners")} locked={!unlocked} delay={250} />
+          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} onPredict={() => setStatPrediction("shots")} locked={!unlocked} delay={300} />
+          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} onPredict={() => setStatPrediction("cards")} locked={!unlocked} delay={350} />
+          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} onPredict={() => setStatPrediction("fouls")} locked={!unlocked} delay={400} />
+          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} onPredict={() => setStatPrediction("cleanSheets")} locked={!unlocked} delay={450} />
+          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} onPredict={() => setStatPrediction("btts")} locked={!unlocked} delay={500} />
+          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} onPredict={() => setStatPrediction("shots")} locked={!unlocked} delay={550} />
+        </div>
+      </div>
+
+      {/* ─── Bet Markets Probability ─── */}
+      <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 opacity-0 animate-fade-up shadow-md" style={{ animationDelay: "600ms" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Percent className="w-4 h-4 text-primary" />
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">Bet Markets Probability</span>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Target className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Goals</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <ProbabilityRow label="Over 1.5" pct={stats.over15Percentage} />
+              <ProbabilityRow label="Over 2.5" pct={stats.over25Percentage} />
+              <ProbabilityRow label="Over 3.5" pct={over35Pct} />
+              <ProbabilityRow label="Over 4.5" pct={over45Pct} />
+              <ProbabilityRow label="BTTS" pct={stats.bttsPercentage} />
+              <ProbabilityRow label="Team Scores" pct={scoredPct} />
+            </div>
+          </div>
+          <div className="pt-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Flag className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Corners (avg {totalCornersAvg.toFixed(1)})</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <ProbabilityRow label="Over 8.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 8.5) * 50))} compact />
+              <ProbabilityRow label="Over 9.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 9.5) * 50))} compact />
+              <ProbabilityRow label="Over 10.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 10.5) * 50))} compact />
+            </div>
+          </div>
+          <div className="pt-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Crosshair className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Shots on Target (avg {totalSotAvg.toFixed(1)})</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <ProbabilityRow label="Over 7.5 SOT" pct={Math.min(95, Math.max(5, (totalSotAvg / 7.5) * 50))} />
+              <ProbabilityRow label="Over 9.5 SOT" pct={Math.min(95, Math.max(5, (totalSotAvg / 9.5) * 50))} />
+            </div>
+          </div>
+          <div className="pt-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <AlertTriangle className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cards (avg {totalCardsAvg.toFixed(1)})</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <ProbabilityRow label="Over 3.5 Cards" pct={Math.min(95, Math.max(5, (totalCardsAvg / 3.5) * 50))} />
+              <ProbabilityRow label="Over 4.5 Cards" pct={Math.min(95, Math.max(5, (totalCardsAvg / 4.5) * 50))} />
+            </div>
+          </div>
+          <div className="pt-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Shield className="w-3 h-3 text-muted-foreground" />
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Defensive</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <ProbabilityRow label="Clean Sheet" pct={(stats.cleanSheets / stats.matchesPlayed) * 100} />
+              <ProbabilityRow label="Concedes" pct={concededPct} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Advanced sections */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
+      {/* ─── Key Insights ─── */}
+      <div className="rounded-2xl border border-border bg-card p-4 opacity-0 animate-fade-up" style={{ animationDelay: "650ms" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm font-bold text-foreground">Key Insights</span>
+        </div>
+        <div className="space-y-2.5 text-xs leading-relaxed">
+          <Insight icon={<CheckCircle2 className="w-3.5 h-3.5 text-stat-positive" />} text={<>{teamName} has scored in <span className="font-bold text-primary">{scoredPct.toFixed(0)}%</span> of matches ({scoredCount}/{stats.matchesPlayed})</>} />
+          <Insight icon={<CheckCircle2 className="w-3.5 h-3.5 text-stat-positive" />} text={<>Scored 2+ goals in <span className="font-bold text-primary">{twoOrMorePct.toFixed(0)}%</span> of matches ({twoOrMoreCount}/{stats.matchesPlayed})</>} />
+          <Insight icon={<Activity className="w-3.5 h-3.5 text-stat-warn" />} text={<>Conceded in <span className="font-bold text-stat-warn">{concededPct.toFixed(0)}%</span> of matches</>} />
+          <Insight icon={<Flag className="w-3.5 h-3.5 text-primary" />} text={<>Average <span className="font-bold text-primary">{totalCornersAvg.toFixed(1)}</span> total corners per match</>} />
+          <Insight icon={<AlertTriangle className="w-3.5 h-3.5 text-stat-warn" />} text={<>Avg <span className="font-bold text-stat-warn">{stats.avgYellowCards.toFixed(1)}</span> yellows + <span className="font-bold">{stats.avgFoulsCommitted.toFixed(1)}</span> fouls per game</>} />
+          <Insight icon={<Trophy className="w-3.5 h-3.5 text-primary" />} text={<>Mentality: <span className="font-bold">{mentality.label}</span> · {mentality.intensity}/100 intensity</>} />
+        </div>
+      </div>
+
+      {/* ─── Squad Insights ─── */}
+      <PlayerInsights teamViews={teamViews} teamName={teamName} />
+
+      {/* ─── Deep Analytics ─── */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
           <Brain className="w-4 h-4 text-primary" />
           <span className="text-xs font-bold text-primary uppercase tracking-wider">Deep Analytics</span>
         </div>
-
-        {/* Win Probability Gauge */}
-        <div className="grid grid-cols-2 gap-3">
-          <WinProbabilityGauge
-            probability={stats.winProbability}
-            teamName={teamName}
-            allTeams={allTeams}
-            getOpponentWinProbability={(opp) => {
-              const oppViews = allMatches
-                .map((m: any) => getTeamMatchView(m, opp))
-                .filter((v): v is TeamMatchView => v !== null)
-                .slice(-pastN);
-              if (oppViews.length === 0) return null;
-              return aggregateStats(oppViews).winProbability;
-            }}
-          />
-          {/* Shot efficiency */}
-          <div className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Shot Efficiency</span>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-[10px] mb-1">
-                  <span className="text-muted-foreground">SOT/Shots</span>
-                  <span className="font-mono font-semibold">{stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%</span>
-                </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${stats.avgShotsFor > 0 ? (stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100 : 0}%` }} />
-                </div>
+        <div className="rounded-2xl border border-border bg-card p-4 opacity-0 animate-fade-up" style={{ animationDelay: "700ms" }}>
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-3">Shot Efficiency</span>
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span className="text-muted-foreground">SOT / Shots</span>
+                <span className="font-mono font-semibold">{stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%</span>
               </div>
-              <div>
-                <div className="flex justify-between text-[10px] mb-1">
-                  <span className="text-muted-foreground">Goals/SOT</span>
-                  <span className="font-mono font-semibold">{stats.avgShotsOnTargetFor > 0 ? (((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100).toFixed(0) : "0"}%</span>
-                </div>
-                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full rounded-full bg-stat-warn transition-all duration-700" style={{ width: `${stats.avgShotsOnTargetFor > 0 ? Math.min(100, ((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100) : 0}%` }} />
-                </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${stats.avgShotsFor > 0 ? (stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100 : 0}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span className="text-muted-foreground">Goals / SOT</span>
+                <span className="font-mono font-semibold">{stats.avgShotsOnTargetFor > 0 ? ((gfPerGame / stats.avgShotsOnTargetFor) * 100).toFixed(0) : "0"}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-stat-warn transition-all duration-700" style={{ width: `${stats.avgShotsOnTargetFor > 0 ? Math.min(100, (gfPerGame / stats.avgShotsOnTargetFor) * 100) : 0}%` }} />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-[11px] mb-1">
+                <span className="text-muted-foreground">Goals / Shots</span>
+                <span className="font-mono font-semibold">{stats.avgShotsFor > 0 ? ((gfPerGame / stats.avgShotsFor) * 100).toFixed(1) : "0"}%</span>
+              </div>
+              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className="h-full rounded-full bg-stat-positive transition-all duration-700" style={{ width: `${stats.avgShotsFor > 0 ? Math.min(100, (gfPerGame / stats.avgShotsFor) * 100 * 4) : 0}%` }} />
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Momentum Chart */}
       <MomentumChart views={teamViews} teamName={teamName} />
 
-      {/* Tactical */}
       <PredictedTacticalProfile
         stats={stats}
         teamName={teamName}
@@ -693,7 +749,6 @@ const ProDashboard = ({
 
       <AdBanner variant="inline" />
 
-      {/* Stat Prediction Dialog */}
       {statPrediction && (
         <StatPredictionDialog
           open={!!statPrediction}
@@ -705,6 +760,72 @@ const ProDashboard = ({
           opponentStats={opponentStats}
         />
       )}
+    </div>
+  );
+};
+
+/* ─── Probability Row ─── */
+const ProbabilityRow = ({ label, pct, compact }: { label: string; pct: number; compact?: boolean }) => {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const colorClass = clamped >= 65 ? "text-stat-positive" : clamped >= 45 ? "text-primary" : clamped >= 30 ? "text-stat-warn" : "text-muted-foreground";
+  const barClass = clamped >= 65 ? "bg-stat-positive" : clamped >= 45 ? "bg-primary" : clamped >= 30 ? "bg-stat-warn" : "bg-muted-foreground/40";
+  return (
+    <div className="rounded-lg border border-border bg-background/50 p-2">
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className={cn("text-[10px] font-medium text-muted-foreground truncate", compact && "text-[9px]")}>{label}</span>
+        <span className={cn("font-mono text-xs font-bold flex-shrink-0", colorClass)}>{clamped.toFixed(0)}%</span>
+      </div>
+      <div className="h-1 bg-muted rounded-full overflow-hidden">
+        <div className={cn("h-full rounded-full transition-all duration-700 ease-out", barClass)} style={{ width: `${clamped}%` }} />
+      </div>
+    </div>
+  );
+};
+
+/* ─── Insight Row ─── */
+const Insight = ({ icon, text }: { icon: React.ReactNode; text: React.ReactNode }) => (
+  <div className="flex items-start gap-2">
+    <span className="flex-shrink-0 mt-0.5">{icon}</span>
+    <span className="text-foreground">{text}</span>
+  </div>
+);
+
+/* ─── Squad Insights (data-driven from team match stats) ─── */
+const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; teamName: string }) => {
+  if (teamViews.length === 0) return null;
+  const totalGoals = teamViews.reduce((s, v) => s + v.goalsFor, 0);
+  const totalSot = teamViews.reduce((s, v) => s + v.shotsOnTargetFor, 0);
+  const totalFouls = teamViews.reduce((s, v) => s + v.foulsCommitted, 0);
+  const totalCards = teamViews.reduce((s, v) => s + v.yellowCards + v.redCards, 0);
+  const totalCorners = teamViews.reduce((s, v) => s + v.cornersFor, 0);
+
+  const insights = [
+    { label: "Goals", value: totalGoals, icon: <Target className="w-3.5 h-3.5" />, color: "text-stat-positive" },
+    { label: "SOT", value: totalSot, icon: <Crosshair className="w-3.5 h-3.5" />, color: "text-primary" },
+    { label: "Corners", value: totalCorners, icon: <Flag className="w-3.5 h-3.5" />, color: "text-primary" },
+    { label: "Fouls", value: totalFouls, icon: <Shield className="w-3.5 h-3.5" />, color: "text-stat-warn" },
+    { label: "Cards", value: totalCards, icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-stat-negative" },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 opacity-0 animate-fade-up" style={{ animationDelay: "680ms" }}>
+      <div className="flex items-center gap-2 mb-3">
+        <Users className="w-4 h-4 text-primary" />
+        <span className="text-sm font-bold text-foreground">Squad Insights</span>
+        <span className="ml-auto text-[10px] text-muted-foreground font-medium">{teamViews.length} games</span>
+      </div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {insights.map((it) => (
+          <div key={it.label} className="rounded-lg bg-muted/40 p-2 text-center min-w-0">
+            <span className={cn("inline-flex items-center justify-center", it.color)}>{it.icon}</span>
+            <div className={cn("font-mono text-base font-bold mt-1 leading-none", it.color)}>{it.value}</div>
+            <p className="text-[9px] text-muted-foreground mt-1 leading-tight truncate">{it.label}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+        Aggregate squad output across the last {teamViews.length} matches.
+      </p>
     </div>
   );
 };
