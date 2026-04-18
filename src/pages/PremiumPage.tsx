@@ -432,8 +432,18 @@ const ProDashboard = ({
   const mentality = computeMentality(allTeamViews.map(v => v.result));
 
   const oppSearchFiltered = useMemo(() => {
-    if (!oppSearch.trim()) return [];
-    return allTeams.filter(t => t !== teamName && t.toLowerCase().includes(oppSearch.toLowerCase())).slice(0, 8);
+    const q = oppSearch.toLowerCase().trim();
+    const candidates = allTeams.filter(t => t !== teamName);
+    if (!q) return candidates;
+    // Prefix matches first, then substring — show all matches, no cap
+    const prefix: string[] = [];
+    const contains: string[] = [];
+    for (const t of candidates) {
+      const lower = t.toLowerCase();
+      if (lower.startsWith(q)) prefix.push(t);
+      else if (lower.includes(q)) contains.push(t);
+    }
+    return [...prefix, ...contains];
   }, [allTeams, oppSearch, teamName]);
 
   // ─── Derived insights ───

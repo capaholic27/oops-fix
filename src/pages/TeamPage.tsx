@@ -23,6 +23,8 @@ import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { getSyntheticSquad } from "@/lib/playerNames";
 import { useFavorites } from "@/hooks/useFavorites";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
@@ -434,7 +436,7 @@ const LeagueSelector = ({
 
 /* ─── Player Leaderboard (Top 5 per category) ─── */
 export type PlayerHighlightCategory = "scorer" | "assists" | "shots" | "fouls" | "foulsDrawn" | "cards";
-type RankedPlayer = { name: string; value: number };
+type RankedPlayer = { name: string; value: number; number?: number };
 
 // Mock player leaders data keyed by team name — top 5 ranked
 const PLAYER_LEADERBOARD: Record<string, Record<PlayerHighlightCategory, RankedPlayer[]>> = {
@@ -480,22 +482,38 @@ const PLAYER_LEADERBOARD: Record<string, Record<PlayerHighlightCategory, RankedP
   },
 };
 
-/* Generate a generic 5-player leaderboard for teams not in the mock map */
+/* Generate a generic 5-player leaderboard for teams not in the mock map.
+ * Uses synthetic but realistic player names + shirt numbers, deterministic per team. */
 function generateFallbackLeaderboard(teamName: string): Record<PlayerHighlightCategory, RankedPlayer[]> {
-  const make = (suffix: string, base: number, step: number) => [
-    { name: `${teamName} #9`, value: base },
-    { name: `${teamName} #10`, value: Math.max(1, base - step) },
-    { name: `${teamName} #7`, value: Math.max(1, base - step * 2) },
-    { name: `${teamName} #11`, value: Math.max(1, base - step * 3) },
-    { name: `${teamName} #6`, value: Math.max(1, base - step * 4) },
-  ];
+  // Reuse a shared squad so the same fake players appear across categories
+  const squad = getSyntheticSquad(teamName, 12);
+  // Different category orderings (indexes into squad) to avoid identical leaderboards
+  const orders: Record<PlayerHighlightCategory, number[]> = {
+    scorer:     [0, 2, 1, 4, 3],
+    assists:    [1, 0, 3, 2, 5],
+    shots:      [0, 1, 3, 2, 4],
+    fouls:      [6, 5, 7, 4, 1],
+    foulsDrawn: [2, 0, 3, 1, 4],
+    cards:      [5, 7, 6, 3, 8],
+  };
+  const bases: Record<PlayerHighlightCategory, [number, number]> = {
+    scorer: [12, 2], assists: [9, 1], shots: [64, 8],
+    fouls: [22, 3], foulsDrawn: [32, 4], cards: [6, 1],
+  };
+  const build = (cat: PlayerHighlightCategory): RankedPlayer[] => {
+    const [base, step] = bases[cat];
+    return orders[cat].map((idx, i) => {
+      const p = squad[idx % squad.length];
+      return { name: p.name, value: Math.max(1, base - step * i), number: p.number };
+    });
+  };
   return {
-    scorer: make("st", 12, 2),
-    assists: make("am", 9, 1),
-    shots: make("sh", 64, 8),
-    fouls: make("fc", 22, 3),
-    foulsDrawn: make("fd", 32, 4),
-    cards: make("cd", 6, 1),
+    scorer: build("scorer"),
+    assists: build("assists"),
+    shots: build("shots"),
+    fouls: build("fouls"),
+    foulsDrawn: build("foulsDrawn"),
+    cards: build("cards"),
   };
 }
 
@@ -544,14 +562,20 @@ export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
           {players.map((p, i) => {
             const pct = (p.value / maxVal) * 100;
             return (
-              <div key={p.name} className="flex items-center gap-2">
+              <div key={`${p.name}-${i}`} className="flex items-center gap-2">
                 <span className={cn(
                   "flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-mono font-bold flex-shrink-0",
                   i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 )}>{i + 1}</span>
+                <PlayerAvatar name={p.name} number={p.number} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <span className="text-xs font-semibold truncate">{p.name}</span>
+                    <span className="text-xs font-semibold truncate">
+                      {p.name}
+                      {typeof p.number === "number" && (
+                        <span className="ml-1 text-[9px] font-mono text-muted-foreground">#{p.number}</span>
+                      )}
+                    </span>
                     <span className="font-mono text-xs font-bold text-foreground flex-shrink-0">
                       {p.value} <span className="text-muted-foreground font-normal text-[10px]">{activeCat.unit}</span>
                     </span>
