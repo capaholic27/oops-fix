@@ -432,62 +432,106 @@ const LeagueSelector = ({
   );
 };
 
-/* ─── Player Highlights (Top Scorer / Assists / Shots) ─── */
-type PlayerHighlightCategory = "scorer" | "assists" | "shots";
-type PlayerHighlight = { name: string; value: number; label: string };
+/* ─── Player Leaderboard (Top 5 per category) ─── */
+export type PlayerHighlightCategory = "scorer" | "assists" | "shots";
+type RankedPlayer = { name: string; value: number };
 
-// Mock player leaders data keyed by team name
-const PLAYER_LEADERS: Record<string, Record<PlayerHighlightCategory, PlayerHighlight>> = {
-  "Arsenal": { scorer: { name: "B. Saka", value: 14, label: "goals" }, assists: { name: "M. Ødegaard", value: 11, label: "assists" }, shots: { name: "K. Havertz", value: 72, label: "shots" } },
-  "Liverpool": { scorer: { name: "M. Salah", value: 19, label: "goals" }, assists: { name: "M. Salah", value: 13, label: "assists" }, shots: { name: "M. Salah", value: 89, label: "shots" } },
-  "Manchester City": { scorer: { name: "E. Haaland", value: 22, label: "goals" }, assists: { name: "K. De Bruyne", value: 10, label: "assists" }, shots: { name: "E. Haaland", value: 95, label: "shots" } },
-  "Real Madrid": { scorer: { name: "Vinícius Jr", value: 15, label: "goals" }, assists: { name: "J. Bellingham", value: 9, label: "assists" }, shots: { name: "Vinícius Jr", value: 82, label: "shots" } },
-  "Barcelona": { scorer: { name: "R. Lewandowski", value: 18, label: "goals" }, assists: { name: "L. Yamal", value: 12, label: "assists" }, shots: { name: "R. Lewandowski", value: 88, label: "shots" } },
+// Mock player leaders data keyed by team name — top 5 ranked
+const PLAYER_LEADERBOARD: Record<string, Record<PlayerHighlightCategory, RankedPlayer[]>> = {
+  "Arsenal": {
+    scorer: [{ name: "B. Saka", value: 14 }, { name: "K. Havertz", value: 13 }, { name: "G. Martinelli", value: 9 }, { name: "M. Ødegaard", value: 8 }, { name: "L. Trossard", value: 6 }],
+    assists: [{ name: "M. Ødegaard", value: 11 }, { name: "B. Saka", value: 9 }, { name: "G. Martinelli", value: 6 }, { name: "K. Havertz", value: 5 }, { name: "D. Rice", value: 4 }],
+    shots: [{ name: "K. Havertz", value: 84 }, { name: "B. Saka", value: 72 }, { name: "G. Martinelli", value: 65 }, { name: "M. Ødegaard", value: 56 }, { name: "D. Rice", value: 38 }],
+  },
+  "Liverpool": {
+    scorer: [{ name: "M. Salah", value: 19 }, { name: "D. Núñez", value: 14 }, { name: "L. Díaz", value: 11 }, { name: "C. Gakpo", value: 8 }, { name: "A. Mac Allister", value: 5 }],
+    assists: [{ name: "M. Salah", value: 13 }, { name: "C. Gakpo", value: 9 }, { name: "A. Mac Allister", value: 8 }, { name: "L. Díaz", value: 7 }, { name: "D. Núñez", value: 6 }],
+    shots: [{ name: "D. Núñez", value: 92 }, { name: "M. Salah", value: 89 }, { name: "L. Díaz", value: 68 }, { name: "C. Gakpo", value: 58 }, { name: "A. Mac Allister", value: 42 }],
+  },
+  "Manchester City": {
+    scorer: [{ name: "E. Haaland", value: 22 }, { name: "P. Foden", value: 12 }, { name: "B. Silva", value: 7 }, { name: "K. De Bruyne", value: 6 }, { name: "Rodri", value: 5 }],
+    assists: [{ name: "K. De Bruyne", value: 10 }, { name: "P. Foden", value: 8 }, { name: "B. Silva", value: 7 }, { name: "E. Haaland", value: 5 }, { name: "Rodri", value: 4 }],
+    shots: [{ name: "E. Haaland", value: 95 }, { name: "P. Foden", value: 70 }, { name: "K. De Bruyne", value: 52 }, { name: "B. Silva", value: 48 }, { name: "Rodri", value: 40 }],
+  },
+  "Real Madrid": {
+    scorer: [{ name: "Vinícius Jr", value: 15 }, { name: "J. Bellingham", value: 12 }, { name: "Rodrygo", value: 9 }, { name: "F. Valverde", value: 6 }, { name: "L. Modrić", value: 3 }],
+    assists: [{ name: "J. Bellingham", value: 9 }, { name: "Vinícius Jr", value: 9 }, { name: "L. Modrić", value: 7 }, { name: "Rodrygo", value: 6 }, { name: "F. Valverde", value: 5 }],
+    shots: [{ name: "Vinícius Jr", value: 82 }, { name: "J. Bellingham", value: 68 }, { name: "Rodrygo", value: 58 }, { name: "F. Valverde", value: 50 }, { name: "L. Modrić", value: 32 }],
+  },
+  "Barcelona": {
+    scorer: [{ name: "R. Lewandowski", value: 18 }, { name: "Raphinha", value: 11 }, { name: "L. Yamal", value: 7 }, { name: "Pedri", value: 4 }, { name: "F. de Jong", value: 3 }],
+    assists: [{ name: "L. Yamal", value: 12 }, { name: "Pedri", value: 8 }, { name: "Raphinha", value: 7 }, { name: "F. de Jong", value: 6 }, { name: "R. Lewandowski", value: 4 }],
+    shots: [{ name: "R. Lewandowski", value: 88 }, { name: "Raphinha", value: 64 }, { name: "L. Yamal", value: 60 }, { name: "Pedri", value: 38 }, { name: "F. de Jong", value: 30 }],
+  },
 };
 
-const PlayerHighlights = ({ teamName }: { teamName: string }) => {
-  const [active, setActive] = useState<PlayerHighlightCategory | null>(null);
-  const leaders = PLAYER_LEADERS[teamName];
+export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
+  const [active, setActive] = useState<PlayerHighlightCategory>("scorer");
+  const leaderboard = PLAYER_LEADERBOARD[teamName];
 
-  // If no data for this team, show generic placeholder
-  const categories: { id: PlayerHighlightCategory; label: string; icon: React.ReactNode }[] = [
-    { id: "scorer", label: "Top Scorer", icon: <Target className="w-3 h-3" /> },
-    { id: "assists", label: "Top Assists", icon: <ArrowRight className="w-3 h-3" /> },
-    { id: "shots", label: "Top Shots", icon: <Crosshair className="w-3 h-3" /> },
+  const categories: { id: PlayerHighlightCategory; label: string; icon: React.ReactNode; unit: string }[] = [
+    { id: "scorer", label: "Top Scorers", icon: <Target className="w-3 h-3" />, unit: "goals" },
+    { id: "assists", label: "Top Assists", icon: <ArrowRight className="w-3 h-3" />, unit: "assists" },
+    { id: "shots", label: "Top Shots", icon: <Crosshair className="w-3 h-3" />, unit: "shots" },
   ];
+
+  const players = leaderboard?.[active] ?? [];
+  const activeCat = categories.find((c) => c.id === active)!;
+  const maxVal = players[0]?.value ?? 1;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-      <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Player Leaders</span>
-      <div className="flex gap-2 mt-2">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Player Leaderboard</span>
+        <span className="text-[9px] font-mono text-muted-foreground">TOP 5</span>
+      </div>
+      <div className="flex gap-1.5 mb-3">
         {categories.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setActive(active === cat.id ? null : cat.id)}
+            onClick={() => setActive(cat.id)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all",
+              "flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all flex-1 justify-center",
               active === cat.id
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
             {cat.icon}
-            {cat.label}
+            <span className="truncate">{cat.label}</span>
           </button>
         ))}
       </div>
-      {active && (
-        <div className="mt-2.5 flex items-center gap-3 px-1 animate-fade-up">
-          {leaders ? (
-            <>
-              <span className="text-sm font-bold text-foreground">{leaders[active].name}</span>
-              <span className="font-mono text-sm font-bold text-primary">{leaders[active].value}</span>
-              <span className="text-xs text-muted-foreground">{leaders[active].label}</span>
-            </>
-          ) : (
-            <span className="text-xs text-muted-foreground">No player data available</span>
-          )}
+      {players.length > 0 ? (
+        <div className="space-y-1.5 animate-fade-up">
+          {players.map((p, i) => {
+            const pct = (p.value / maxVal) * 100;
+            return (
+              <div key={p.name} className="flex items-center gap-2">
+                <span className={cn(
+                  "flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-mono font-bold flex-shrink-0",
+                  i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                )}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="text-xs font-semibold truncate">{p.name}</span>
+                    <span className="font-mono text-xs font-bold text-foreground flex-shrink-0">
+                      {p.value} <span className="text-muted-foreground font-normal text-[10px]">{activeCat.unit}</span>
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-700", i === 0 ? "bg-primary" : "bg-foreground/40")}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
+      ) : (
+        <p className="text-xs text-muted-foreground text-center py-3">No player data available</p>
       )}
     </div>
   );
