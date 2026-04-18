@@ -176,6 +176,42 @@ export type Database = {
         }
         Relationships: []
       }
+      team_players: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          id: string
+          league_code: string | null
+          players: Json
+          season: number | null
+          source: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          league_code?: string | null
+          players?: Json
+          season?: number | null
+          source?: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          league_code?: string | null
+          players?: Json
+          season?: number | null
+          source?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
