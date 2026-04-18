@@ -27,6 +27,7 @@ export const PredictedTacticalProfile = ({
   leagueOpponents = [], onOpponentSelect,
 }: Props) => {
   const [showPicker, setShowPicker] = useState(false);
+  const [search, setSearch] = useState("");
 
   const predictions = predictNextMatchStyles(stats, views, opponentStats);
   const topStyle = predictions[0];
@@ -40,20 +41,32 @@ export const PredictedTacticalProfile = ({
     [allFixtures, today, teamName]
   );
 
-  // Fallback: unique opponents from match history (when no fixtures)
-  const opponentOptions = useMemo(() => {
-    if (upcomingFixtures.length > 0) return [];
-    if (leagueOpponents.length > 0) return leagueOpponents.slice(0, 10);
-    // Derive from allMatches
+  // All historic opponents (no cap) — used when no fixtures
+  const allOpponentOptions = useMemo(() => {
+    if (leagueOpponents.length > 0) return [...leagueOpponents].sort();
     const opps = new Set<string>();
     for (const m of allMatches) {
       if (m.home_team === teamName) opps.add(m.away_team);
       else if (m.away_team === teamName) opps.add(m.home_team);
     }
-    return [...opps].sort().slice(0, 10);
-  }, [upcomingFixtures, leagueOpponents, allMatches, teamName]);
+    return [...opps].sort();
+  }, [leagueOpponents, allMatches, teamName]);
 
-  const hasOptions = upcomingFixtures.length > 0 || opponentOptions.length > 0;
+  // Search-filtered opponents: prefix match first, then substring match
+  const opponentOptions = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return allOpponentOptions;
+    const prefix: string[] = [];
+    const contains: string[] = [];
+    for (const t of allOpponentOptions) {
+      const lower = t.toLowerCase();
+      if (lower.startsWith(q)) prefix.push(t);
+      else if (lower.includes(q)) contains.push(t);
+    }
+    return [...prefix, ...contains];
+  }, [allOpponentOptions, search]);
+
+  const hasOptions = upcomingFixtures.length > 0 || allOpponentOptions.length > 0;
 
   const fixtureDate = nextFixture
     ? new Date(nextFixture.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })
