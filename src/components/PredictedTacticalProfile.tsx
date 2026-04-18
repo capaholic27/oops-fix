@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { predictNextMatchStyles } from "@/lib/tacticalPredictor";
 import type { AggregatedStats, TeamMatchView } from "@/lib/matchStats";
 import { TeamLogo } from "@/components/TeamLogo";
-import { Calendar, ChevronDown } from "lucide-react";
+import { Calendar, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Fixture } from "@/hooks/useMatches";
 
