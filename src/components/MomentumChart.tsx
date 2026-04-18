@@ -78,23 +78,30 @@ function generateFallbackPlayers(views: TeamMatchView[], teamName: string): Play
   const avgShots = views.reduce((s, v) => s + v.shotsFor, 0) / views.length;
   const positions: { name: string; pos: string; mult: number }[] = [
     { name: `${teamName} #9`, pos: "ST", mult: 1.0 },
-    { name: `${teamName} #10`, pos: "AM", mult: 0.8 },
-    { name: `${teamName} #7`, pos: "RW", mult: 0.75 },
-    { name: `${teamName} #11`, pos: "LW", mult: 0.7 },
-    { name: `${teamName} #6`, pos: "MF", mult: 0.55 },
+    { name: `${teamName} #10`, pos: "AM", mult: 0.85 },
+    { name: `${teamName} #7`, pos: "RW", mult: 0.78 },
+    { name: `${teamName} #11`, pos: "LW", mult: 0.72 },
+    { name: `${teamName} #8`, pos: "MF", mult: 0.6 },
+    { name: `${teamName} #6`, pos: "DM", mult: 0.55 },
+    { name: `${teamName} #4`, pos: "CB", mult: 0.45 },
+    { name: `${teamName} #5`, pos: "CB", mult: 0.42 },
+    { name: `${teamName} #2`, pos: "RB", mult: 0.5 },
+    { name: `${teamName} #3`, pos: "LB", mult: 0.48 },
+    { name: `${teamName} #20`, pos: "MF", mult: 0.4 },
+    { name: `${teamName} #1`, pos: "GK", mult: 0.25 },
   ];
   return positions.map((p, i) => ({
     name: p.name,
     position: p.pos,
-    goals: Math.round(avgGF * views.length * p.mult * 0.4),
-    assists: Math.round(avgGF * views.length * p.mult * 0.25),
-    shots: Math.round(avgShots * views.length * p.mult * 0.15),
-    attacking: Math.max(40, Math.min(95, 60 + i * -4 + Math.round(avgGF * 10))),
-    creativity: Math.max(40, Math.min(95, 70 - i * 3)),
-    finishing: Math.max(35, Math.min(95, 55 + i * -3 + Math.round(avgGF * 8))),
-    aerial: Math.max(30, Math.min(90, 50 + (p.pos === "ST" ? 25 : -5))),
-    defending: Math.max(25, Math.min(95, 35 + (p.pos === "MF" ? 35 : 0) + i * 5)),
-    passing: Math.max(50, Math.min(96, 75 + (p.pos === "MF" || p.pos === "AM" ? 12 : 0) - i * 2)),
+    goals: Math.max(0, Math.round(avgGF * views.length * p.mult * 0.4)),
+    assists: Math.max(0, Math.round(avgGF * views.length * p.mult * 0.25)),
+    shots: Math.max(0, Math.round(avgShots * views.length * p.mult * 0.15)),
+    attacking: Math.max(20, Math.min(95, 60 + i * -3 + Math.round(avgGF * 10))),
+    creativity: Math.max(20, Math.min(95, 70 - i * 3)),
+    finishing: Math.max(20, Math.min(95, 55 + i * -3 + Math.round(avgGF * 8))),
+    aerial: Math.max(20, Math.min(95, 50 + (p.pos === "ST" || p.pos === "CB" ? 25 : -5))),
+    defending: Math.max(20, Math.min(95, 35 + (p.pos === "DM" || p.pos === "CB" ? 40 : 0) + i * 2)),
+    passing: Math.max(40, Math.min(96, 75 + (p.pos === "MF" || p.pos === "AM" || p.pos === "DM" ? 12 : 0) - i)),
   }));
 }
 
