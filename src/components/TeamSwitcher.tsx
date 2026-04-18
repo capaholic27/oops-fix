@@ -60,7 +60,7 @@ export const TeamSwitcher = ({ currentTeam, allTeams, onSelect }: Props) => {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] rounded-xl border border-border bg-card shadow-xl z-50 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
           <div className="p-2 border-b border-border">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
