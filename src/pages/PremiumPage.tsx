@@ -16,6 +16,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { FormBadge } from "@/components/FormBadge";
 import { MomentumChart } from "@/components/MomentumChart";
+import { PlayerHighlights } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
 import { AdBanner } from "@/components/AdBanner";
@@ -698,6 +699,9 @@ const ProDashboard = ({
 
       {/* ─── Squad Insights ─── */}
       <PlayerInsights teamViews={teamViews} teamName={teamName} />
+
+      {/* ─── Player Leaderboard (Top 5) ─── */}
+      <PlayerHighlights teamName={teamName} />
 
       {/* ─── Deep Analytics ─── */}
       <div>
