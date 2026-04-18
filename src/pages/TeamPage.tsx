@@ -22,6 +22,7 @@ import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { useFavorites } from "@/hooks/useFavorites";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
@@ -500,9 +501,11 @@ type StatsProps = {
   setPastN: (n: number) => void;
   onBack: () => void;
   onOpenPredict: () => void;
+  allMatches: any[];
+  onSwitchTeam: (team: string) => void;
 };
 
-const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict }: StatsProps) => {
+const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict, allMatches: allMatchesProp, onSwitchTeam }: StatsProps) => {
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { toggleFavorite, isFavorite } = useFavorites();
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
@@ -567,9 +570,16 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     <div className="p-4 space-y-4 pb-20">
       {/* Back + Past N controls */}
       <div className="flex items-center justify-between gap-2">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Back
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+          <TeamSwitcher
+            currentTeam={selectedTeam}
+            allTeams={getUniqueTeams(allMatchesProp)}
+            onSelect={onSwitchTeam}
+          />
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium">Last</span>
           <select
@@ -1196,6 +1206,12 @@ const TeamPage = () => {
           setPastN={handleSetPastN}
           onBack={handleBack}
           onOpenPredict={() => setShowPredictionModal(true)}
+          allMatches={allMatches}
+          onSwitchTeam={(team) => {
+            const m = allMatches.find((x: any) => x.home_team === team || x.away_team === team);
+            const lc = m?.league_code || leagueCode;
+            handleSelectTeam(team, lc);
+          }}
         />
       ) : (
         <LeagueSelector
