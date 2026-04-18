@@ -22,6 +22,7 @@ import { LeagueLogo } from "@/components/LeagueLogo";
 import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { useFavorites } from "@/hooks/useFavorites";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
@@ -500,9 +501,11 @@ type StatsProps = {
   setPastN: (n: number) => void;
   onBack: () => void;
   onOpenPredict: () => void;
+  allMatches: any[];
+  onSwitchTeam: (team: string) => void;
 };
 
-const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict }: StatsProps) => {
+const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onOpenPredict, allMatches: allMatchesProp, onSwitchTeam }: StatsProps) => {
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
   const { toggleFavorite, isFavorite } = useFavorites();
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
