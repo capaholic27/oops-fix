@@ -149,9 +149,18 @@ function generateFallbackPlayers(views: TeamMatchView[], teamName: string): Play
 }
 
 export const MomentumChart = ({ views, teamName }: Props) => {
-  const players = useMemo(() => {
+  const { data: realPlayers = [] } = useTeamPlayers(teamName);
+
+  const players = useMemo<PlayerProfile[]>(() => {
+    if (realPlayers.length > 0) {
+      // Sort by attacking impact so the star players appear first.
+      return realPlayers
+        .map(realToProfile)
+        .sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists))
+        .slice(0, 30);
+    }
     return PLAYER_PROFILES[teamName] ?? generateFallbackPlayers(views, teamName);
-  }, [views, teamName]);
+  }, [realPlayers, views, teamName]);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
   const player = players[selectedIdx];
@@ -200,7 +209,7 @@ export const MomentumChart = ({ views, teamName }: Props) => {
                     : "bg-muted/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted"
                 )}
               >
-                <PlayerAvatar name={p.name} number={p.number} size="xs" />
+                <PlayerAvatar name={p.name} number={p.number ?? undefined} photoUrl={p.photoUrl} size="xs" />
                 <span className="truncate max-w-[80px]">{p.name}</span>
               </button>
             );
@@ -210,7 +219,7 @@ export const MomentumChart = ({ views, teamName }: Props) => {
         {/* Player header */}
         <div className="flex items-center justify-between mb-2 px-1">
           <div className="flex items-center gap-2.5">
-            <PlayerAvatar name={player.name} number={player.number} size="md" />
+            <PlayerAvatar name={player.name} number={player.number ?? undefined} photoUrl={player.photoUrl} size="md" />
             <div>
               <p className="text-base font-bold leading-tight">
                 {player.name}
