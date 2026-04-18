@@ -134,10 +134,10 @@ export const MomentumChart = ({ views, teamName }: Props) => {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Trophy className="w-3.5 h-3.5 text-primary" />
-            <span className="stat-label">Top Players</span>
+            <span className="stat-label">Squad Profiles</span>
           </div>
           <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-            Player Profile
+            {players.length} players
           </span>
         </div>
 
