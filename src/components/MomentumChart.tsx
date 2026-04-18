@@ -11,6 +11,7 @@ import { Trophy, Target, Crosshair, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getSyntheticSquad } from "@/lib/playerNames";
+import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
 
 type Props = {
   views: TeamMatchView[];
