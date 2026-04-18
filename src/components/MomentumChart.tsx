@@ -7,8 +7,10 @@ import {
   PolarAngleAxis,
   Radar,
 } from "recharts";
-import { Trophy, Target, Crosshair, Flag, Shield, Zap } from "lucide-react";
+import { Trophy, Target, Crosshair, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { getSyntheticSquad } from "@/lib/playerNames";
 
 type Props = {
   views: TeamMatchView[];
@@ -21,6 +23,7 @@ type Props = {
 type PlayerProfile = {
   name: string;
   position: string;
+  number?: number;
   goals: number;
   assists: number;
   shots: number;
@@ -71,27 +74,30 @@ const PLAYER_PROFILES: Record<string, PlayerProfile[]> = {
   ],
 };
 
-/* Generate fallback profile from team views when team is not in mock list */
+/* Generate fallback profile from team views when team is not in mock list.
+ * Uses synthetic but realistic player names + shirt numbers (deterministic per team). */
 function generateFallbackPlayers(views: TeamMatchView[], teamName: string): PlayerProfile[] {
   if (views.length === 0) return [];
   const avgGF = views.reduce((s, v) => s + v.goalsFor, 0) / views.length;
   const avgShots = views.reduce((s, v) => s + v.shotsFor, 0) / views.length;
-  const positions: { name: string; pos: string; mult: number }[] = [
-    { name: `${teamName} #9`, pos: "ST", mult: 1.0 },
-    { name: `${teamName} #10`, pos: "AM", mult: 0.85 },
-    { name: `${teamName} #7`, pos: "RW", mult: 0.78 },
-    { name: `${teamName} #11`, pos: "LW", mult: 0.72 },
-    { name: `${teamName} #8`, pos: "MF", mult: 0.6 },
-    { name: `${teamName} #6`, pos: "DM", mult: 0.55 },
-    { name: `${teamName} #4`, pos: "CB", mult: 0.45 },
-    { name: `${teamName} #5`, pos: "CB", mult: 0.42 },
-    { name: `${teamName} #2`, pos: "RB", mult: 0.5 },
-    { name: `${teamName} #3`, pos: "LB", mult: 0.48 },
-    { name: `${teamName} #20`, pos: "MF", mult: 0.4 },
-    { name: `${teamName} #1`, pos: "GK", mult: 0.25 },
+  const positions: { pos: string; mult: number }[] = [
+    { pos: "ST", mult: 1.0 },
+    { pos: "AM", mult: 0.85 },
+    { pos: "RW", mult: 0.78 },
+    { pos: "LW", mult: 0.72 },
+    { pos: "MF", mult: 0.6 },
+    { pos: "DM", mult: 0.55 },
+    { pos: "CB", mult: 0.45 },
+    { pos: "CB", mult: 0.42 },
+    { pos: "RB", mult: 0.5 },
+    { pos: "LB", mult: 0.48 },
+    { pos: "MF", mult: 0.4 },
+    { pos: "GK", mult: 0.25 },
   ];
+  const squad = getSyntheticSquad(teamName, positions.length);
   return positions.map((p, i) => ({
-    name: p.name,
+    name: squad[i].name,
+    number: squad[i].number,
     position: p.pos,
     goals: Math.max(0, Math.round(avgGF * views.length * p.mult * 0.4)),
     assists: Math.max(0, Math.round(avgGF * views.length * p.mult * 0.25)),
@@ -144,19 +150,12 @@ export const MomentumChart = ({ views, teamName }: Props) => {
         {/* Player selector pills — all squad players, compact, horizontally scrollable */}
         <div className="flex gap-1 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
           {players.map((p, i) => {
-            const initials = p.name
-              .split(/[\s.]+/)
-              .filter(Boolean)
-              .map((s) => s[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
             const active = selectedIdx === i;
             return (
               <button
-                key={p.name}
+                key={`${p.name}-${i}`}
                 onClick={() => setSelectedIdx(i)}
-                title={p.name}
+                title={`${p.name}${p.number ? " #" + p.number : ""}`}
                 className={cn(
                   "flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full text-[10px] font-semibold transition-all border",
                   active
@@ -164,15 +163,8 @@ export const MomentumChart = ({ views, teamName }: Props) => {
                     : "bg-muted/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted"
                 )}
               >
-                <span
-                  className={cn(
-                    "flex items-center justify-center w-5 h-5 rounded-full text-[8px] font-bold flex-shrink-0",
-                    active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-foreground/10 text-foreground"
-                  )}
-                >
-                  {initials || "?"}
-                </span>
-                <span className="truncate max-w-[70px]">{p.name}</span>
+                <PlayerAvatar name={p.name} number={p.number} size="xs" />
+                <span className="truncate max-w-[80px]">{p.name}</span>
               </button>
             );
           })}
@@ -180,11 +172,19 @@ export const MomentumChart = ({ views, teamName }: Props) => {
 
         {/* Player header */}
         <div className="flex items-center justify-between mb-2 px-1">
-          <div>
-            <p className="text-base font-bold leading-tight">{player.name}</p>
-            <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-              {player.position} · Rank #{selectedIdx + 1}
-            </p>
+          <div className="flex items-center gap-2.5">
+            <PlayerAvatar name={player.name} number={player.number} size="md" />
+            <div>
+              <p className="text-base font-bold leading-tight">
+                {player.name}
+                {typeof player.number === "number" && (
+                  <span className="ml-1.5 text-[10px] font-mono text-muted-foreground">#{player.number}</span>
+                )}
+              </p>
+              <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                {player.position} · Rank #{selectedIdx + 1}
+              </p>
+            </div>
           </div>
           <div className="text-right">
             <p className="font-mono text-2xl font-bold text-primary leading-none">{overall}</p>
