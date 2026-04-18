@@ -26,6 +26,7 @@ import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getSyntheticSquad } from "@/lib/playerNames";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useTeamPlayers } from "@/hooks/useTeamPlayers";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
