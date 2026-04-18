@@ -134,26 +134,41 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           </span>
         </div>
 
-        {/* Player ranking pills */}
-        <div className="flex gap-1.5 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
-          {players.slice(0, 5).map((p, i) => (
-            <button
-              key={p.name}
-              onClick={() => setSelectedIdx(i)}
-              className={cn(
-                "flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all",
-                selectedIdx === i
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span className={cn(
-                "font-mono font-bold",
-                selectedIdx === i ? "text-primary-foreground/80" : "text-foreground/60"
-              )}>#{i + 1}</span>
-              <span className="truncate max-w-[80px]">{p.name}</span>
-            </button>
-          ))}
+        {/* Player selector pills — all squad players, compact, horizontally scrollable */}
+        <div className="flex gap-1 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
+          {players.map((p, i) => {
+            const initials = p.name
+              .split(/[\s.]+/)
+              .filter(Boolean)
+              .map((s) => s[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase();
+            const active = selectedIdx === i;
+            return (
+              <button
+                key={p.name}
+                onClick={() => setSelectedIdx(i)}
+                title={p.name}
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full text-[10px] font-semibold transition-all border",
+                  active
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-muted/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex items-center justify-center w-5 h-5 rounded-full text-[8px] font-bold flex-shrink-0",
+                    active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-foreground/10 text-foreground"
+                  )}
+                >
+                  {initials || "?"}
+                </span>
+                <span className="truncate max-w-[70px]">{p.name}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Player header */}
