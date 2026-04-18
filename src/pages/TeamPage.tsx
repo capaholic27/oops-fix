@@ -436,7 +436,7 @@ const LeagueSelector = ({
 
 /* ─── Player Leaderboard (Top 5 per category) ─── */
 export type PlayerHighlightCategory = "scorer" | "assists" | "shots" | "fouls" | "foulsDrawn" | "cards";
-type RankedPlayer = { name: string; value: number; number?: number };
+type RankedPlayer = { name: string; value: number; number?: number | null; photoUrl?: string | null };
 
 // Mock player leaders data keyed by team name — top 5 ranked
 const PLAYER_LEADERBOARD: Record<string, Record<PlayerHighlightCategory, RankedPlayer[]>> = {
@@ -519,7 +519,29 @@ function generateFallbackLeaderboard(teamName: string): Record<PlayerHighlightCa
 
 export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
   const [active, setActive] = useState<PlayerHighlightCategory>("scorer");
-  const leaderboard = PLAYER_LEADERBOARD[teamName] ?? generateFallbackLeaderboard(teamName);
+  const { data: realPlayers = [] } = useTeamPlayers(teamName);
+
+  // Build leaderboard from REAL data when available; else mock; else synthetic.
+  const leaderboard = useMemo<Record<PlayerHighlightCategory, RankedPlayer[]>>(() => {
+    if (realPlayers.length > 0) {
+      const top = (key: (p: typeof realPlayers[number]) => number): RankedPlayer[] =>
+        [...realPlayers]
+          .filter((p) => key(p) > 0)
+          .sort((a, b) => key(b) - key(a))
+          .slice(0, 5)
+          .map((p) => ({ name: p.name, value: key(p), number: p.number, photoUrl: p.photo }));
+      const cardsTotal = (p: typeof realPlayers[number]) => (p.yellow ?? 0) + (p.red ?? 0);
+      return {
+        scorer: top((p) => p.goals ?? 0),
+        assists: top((p) => p.assists ?? 0),
+        shots: top((p) => p.shots ?? 0),
+        fouls: top((p) => p.fouls ?? 0),
+        foulsDrawn: top((p) => p.foulsDrawn ?? 0),
+        cards: top(cardsTotal),
+      };
+    }
+    return PLAYER_LEADERBOARD[teamName] ?? generateFallbackLeaderboard(teamName);
+  }, [realPlayers, teamName]);
 
   const categories: { id: PlayerHighlightCategory; label: string; icon: React.ReactNode; unit: string }[] = [
     { id: "scorer", label: "Goals", icon: <Target className="w-3 h-3" />, unit: "goals" },
@@ -567,7 +589,7 @@ export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
                   "flex items-center justify-center w-5 h-5 rounded-md text-[10px] font-mono font-bold flex-shrink-0",
                   i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 )}>{i + 1}</span>
-                <PlayerAvatar name={p.name} number={p.number} size="sm" />
+                <PlayerAvatar name={p.name} number={p.number ?? undefined} photoUrl={p.photoUrl} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-0.5">
                     <span className="text-xs font-semibold truncate">
