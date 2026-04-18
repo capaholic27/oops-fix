@@ -522,20 +522,20 @@ export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Player Leaderboard</span>
         <span className="text-[9px] font-mono text-muted-foreground">TOP 5</span>
       </div>
-      <div className="flex gap-1.5 mb-3">
+      <div className="flex gap-1.5 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
         {categories.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setActive(cat.id)}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all flex-1 justify-center",
+              "flex-shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold rounded-lg transition-all whitespace-nowrap",
               active === cat.id
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
             {cat.icon}
-            <span className="truncate">{cat.label}</span>
+            <span>{cat.label}</span>
           </button>
         ))}
       </div>
