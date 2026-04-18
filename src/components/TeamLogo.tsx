@@ -151,14 +151,6 @@ const sizes = {
 };
 
 export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
-  const staticUrl = STATIC_BADGES[teamName];
-  const [badge, setBadge] = useState<string | null>(staticUrl ?? logoCache.get(teamName) ?? null);
-  const [loaded, setLoaded] = useState(false);
-  const [errored, setErrored] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
   const initialUrl = lookupStatic(teamName) ?? logoCache.get(teamName) ?? null;
   const [badge, setBadge] = useState<string | null>(initialUrl);
   const [loaded, setLoaded] = useState<boolean>(() => !!initialUrl && loadedUrls.has(initialUrl));
