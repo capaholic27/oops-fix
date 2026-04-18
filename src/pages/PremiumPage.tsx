@@ -703,46 +703,6 @@ const ProDashboard = ({
       {/* ─── Player Leaderboard (Top 5) ─── */}
       <PlayerHighlights teamName={teamName} />
 
-      {/* ─── Deep Analytics ─── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Brain className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">Deep Analytics</span>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 opacity-0 animate-fade-up" style={{ animationDelay: "700ms" }}>
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-3">Shot Efficiency</span>
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-[11px] mb-1">
-                <span className="text-muted-foreground">SOT / Shots</span>
-                <span className="font-mono font-semibold">{stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${stats.avgShotsFor > 0 ? (stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100 : 0}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-[11px] mb-1">
-                <span className="text-muted-foreground">Goals / SOT</span>
-                <span className="font-mono font-semibold">{stats.avgShotsOnTargetFor > 0 ? ((gfPerGame / stats.avgShotsOnTargetFor) * 100).toFixed(0) : "0"}%</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-stat-warn transition-all duration-700" style={{ width: `${stats.avgShotsOnTargetFor > 0 ? Math.min(100, (gfPerGame / stats.avgShotsOnTargetFor) * 100) : 0}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-[11px] mb-1">
-                <span className="text-muted-foreground">Goals / Shots</span>
-                <span className="font-mono font-semibold">{stats.avgShotsFor > 0 ? ((gfPerGame / stats.avgShotsFor) * 100).toFixed(1) : "0"}%</span>
-              </div>
-              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-stat-positive transition-all duration-700" style={{ width: `${stats.avgShotsFor > 0 ? Math.min(100, (gfPerGame / stats.avgShotsFor) * 100 * 4) : 0}%` }} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <MomentumChart views={teamViews} teamName={teamName} />
 
       <PredictedTacticalProfile
