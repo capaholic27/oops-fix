@@ -19,6 +19,7 @@ import { MomentumChart } from "@/components/MomentumChart";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
 import { AdBanner } from "@/components/AdBanner";
+import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
@@ -382,11 +383,13 @@ const ProDashboard = ({
   onBack,
   allMatches,
   unlocked,
+  onSwitchTeam,
 }: {
   teamName: string;
   onBack: () => void;
   allMatches: any[];
   unlocked: boolean;
+  onSwitchTeam: (team: string) => void;
 }) => {
   const [pastN, setPastN] = useState(15);
   const [statPrediction, setStatPrediction] = useState<StatPredictionCategory | null>(null);
@@ -462,9 +465,12 @@ const ProDashboard = ({
     <div className="p-3 space-y-4 pb-24 max-w-lg mx-auto">
       {/* Back + Filter */}
       <div className="flex items-center justify-between gap-2">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronLeft className="w-4 h-4" /> Back
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+          <TeamSwitcher currentTeam={teamName} allTeams={allTeams} onSelect={onSwitchTeam} />
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium">Last</span>
           <select
@@ -858,6 +864,7 @@ const PremiumPage = () => {
         onBack={() => setSelectedTeam("")}
         allMatches={allMatches}
         unlocked={unlocked}
+        onSwitchTeam={setSelectedTeam}
       />
     );
   }
