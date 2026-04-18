@@ -751,33 +751,6 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
             setManualOpponent(opp);
           }}
         />
-        <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "500ms" }}>
-          <span className="stat-label mb-3 block">Shot Efficiency</span>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground font-medium">SOT / Shots</span>
-                <span className="font-mono font-semibold text-foreground">
-                  {stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(1) : "0"}%
-                </span>
-              </div>
-              <div className="probability-bar">
-                <div className="probability-fill" style={{ width: `${stats.avgShotsFor > 0 ? (stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100 : 0}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-muted-foreground font-medium">Goals / SOT</span>
-                <span className="font-mono font-semibold text-foreground">
-                  {stats.avgShotsOnTargetFor > 0 ? (((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100).toFixed(1) : "0"}%
-                </span>
-              </div>
-              <div className="probability-bar">
-                <div className="h-full rounded-full transition-all duration-700 ease-out bg-stat-warn" style={{ width: `${stats.avgShotsOnTargetFor > 0 ? Math.min(100, ((stats.goalsFor / stats.matchesPlayed) / stats.avgShotsOnTargetFor) * 100) : 0}%` }} />
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <UpcomingFixtures
