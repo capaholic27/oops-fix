@@ -433,7 +433,7 @@ const LeagueSelector = ({
 };
 
 /* ─── Player Leaderboard (Top 5 per category) ─── */
-export type PlayerHighlightCategory = "scorer" | "assists" | "shots";
+export type PlayerHighlightCategory = "scorer" | "assists" | "shots" | "fouls" | "foulsDrawn" | "cards";
 type RankedPlayer = { name: string; value: number };
 
 // Mock player leaders data keyed by team name — top 5 ranked
@@ -442,37 +442,74 @@ const PLAYER_LEADERBOARD: Record<string, Record<PlayerHighlightCategory, RankedP
     scorer: [{ name: "B. Saka", value: 14 }, { name: "K. Havertz", value: 13 }, { name: "G. Martinelli", value: 9 }, { name: "M. Ødegaard", value: 8 }, { name: "L. Trossard", value: 6 }],
     assists: [{ name: "M. Ødegaard", value: 11 }, { name: "B. Saka", value: 9 }, { name: "G. Martinelli", value: 6 }, { name: "K. Havertz", value: 5 }, { name: "D. Rice", value: 4 }],
     shots: [{ name: "K. Havertz", value: 84 }, { name: "B. Saka", value: 72 }, { name: "G. Martinelli", value: 65 }, { name: "M. Ødegaard", value: 56 }, { name: "D. Rice", value: 38 }],
+    fouls: [{ name: "D. Rice", value: 32 }, { name: "J. Timber", value: 28 }, { name: "W. Saliba", value: 22 }, { name: "K. Havertz", value: 19 }, { name: "M. Ødegaard", value: 14 }],
+    foulsDrawn: [{ name: "B. Saka", value: 48 }, { name: "M. Ødegaard", value: 36 }, { name: "G. Martinelli", value: 30 }, { name: "K. Havertz", value: 24 }, { name: "L. Trossard", value: 18 }],
+    cards: [{ name: "D. Rice", value: 7 }, { name: "G. Martinelli", value: 5 }, { name: "J. Timber", value: 5 }, { name: "W. Saliba", value: 4 }, { name: "B. Saka", value: 3 }],
   },
   "Liverpool": {
     scorer: [{ name: "M. Salah", value: 19 }, { name: "D. Núñez", value: 14 }, { name: "L. Díaz", value: 11 }, { name: "C. Gakpo", value: 8 }, { name: "A. Mac Allister", value: 5 }],
     assists: [{ name: "M. Salah", value: 13 }, { name: "C. Gakpo", value: 9 }, { name: "A. Mac Allister", value: 8 }, { name: "L. Díaz", value: 7 }, { name: "D. Núñez", value: 6 }],
     shots: [{ name: "D. Núñez", value: 92 }, { name: "M. Salah", value: 89 }, { name: "L. Díaz", value: 68 }, { name: "C. Gakpo", value: 58 }, { name: "A. Mac Allister", value: 42 }],
+    fouls: [{ name: "A. Mac Allister", value: 35 }, { name: "V. van Dijk", value: 24 }, { name: "C. Jones", value: 21 }, { name: "D. Núñez", value: 18 }, { name: "T. Alexander-Arnold", value: 16 }],
+    foulsDrawn: [{ name: "M. Salah", value: 52 }, { name: "L. Díaz", value: 41 }, { name: "D. Núñez", value: 33 }, { name: "C. Gakpo", value: 26 }, { name: "A. Mac Allister", value: 19 }],
+    cards: [{ name: "A. Mac Allister", value: 8 }, { name: "C. Jones", value: 6 }, { name: "V. van Dijk", value: 5 }, { name: "D. Núñez", value: 4 }, { name: "L. Díaz", value: 3 }],
   },
   "Manchester City": {
     scorer: [{ name: "E. Haaland", value: 22 }, { name: "P. Foden", value: 12 }, { name: "B. Silva", value: 7 }, { name: "K. De Bruyne", value: 6 }, { name: "Rodri", value: 5 }],
     assists: [{ name: "K. De Bruyne", value: 10 }, { name: "P. Foden", value: 8 }, { name: "B. Silva", value: 7 }, { name: "E. Haaland", value: 5 }, { name: "Rodri", value: 4 }],
     shots: [{ name: "E. Haaland", value: 95 }, { name: "P. Foden", value: 70 }, { name: "K. De Bruyne", value: 52 }, { name: "B. Silva", value: 48 }, { name: "Rodri", value: 40 }],
+    fouls: [{ name: "Rodri", value: 38 }, { name: "B. Silva", value: 22 }, { name: "K. Walker", value: 18 }, { name: "P. Foden", value: 14 }, { name: "E. Haaland", value: 12 }],
+    foulsDrawn: [{ name: "P. Foden", value: 44 }, { name: "K. De Bruyne", value: 36 }, { name: "B. Silva", value: 33 }, { name: "E. Haaland", value: 28 }, { name: "Rodri", value: 16 }],
+    cards: [{ name: "Rodri", value: 9 }, { name: "K. Walker", value: 5 }, { name: "B. Silva", value: 4 }, { name: "E. Haaland", value: 3 }, { name: "P. Foden", value: 2 }],
   },
   "Real Madrid": {
     scorer: [{ name: "Vinícius Jr", value: 15 }, { name: "J. Bellingham", value: 12 }, { name: "Rodrygo", value: 9 }, { name: "F. Valverde", value: 6 }, { name: "L. Modrić", value: 3 }],
     assists: [{ name: "J. Bellingham", value: 9 }, { name: "Vinícius Jr", value: 9 }, { name: "L. Modrić", value: 7 }, { name: "Rodrygo", value: 6 }, { name: "F. Valverde", value: 5 }],
     shots: [{ name: "Vinícius Jr", value: 82 }, { name: "J. Bellingham", value: 68 }, { name: "Rodrygo", value: 58 }, { name: "F. Valverde", value: 50 }, { name: "L. Modrić", value: 32 }],
+    fouls: [{ name: "F. Valverde", value: 30 }, { name: "Camavinga", value: 26 }, { name: "Tchouaméni", value: 24 }, { name: "J. Bellingham", value: 18 }, { name: "Vinícius Jr", value: 14 }],
+    foulsDrawn: [{ name: "Vinícius Jr", value: 58 }, { name: "Rodrygo", value: 38 }, { name: "J. Bellingham", value: 30 }, { name: "L. Modrić", value: 22 }, { name: "F. Valverde", value: 18 }],
+    cards: [{ name: "Camavinga", value: 8 }, { name: "F. Valverde", value: 6 }, { name: "Tchouaméni", value: 5 }, { name: "Vinícius Jr", value: 5 }, { name: "J. Bellingham", value: 4 }],
   },
   "Barcelona": {
     scorer: [{ name: "R. Lewandowski", value: 18 }, { name: "Raphinha", value: 11 }, { name: "L. Yamal", value: 7 }, { name: "Pedri", value: 4 }, { name: "F. de Jong", value: 3 }],
     assists: [{ name: "L. Yamal", value: 12 }, { name: "Pedri", value: 8 }, { name: "Raphinha", value: 7 }, { name: "F. de Jong", value: 6 }, { name: "R. Lewandowski", value: 4 }],
     shots: [{ name: "R. Lewandowski", value: 88 }, { name: "Raphinha", value: 64 }, { name: "L. Yamal", value: 60 }, { name: "Pedri", value: 38 }, { name: "F. de Jong", value: 30 }],
+    fouls: [{ name: "F. de Jong", value: 28 }, { name: "Pedri", value: 22 }, { name: "R. Araújo", value: 20 }, { name: "Raphinha", value: 16 }, { name: "L. Yamal", value: 12 }],
+    foulsDrawn: [{ name: "L. Yamal", value: 46 }, { name: "Pedri", value: 38 }, { name: "Raphinha", value: 32 }, { name: "R. Lewandowski", value: 24 }, { name: "F. de Jong", value: 18 }],
+    cards: [{ name: "F. de Jong", value: 7 }, { name: "R. Araújo", value: 6 }, { name: "Pedri", value: 4 }, { name: "Raphinha", value: 4 }, { name: "L. Yamal", value: 2 }],
   },
 };
 
+/* Generate a generic 5-player leaderboard for teams not in the mock map */
+function generateFallbackLeaderboard(teamName: string): Record<PlayerHighlightCategory, RankedPlayer[]> {
+  const make = (suffix: string, base: number, step: number) => [
+    { name: `${teamName} #9`, value: base },
+    { name: `${teamName} #10`, value: Math.max(1, base - step) },
+    { name: `${teamName} #7`, value: Math.max(1, base - step * 2) },
+    { name: `${teamName} #11`, value: Math.max(1, base - step * 3) },
+    { name: `${teamName} #6`, value: Math.max(1, base - step * 4) },
+  ];
+  return {
+    scorer: make("st", 12, 2),
+    assists: make("am", 9, 1),
+    shots: make("sh", 64, 8),
+    fouls: make("fc", 22, 3),
+    foulsDrawn: make("fd", 32, 4),
+    cards: make("cd", 6, 1),
+  };
+}
+
 export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
   const [active, setActive] = useState<PlayerHighlightCategory>("scorer");
-  const leaderboard = PLAYER_LEADERBOARD[teamName];
+  const leaderboard = PLAYER_LEADERBOARD[teamName] ?? generateFallbackLeaderboard(teamName);
 
   const categories: { id: PlayerHighlightCategory; label: string; icon: React.ReactNode; unit: string }[] = [
-    { id: "scorer", label: "Top Scorers", icon: <Target className="w-3 h-3" />, unit: "goals" },
-    { id: "assists", label: "Top Assists", icon: <ArrowRight className="w-3 h-3" />, unit: "assists" },
-    { id: "shots", label: "Top Shots", icon: <Crosshair className="w-3 h-3" />, unit: "shots" },
+    { id: "scorer", label: "Goals", icon: <Target className="w-3 h-3" />, unit: "goals" },
+    { id: "assists", label: "Assists", icon: <ArrowRight className="w-3 h-3" />, unit: "assists" },
+    { id: "shots", label: "Shots", icon: <Crosshair className="w-3 h-3" />, unit: "shots" },
+    { id: "fouls", label: "Fouls", icon: <Shield className="w-3 h-3" />, unit: "fouls" },
+    { id: "foulsDrawn", label: "Drawn", icon: <Shield className="w-3 h-3" />, unit: "drawn" },
+    { id: "cards", label: "Cards", icon: <AlertTriangle className="w-3 h-3" />, unit: "cards" },
   ];
 
   const players = leaderboard?.[active] ?? [];
