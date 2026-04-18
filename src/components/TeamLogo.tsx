@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { normalizeTeamName } from "@/lib/teamNormalize";
 
 /**
  * Static CDN badge map for popular teams – loads instantly, no API call needed.
@@ -84,12 +85,20 @@ const STATIC_BADGES: Record<string, string> = {
 
 const logoCache = new Map<string, string | null>();
 const pendingRequests = new Map<string, Promise<string | null>>();
+const loadedUrls = new Set<string>();
+
+function lookupStatic(teamName: string): string | undefined {
+  if (STATIC_BADGES[teamName]) return STATIC_BADGES[teamName];
+  const norm = normalizeTeamName(teamName);
+  if (STATIC_BADGES[norm]) return STATIC_BADGES[norm];
+  return undefined;
+}
 
 async function fetchTeamBadge(teamName: string): Promise<string | null> {
-  // Check static map first
-  if (STATIC_BADGES[teamName]) {
-    logoCache.set(teamName, STATIC_BADGES[teamName]);
-    return STATIC_BADGES[teamName];
+  const staticUrl = lookupStatic(teamName);
+  if (staticUrl) {
+    logoCache.set(teamName, staticUrl);
+    return staticUrl;
   }
   if (logoCache.has(teamName)) return logoCache.get(teamName)!;
   if (pendingRequests.has(teamName)) return pendingRequests.get(teamName)!;
@@ -149,19 +158,33 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
 
   useEffect(() => {
     let cancelled = false;
-    setLoaded(false);
+export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
+  const initialUrl = lookupStatic(teamName) ?? logoCache.get(teamName) ?? null;
+  const [badge, setBadge] = useState<string | null>(initialUrl);
+  const [loaded, setLoaded] = useState<boolean>(() => !!initialUrl && loadedUrls.has(initialUrl));
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
     setErrored(false);
 
-    if (STATIC_BADGES[teamName]) {
-      setBadge(STATIC_BADGES[teamName]);
+    const staticUrl = lookupStatic(teamName);
+    if (staticUrl) {
+      setBadge(staticUrl);
+      setLoaded(loadedUrls.has(staticUrl));
       return;
     }
 
     if (logoCache.has(teamName)) {
-      setBadge(logoCache.get(teamName)!);
+      const cached = logoCache.get(teamName) ?? null;
+      setBadge(cached);
+      setLoaded(!!cached && loadedUrls.has(cached));
     } else {
+      setLoaded(false);
       fetchTeamBadge(teamName).then((url) => {
-        if (!cancelled) setBadge(url);
+        if (cancelled) return;
+        setBadge(url);
+        if (url && loadedUrls.has(url)) setLoaded(true);
       });
     }
     return () => { cancelled = true; };
@@ -181,9 +204,11 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
           src={badge}
           alt={teamName}
           className={cn("w-full h-full object-contain", loaded ? "opacity-100" : "opacity-0")}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => { loadedUrls.add(badge); setLoaded(true); }}
           onError={() => setErrored(true)}
-          loading="lazy"
+          loading="eager"
+          decoding="async"
+          referrerPolicy="no-referrer"
         />
       </div>
     );
