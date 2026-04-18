@@ -24,7 +24,8 @@ type Props = {
 type PlayerProfile = {
   name: string;
   position: string;
-  number?: number;
+  number?: number | null;
+  photoUrl?: string | null;
   goals: number;
   assists: number;
   shots: number;
@@ -36,6 +37,41 @@ type PlayerProfile = {
   defending: number;
   passing: number;
 };
+
+/** Convert an API-Football real player into a 0-100 radar profile.
+ *  Heuristic — based on per-90 goals, assists, shots, fouls drawn, position. */
+function realToProfile(p: RealPlayer): PlayerProfile {
+  const apps = Math.max(1, p.appearances || 1);
+  const g90 = p.goals / apps;
+  const a90 = p.assists / apps;
+  const s90 = p.shots / apps;
+  const fc90 = p.fouls / apps;
+  const pos = (p.position || "").toUpperCase();
+
+  const isFwd = pos.startsWith("ATT") || pos === "F" || pos === "ST";
+  const isDef = pos.startsWith("DEF") || pos === "D" || pos === "CB";
+  const isMid = pos.startsWith("MID") || pos === "M";
+  const isGK = pos.startsWith("GOAL") || pos === "G";
+
+  const clamp = (v: number) => Math.max(15, Math.min(99, Math.round(v)));
+  const base = p.rating ? clamp((p.rating - 5) * 18 + 55) : 55;
+
+  return {
+    name: p.name,
+    position: p.position || "—",
+    number: p.number,
+    photoUrl: p.photo,
+    goals: p.goals,
+    assists: p.assists,
+    shots: p.shots,
+    attacking: clamp(base + g90 * 60 + s90 * 8 + (isFwd ? 8 : 0) - (isDef ? 15 : 0) - (isGK ? 30 : 0)),
+    creativity: clamp(base + a90 * 80 + (isMid ? 10 : 0) - (isGK ? 25 : 0)),
+    finishing: clamp(base + (s90 > 0 ? (g90 / Math.max(0.1, s90)) * 80 : 0) + g90 * 30 - (isDef ? 20 : 0) - (isGK ? 30 : 0)),
+    aerial: clamp(base + (isDef ? 22 : 0) + (isFwd ? 12 : 0) - (isMid ? 6 : 0)),
+    defending: clamp(base + fc90 * 30 + (isDef ? 28 : 0) + (isGK ? 25 : 0) - (isFwd ? 18 : 0)),
+    passing: clamp(base + a90 * 50 + (isMid ? 18 : 0) + (isDef ? 4 : 0) - (isGK ? 10 : 0)),
+  };
+}
 
 const PLAYER_PROFILES: Record<string, PlayerProfile[]> = {
   Arsenal: [
