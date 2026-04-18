@@ -94,65 +94,84 @@ export const PredictedTacticalProfile = ({
 
       {/* Fixture / opponent picker dropdown */}
       {showPicker && hasOptions && (
-        <div className="mb-3 border border-border rounded-sm bg-muted/30 overflow-hidden max-h-52 overflow-y-auto">
-          <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold px-2 pt-1.5 pb-1 sticky top-0 bg-muted/80 backdrop-blur-sm">
-            {upcomingFixtures.length > 0 ? "Upcoming fixtures" : "Select opponent to predict"}
-          </p>
+        <div className="mb-3 border border-border rounded-md bg-muted/30 overflow-hidden">
+          {/* Search bar (always present so user can type any team) */}
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border bg-card">
+            <Search className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Search team…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground"
+              autoFocus
+            />
+          </div>
 
-          {/* Real fixtures */}
-          {upcomingFixtures.map((f) => {
-            const isHome = f.home_team === teamName;
-            const opponent = isHome ? f.away_team : f.home_team;
-            const dateStr = new Date(f.match_date + "T00:00:00").toLocaleDateString("en-GB", {
-              day: "numeric", month: "short",
-            });
-            const isSelected = nextFixture?.date === f.match_date && opponentName === opponent;
-            return (
-              <button
-                key={f.id}
-                onClick={() => {
-                  onFixtureChange?.(f);
-                  setShowPicker(false);
-                }}
-                className={cn(
-                  "w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-primary/10 transition-colors border-t border-border first:border-t-0",
-                  isSelected && "bg-primary/10"
-                )}
-              >
-                <TeamLogo teamName={opponent} size="xs" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold truncate">
-                    <span className="text-muted-foreground text-[8px] mr-0.5">{isHome ? "vs" : "@"}</span>
-                    {opponent}
-                  </p>
-                  <p className="text-[8px] text-muted-foreground">{dateStr} · {f.league_name}</p>
-                </div>
-                {isSelected && <span className="text-[8px] text-primary font-bold">●</span>}
-              </button>
-            );
-          })}
+          <div className="max-h-52 overflow-y-auto">
+            {/* Upcoming fixtures (only when not searching) */}
+            {!search.trim() && upcomingFixtures.length > 0 && (
+              <>
+                <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold px-2 pt-1.5 pb-1 sticky top-0 bg-muted/80 backdrop-blur-sm">
+                  Upcoming fixtures
+                </p>
+                {upcomingFixtures.map((f) => {
+                  const isHome = f.home_team === teamName;
+                  const opponent = isHome ? f.away_team : f.home_team;
+                  const dateStr = new Date(f.match_date + "T00:00:00").toLocaleDateString("en-GB", {
+                    day: "numeric", month: "short",
+                  });
+                  const isSelected = nextFixture?.date === f.match_date && opponentName === opponent;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => { onFixtureChange?.(f); setShowPicker(false); setSearch(""); }}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-primary/10 transition-colors border-t border-border",
+                        isSelected && "bg-primary/10"
+                      )}
+                    >
+                      <TeamLogo teamName={opponent} size="xs" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold truncate">
+                          <span className="text-muted-foreground text-[8px] mr-0.5">{isHome ? "vs" : "@"}</span>
+                          {opponent}
+                        </p>
+                        <p className="text-[8px] text-muted-foreground">{dateStr} · {f.league_name}</p>
+                      </div>
+                      {isSelected && <span className="text-[8px] text-primary font-bold">●</span>}
+                    </button>
+                  );
+                })}
+              </>
+            )}
 
-          {/* Opponent list fallback (from match history) */}
-          {upcomingFixtures.length === 0 && opponentOptions.map((opp) => {
-            const isSelected = opponentName === opp;
-            return (
-              <button
-                key={opp}
-                onClick={() => {
-                  onOpponentSelect?.(opp);
-                  setShowPicker(false);
-                }}
-                className={cn(
-                  "w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-primary/10 transition-colors border-t border-border first:border-t-0",
-                  isSelected && "bg-primary/10"
-                )}
-              >
-                <TeamLogo teamName={opp} size="xs" />
-                <p className="text-[10px] font-bold truncate flex-1">{opp}</p>
-                {isSelected && <span className="text-[8px] text-primary font-bold">●</span>}
-              </button>
-            );
-          })}
+            {/* Searchable opponents list (full team list with prefix matching) */}
+            <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold px-2 pt-1.5 pb-1 sticky top-0 bg-muted/80 backdrop-blur-sm">
+              {search.trim() ? `Results (${opponentOptions.length})` : "All teams"}
+            </p>
+            {opponentOptions.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground text-center py-3">No teams found</p>
+            ) : (
+              opponentOptions.map((opp) => {
+                const isSelected = opponentName === opp;
+                return (
+                  <button
+                    key={opp}
+                    onClick={() => { onOpponentSelect?.(opp); setShowPicker(false); setSearch(""); }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-primary/10 transition-colors border-t border-border",
+                      isSelected && "bg-primary/10"
+                    )}
+                  >
+                    <TeamLogo teamName={opp} size="xs" />
+                    <p className="text-[10px] font-bold truncate flex-1">{opp}</p>
+                    {isSelected && <span className="text-[8px] text-primary font-bold">●</span>}
+                  </button>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
 
