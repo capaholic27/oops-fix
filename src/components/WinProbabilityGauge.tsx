@@ -29,9 +29,16 @@ export const WinProbabilityGauge = ({
   const filteredTeams = useMemo(() => {
     if (!allTeams) return [];
     const q = search.toLowerCase().trim();
-    return allTeams
-      .filter((t) => t !== teamName && (!q || t.toLowerCase().includes(q)))
-      .slice(0, 20);
+    const candidates = allTeams.filter((t) => t !== teamName);
+    if (!q) return candidates;
+    const prefix: string[] = [];
+    const contains: string[] = [];
+    for (const t of candidates) {
+      const lower = t.toLowerCase();
+      if (lower.startsWith(q)) prefix.push(t);
+      else if (lower.includes(q)) contains.push(t);
+    }
+    return [...prefix, ...contains];
   }, [allTeams, teamName, search]);
 
   // Compute head-to-head split
