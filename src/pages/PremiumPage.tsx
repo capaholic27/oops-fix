@@ -531,7 +531,7 @@ const ProDashboard = ({
         {showAllResults && allTeamViews.length > 0 && (
           <div className="mt-3 pt-3 border-t border-border space-y-1.5 max-h-56 overflow-y-auto">
             {allTeamViews.slice(-20).reverse().map((v, i) => {
-              const dateStr = new Date(v.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
               return (
                 <div key={i} className="flex items-center gap-2 text-[11px]">
                   <FormBadge result={v.result} />
