@@ -50,6 +50,42 @@ export type Database = {
         }
         Relationships: []
       }
+      match_votes: {
+        Row: {
+          away_team: string
+          choice: Database["public"]["Enums"]["vote_choice"]
+          created_at: string
+          fixture_key: string
+          home_team: string
+          id: string
+          match_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          away_team: string
+          choice: Database["public"]["Enums"]["vote_choice"]
+          created_at?: string
+          fixture_key: string
+          home_team: string
+          id?: string
+          match_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          away_team?: string
+          choice?: Database["public"]["Enums"]["vote_choice"]
+          created_at?: string
+          fixture_key?: string
+          home_team?: string
+          id?: string
+          match_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           away_corners: number | null
@@ -220,7 +256,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      vote_choice: "home" | "draw" | "away"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -347,6 +383,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      vote_choice: ["home", "draw", "away"],
+    },
   },
 } as const

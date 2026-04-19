@@ -18,7 +18,8 @@ import { FormBadge } from "@/components/FormBadge";
 import { MomentumChart } from "@/components/MomentumChart";
 import { PlayerHighlights, PredictionDialog } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
-import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
+import { MatchVote } from "@/components/MatchVote";
+import { StatCardDetail } from "@/components/StatCardDetail";
 import { AdBanner } from "@/components/AdBanner";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -32,6 +33,7 @@ function isPremiumUnlocked(): boolean {
 }
 
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
+type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
 const STAT_CATEGORIES: { id: StatPredictionCategory; label: string; icon: React.ReactNode; emoji: string }[] = [
   { id: "corners", label: "Corners", icon: <Flag className="w-4 h-4" />, emoji: "🚩" },
@@ -248,6 +250,7 @@ const ProStatCard = ({
   subtitle,
   trend,
   delay = 0,
+  onClick,
 }: {
   label: string;
   value: string | number;
@@ -255,6 +258,7 @@ const ProStatCard = ({
   subtitle?: string;
   trend?: "positive" | "negative" | "neutral" | "warn";
   delay?: number;
+  onClick?: () => void;
 }) => {
   const trendColor = {
     positive: "text-stat-positive",
@@ -264,8 +268,14 @@ const ProStatCard = ({
   };
 
   return (
-    <div
-      className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden"
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "text-left rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden transition-all",
+        onClick && "hover:border-primary/40 hover:shadow-md active:scale-[0.98] cursor-pointer"
+      )}
       style={{ animationDelay: `${delay}ms` }}
     >
       {/* Shimmer accent */}
@@ -280,7 +290,7 @@ const ProStatCard = ({
         </div>
         {subtitle && <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>}
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -377,9 +387,7 @@ const ProDashboard = ({
 }) => {
   const [pastN, setPastN] = useState(15);
   const [showPredict, setShowPredict] = useState(false);
-  const [showAllResults, setShowAllResults] = useState(false);
-  const [manualOpponent, setManualOpponent] = useState<string | null>(null);
-  const [oppSearch, setOppSearch] = useState("");
+  const [openStat, setOpenStat] = useState<StatKey | null>(null);
 
   const { data: teamMatches = [] } = useTeamMatches(teamName);
   const { data: fixtures = [] } = useFixtures(teamName);
@@ -394,14 +402,16 @@ const ProDashboard = ({
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
 
-  const nextOpponentName = useMemo(() => {
-    if (manualOpponent) return manualOpponent;
-    if (fixtures.length === 0) return undefined;
+  const nextFixture = useMemo(() => {
+    if (fixtures.length === 0) return null;
     const today = new Date().toISOString().split("T")[0];
-    const next = fixtures.find((f) => f.match_date >= today);
-    if (!next) return undefined;
-    return next.home_team === teamName ? next.away_team : next.home_team;
-  }, [fixtures, teamName, manualOpponent]);
+    return fixtures.find((f) => f.match_date >= today) ?? null;
+  }, [fixtures]);
+
+  const nextOpponentName = useMemo(() => {
+    if (!nextFixture) return undefined;
+    return nextFixture.home_team === teamName ? nextFixture.away_team : nextFixture.home_team;
+  }, [nextFixture, teamName]);
 
   const opponentStats = useMemo(() => {
     if (!nextOpponentName) return null;
@@ -414,21 +424,6 @@ const ProDashboard = ({
 
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
   const mentality = computeMentality(allTeamViews.map(v => v.result));
-
-  const oppSearchFiltered = useMemo(() => {
-    const q = oppSearch.toLowerCase().trim();
-    const candidates = allTeams.filter(t => t !== teamName);
-    if (!q) return candidates;
-    // Prefix matches first, then substring — show all matches, no cap
-    const prefix: string[] = [];
-    const contains: string[] = [];
-    for (const t of candidates) {
-      const lower = t.toLowerCase();
-      if (lower.startsWith(q)) prefix.push(t);
-      else if (lower.includes(q)) contains.push(t);
-    }
-    return [...prefix, ...contains];
-  }, [allTeams, oppSearch, teamName]);
 
   // ─── Derived insights ───
   const gfPerGame = stats.matchesPlayed > 0 ? stats.goalsFor / stats.matchesPlayed : 0;
@@ -491,132 +486,39 @@ const ProDashboard = ({
               {teamMatches[0]?.league_name || "League"} · {stats.matchesPlayed} matches
             </p>
           </div>
-        </div>
-        <div className="mt-4 flex items-end justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
-            <div className="flex gap-1 flex-wrap">
-              {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
-            </div>
-            {allTeamViews.length > 5 && (
-              <button
-                onClick={() => setShowAllResults((v) => !v)}
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md transition-all",
-                  showAllResults ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {showAllResults ? <ChevronLeft className="w-3 h-3 rotate-90" /> : <ChevronRight className="w-3 h-3 rotate-90" />}
-                {showAllResults ? "Less" : "More"}
-              </button>
-            )}
-          </div>
           <div className="text-right flex-shrink-0">
             <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
             <p className="text-[10px] text-muted-foreground font-medium mt-1">Win Rate</p>
           </div>
         </div>
-        <button
-          onClick={() => setShowPredict(true)}
-          disabled={!unlocked}
-          className={cn(
-            "mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all",
-            unlocked
-              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-              : "bg-muted text-muted-foreground cursor-not-allowed"
-          )}
-        >
-          {unlocked ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-          {unlocked ? "Generate Prediction" : "Unlock Pro to Predict"}
-        </button>
-        {showAllResults && allTeamViews.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-border space-y-1.5 max-h-56 overflow-y-auto">
-            {allTeamViews.slice(-20).reverse().map((v, i) => {
-              const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-              return (
-                <div key={i} className="flex items-center gap-2 text-[11px]">
-                  <FormBadge result={v.result} />
-                  <span className="text-muted-foreground font-mono w-14 flex-shrink-0">{dateStr}</span>
-                  <span className="font-medium truncate flex-1">
-                    <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
-                    {v.opponent}
-                  </span>
-                  <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
-                </div>
-              );
-            })}
+        <div className="mt-3 flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <ProFormStrip views={allTeamViews} formLast5={stats.formLast5} />
           </div>
-        )}
+          <button
+            onClick={() => setShowPredict(true)}
+            disabled={!unlocked}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex-shrink-0",
+              unlocked
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            {unlocked ? <Sparkles className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+            Predict
+          </button>
+        </div>
       </section>
 
-      {/* ─── Win Probability ─── */}
-      <WinProbabilityGauge
-        probability={stats.winProbability}
-        teamName={teamName}
-        allTeams={allTeams}
-        getOpponentWinProbability={(opp) => {
-          const oppViews = allMatches
-            .map((m: any) => getTeamMatchView(m, opp))
-            .filter((v): v is TeamMatchView => v !== null)
-            .slice(-pastN);
-          if (oppViews.length === 0) return null;
-          return aggregateStats(oppViews).winProbability;
-        }}
-      />
-
-      {/* ─── Opponent Selector ─── */}
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Next Opponent</span>
-          {nextOpponentName && (
-            <button onClick={() => setManualOpponent(null)} className="text-[10px] text-primary font-medium hover:underline">Reset</button>
-          )}
-        </div>
-        {nextOpponentName ? (
-          <div className="flex items-center gap-2">
-            <TeamLogo teamName={nextOpponentName} size="sm" />
-            <span className="text-sm font-semibold truncate">{nextOpponentName}</span>
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">No upcoming fixture found</p>
-        )}
-        <div className="mt-2 relative">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Change opponent…"
-              value={oppSearch}
-              onChange={(e) => setOppSearch(e.target.value)}
-              className="w-full h-8 px-3 pr-7 text-xs rounded-lg border border-border bg-muted/50 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
-            />
-            {oppSearch && (
-              <button
-                onClick={() => setOppSearch("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground"
-                aria-label="Clear search"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-          {oppSearch.trim() && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-lg border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
-              {oppSearchFiltered.length === 0 ? (
-                <p className="px-3 py-2 text-[11px] text-muted-foreground text-center">No teams found</p>
-              ) : (
-                oppSearchFiltered.slice(0, 30).map(t => (
-                  <button
-                    key={t}
-                    onClick={() => { setManualOpponent(t); setOppSearch(""); }}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 border-b border-border last:border-b-0"
-                  >
-                    <TeamLogo teamName={t} size="xs" />{t}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* ─── Fan Vote on next fixture ─── */}
+      {nextFixture && (
+        <MatchVote
+          homeTeam={nextFixture.home_team}
+          awayTeam={nextFixture.away_team}
+          matchDate={nextFixture.match_date}
+        />
+      )}
 
       {/* ─── Record + Mentality ─── */}
       <div className="grid grid-cols-2 gap-3">
@@ -659,14 +561,14 @@ const ProDashboard = ({
           <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} />
-          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} />
-          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} />
-          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} />
-          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} />
-          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} />
-          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} />
-          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} delay={550} />
+          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} onClick={() => setOpenStat("over25")} />
+          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} onClick={() => setOpenStat("corners")} />
+          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} onClick={() => setOpenStat("shots")} />
+          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} onClick={() => setOpenStat("cards")} />
+          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} onClick={() => setOpenStat("fouls")} />
+          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
+          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} onClick={() => setOpenStat("over25")} />
+          <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={550} onClick={() => setOpenStat("record")} />
         </div>
       </div>
 
@@ -768,7 +670,7 @@ const ProDashboard = ({
         allFixtures={[]}
         allMatches={allMatches}
         onFixtureChange={() => {}}
-        onOpponentSelect={(opp) => setManualOpponent(opp)}
+        onOpponentSelect={() => {}}
       />
 
       <AdBanner variant="inline" />
@@ -778,6 +680,78 @@ const ProDashboard = ({
         onOpenChange={setShowPredict}
         allMatches={allMatches}
       />
+
+      {openStat && (
+        <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
+      )}
+    </div>
+  );
+};
+
+/* ─── Pro Form Strip (badges + More toggle, like Stats page) ─── */
+const ProFormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [range, setRange] = useState(10);
+  const extendedViews = views.slice(-range).slice().reverse();
+  const extendedForm = extendedViews.map((v) => v.result);
+  const wins = extendedForm.filter((r) => r === "W").length;
+  const draws = extendedForm.filter((r) => r === "D").length;
+  const losses = extendedForm.filter((r) => r === "L").length;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          {formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
+        </div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className={cn(
+            "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+            expanded ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {expanded ? "Less" : "More"}
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-2 rounded-xl border border-border bg-card p-3">
+          <div className="flex items-center gap-1 mb-2">
+            <span className="text-[10px] text-muted-foreground font-medium">Last</span>
+            {([10, 20, 30, 40, 50] as const).map((n) => (
+              <button key={n} onClick={() => setRange(n)} className={cn(
+                "px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md transition-colors",
+                range === n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+              )}>{n}</button>
+            ))}
+          </div>
+          <div className="flex gap-3 mb-2 text-xs font-semibold">
+            <span className="text-stat-positive">{wins}W</span>
+            <span className="text-stat-warn">{draws}D</span>
+            <span className="text-stat-negative">{losses}L</span>
+            <span className="text-muted-foreground ml-auto font-mono text-[10px]">{extendedForm.length} matches</span>
+          </div>
+          <div className="flex flex-wrap gap-1 mb-3">
+            {extendedForm.map((r, i) => <FormBadge key={i} result={r} />)}
+          </div>
+          <div className="space-y-1 max-h-56 overflow-y-auto pt-2 border-t border-border">
+            {extendedViews.map((v, i) => {
+              const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <FormBadge result={v.result} />
+                  <span className="text-muted-foreground font-mono w-14 flex-shrink-0">{dateStr}</span>
+                  <span className="font-medium truncate flex-1">
+                    <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
+                    {v.opponent}
+                  </span>
+                  <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
