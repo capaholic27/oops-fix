@@ -860,7 +860,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
 };
 
 /* ─── Prediction Dialog (standalone) ─── */
-const PredictionDialog = ({
+export const PredictionDialog = ({
   open,
   onOpenChange,
   allMatches,

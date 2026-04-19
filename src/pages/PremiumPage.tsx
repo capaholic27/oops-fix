@@ -16,7 +16,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { FormBadge } from "@/components/FormBadge";
 import { MomentumChart } from "@/components/MomentumChart";
-import { PlayerHighlights } from "@/pages/TeamPage";
+import { PlayerHighlights, PredictionDialog } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
 import { AdBanner } from "@/components/AdBanner";
@@ -247,8 +247,6 @@ const ProStatCard = ({
   icon,
   subtitle,
   trend,
-  onPredict,
-  locked,
   delay = 0,
 }: {
   label: string;
@@ -256,8 +254,6 @@ const ProStatCard = ({
   icon: React.ReactNode;
   subtitle?: string;
   trend?: "positive" | "negative" | "neutral" | "warn";
-  onPredict: () => void;
-  locked: boolean;
   delay?: number;
 }) => {
   const trendColor = {
@@ -269,7 +265,7 @@ const ProStatCard = ({
 
   return (
     <div
-      className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden group"
+      className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden"
       style={{ animationDelay: `${delay}ms` }}
     >
       {/* Shimmer accent */}
@@ -283,19 +279,6 @@ const ProStatCard = ({
           {value}
         </div>
         {subtitle && <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>}
-        <button
-          onClick={(e) => { e.stopPropagation(); onPredict(); }}
-          disabled={locked}
-          className={cn(
-            "mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold transition-all",
-            locked
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
-          )}
-        >
-          {locked ? <Lock className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-          {locked ? "Unlock Pro" : "Predict"}
-        </button>
       </div>
     </div>
   );
@@ -393,7 +376,8 @@ const ProDashboard = ({
   onSwitchTeam: (team: string) => void;
 }) => {
   const [pastN, setPastN] = useState(15);
-  const [statPrediction, setStatPrediction] = useState<StatPredictionCategory | null>(null);
+  const [showPredict, setShowPredict] = useState(false);
+  const [showAllResults, setShowAllResults] = useState(false);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
   const [oppSearch, setOppSearch] = useState("");
 
@@ -509,14 +493,59 @@ const ProDashboard = ({
           </div>
         </div>
         <div className="mt-4 flex items-end justify-between gap-3">
-          <div className="flex gap-1 flex-wrap">
-            {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <div className="flex gap-1 flex-wrap">
+              {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
+            </div>
+            {allTeamViews.length > 5 && (
+              <button
+                onClick={() => setShowAllResults((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md transition-all",
+                  showAllResults ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {showAllResults ? <ChevronLeft className="w-3 h-3 rotate-90" /> : <ChevronRight className="w-3 h-3 rotate-90" />}
+                {showAllResults ? "Less" : "More"}
+              </button>
+            )}
           </div>
           <div className="text-right flex-shrink-0">
             <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
             <p className="text-[10px] text-muted-foreground font-medium mt-1">Win Rate</p>
           </div>
         </div>
+        <button
+          onClick={() => setShowPredict(true)}
+          disabled={!unlocked}
+          className={cn(
+            "mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all",
+            unlocked
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+          )}
+        >
+          {unlocked ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+          {unlocked ? "Generate Prediction" : "Unlock Pro to Predict"}
+        </button>
+        {showAllResults && allTeamViews.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-border space-y-1.5 max-h-56 overflow-y-auto">
+            {allTeamViews.slice(-20).reverse().map((v, i) => {
+              const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <FormBadge result={v.result} />
+                  <span className="text-muted-foreground font-mono w-14 flex-shrink-0">{dateStr}</span>
+                  <span className="font-medium truncate flex-1">
+                    <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
+                    {v.opponent}
+                  </span>
+                  <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* ─── Win Probability ─── */}
@@ -551,24 +580,39 @@ const ProDashboard = ({
           <p className="text-xs text-muted-foreground">No upcoming fixture found</p>
         )}
         <div className="mt-2 relative">
-          <input
-            type="text"
-            placeholder="Change opponent…"
-            value={oppSearch}
-            onChange={(e) => setOppSearch(e.target.value)}
-            className="w-full h-8 px-3 text-xs rounded-lg border border-border bg-muted/50 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
-          />
-          {oppSearchFiltered.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-lg border border-border bg-card shadow-lg max-h-32 overflow-y-auto">
-              {oppSearchFiltered.map(t => (
-                <button
-                  key={t}
-                  onClick={() => { setManualOpponent(t); setOppSearch(""); }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 border-b border-border last:border-b-0"
-                >
-                  <TeamLogo teamName={t} size="xs" />{t}
-                </button>
-              ))}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Change opponent…"
+              value={oppSearch}
+              onChange={(e) => setOppSearch(e.target.value)}
+              className="w-full h-8 px-3 pr-7 text-xs rounded-lg border border-border bg-muted/50 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+            {oppSearch && (
+              <button
+                onClick={() => setOppSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground"
+                aria-label="Clear search"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {oppSearch.trim() && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-lg border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
+              {oppSearchFiltered.length === 0 ? (
+                <p className="px-3 py-2 text-[11px] text-muted-foreground text-center">No teams found</p>
+              ) : (
+                oppSearchFiltered.slice(0, 30).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setManualOpponent(t); setOppSearch(""); }}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 border-b border-border last:border-b-0"
+                  >
+                    <TeamLogo teamName={t} size="xs" />{t}
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
@@ -612,17 +656,17 @@ const ProDashboard = ({
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Crown className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats · AI Predict</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} onPredict={() => setStatPrediction("goals")} locked={!unlocked} delay={200} />
-          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} onPredict={() => setStatPrediction("corners")} locked={!unlocked} delay={250} />
-          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} onPredict={() => setStatPrediction("shots")} locked={!unlocked} delay={300} />
-          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} onPredict={() => setStatPrediction("cards")} locked={!unlocked} delay={350} />
-          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} onPredict={() => setStatPrediction("fouls")} locked={!unlocked} delay={400} />
-          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} onPredict={() => setStatPrediction("cleanSheets")} locked={!unlocked} delay={450} />
-          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} onPredict={() => setStatPrediction("btts")} locked={!unlocked} delay={500} />
-          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} onPredict={() => setStatPrediction("shots")} locked={!unlocked} delay={550} />
+          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} />
+          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} />
+          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} />
+          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} />
+          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} />
+          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} />
+          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} />
+          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} delay={550} />
         </div>
       </div>
 
@@ -729,17 +773,11 @@ const ProDashboard = ({
 
       <AdBanner variant="inline" />
 
-      {statPrediction && (
-        <StatPredictionDialog
-          open={!!statPrediction}
-          onOpenChange={(v) => { if (!v) setStatPrediction(null); }}
-          category={statPrediction}
-          teamName={teamName}
-          opponentName={nextOpponentName}
-          stats={stats}
-          opponentStats={opponentStats}
-        />
-      )}
+      <PredictionDialog
+        open={showPredict}
+        onOpenChange={setShowPredict}
+        allMatches={allMatches}
+      />
     </div>
   );
 };
