@@ -12,7 +12,7 @@ import { isTournamentLeague, normalizeTeamName, computeMentality } from "@/lib/t
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
-import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
+import { MatchVote } from "@/components/MatchVote";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { RecentResults } from "@/components/RecentResults";
 import { RankingsTable } from "@/components/RankingsTable";
@@ -49,7 +49,8 @@ const TOP_LEAGUES = [
 const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
   const [expanded, setExpanded] = useState(false);
   const [range, setRange] = useState(10);
-  const extendedForm = views.slice(-range).map((v) => v.result).reverse();
+  const extendedViews = views.slice(-range).slice().reverse();
+  const extendedForm = extendedViews.map((v) => v.result);
   const wins = extendedForm.filter((r) => r === "W").length;
   const draws = extendedForm.filter((r) => r === "D").length;
   const losses = extendedForm.filter((r) => r === "L").length;
@@ -89,8 +90,24 @@ const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("
             <span className="text-stat-negative">{losses}L</span>
             <span className="text-muted-foreground ml-auto font-mono text-[10px]">{extendedForm.length} matches</span>
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-3">
             {extendedForm.map((r, i) => <FormBadge key={i} result={r} />)}
+          </div>
+          <div className="space-y-1 max-h-56 overflow-y-auto pt-2 border-t border-border">
+            {extendedViews.map((v, i) => {
+              const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <FormBadge result={v.result} />
+                  <span className="text-muted-foreground font-mono w-14 flex-shrink-0">{dateStr}</span>
+                  <span className="font-medium truncate flex-1">
+                    <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
+                    {v.opponent}
+                  </span>
+                  <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
