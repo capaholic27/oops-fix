@@ -493,14 +493,59 @@ const ProDashboard = ({
           </div>
         </div>
         <div className="mt-4 flex items-end justify-between gap-3">
-          <div className="flex gap-1 flex-wrap">
-            {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <div className="flex gap-1 flex-wrap">
+              {stats.formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
+            </div>
+            {allTeamViews.length > 5 && (
+              <button
+                onClick={() => setShowAllResults((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 text-[10px] font-semibold rounded-md transition-all",
+                  showAllResults ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {showAllResults ? <ChevronLeft className="w-3 h-3 rotate-90" /> : <ChevronRight className="w-3 h-3 rotate-90" />}
+                {showAllResults ? "Less" : "More"}
+              </button>
+            )}
           </div>
           <div className="text-right flex-shrink-0">
             <span className="font-mono text-2xl font-bold text-primary leading-none">{winRate}%</span>
             <p className="text-[10px] text-muted-foreground font-medium mt-1">Win Rate</p>
           </div>
         </div>
+        <button
+          onClick={() => setShowPredict(true)}
+          disabled={!unlocked}
+          className={cn(
+            "mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm transition-all",
+            unlocked
+              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+              : "bg-muted text-muted-foreground cursor-not-allowed"
+          )}
+        >
+          {unlocked ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+          {unlocked ? "Generate Prediction" : "Unlock Pro to Predict"}
+        </button>
+        {showAllResults && allTeamViews.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-border space-y-1.5 max-h-56 overflow-y-auto">
+            {allTeamViews.slice(-20).reverse().map((v, i) => {
+              const dateStr = new Date(v.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <FormBadge result={v.result} />
+                  <span className="text-muted-foreground font-mono w-14 flex-shrink-0">{dateStr}</span>
+                  <span className="font-medium truncate flex-1">
+                    <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
+                    {v.opponent}
+                  </span>
+                  <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* ─── Win Probability ─── */}
