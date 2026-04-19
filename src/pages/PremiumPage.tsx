@@ -247,8 +247,6 @@ const ProStatCard = ({
   icon,
   subtitle,
   trend,
-  onPredict,
-  locked,
   delay = 0,
 }: {
   label: string;
@@ -256,8 +254,6 @@ const ProStatCard = ({
   icon: React.ReactNode;
   subtitle?: string;
   trend?: "positive" | "negative" | "neutral" | "warn";
-  onPredict: () => void;
-  locked: boolean;
   delay?: number;
 }) => {
   const trendColor = {
@@ -269,7 +265,7 @@ const ProStatCard = ({
 
   return (
     <div
-      className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden group"
+      className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden"
       style={{ animationDelay: `${delay}ms` }}
     >
       {/* Shimmer accent */}
@@ -283,19 +279,6 @@ const ProStatCard = ({
           {value}
         </div>
         {subtitle && <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>}
-        <button
-          onClick={(e) => { e.stopPropagation(); onPredict(); }}
-          disabled={locked}
-          className={cn(
-            "mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold transition-all",
-            locked
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground"
-          )}
-        >
-          {locked ? <Lock className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-          {locked ? "Unlock Pro" : "Predict"}
-        </button>
       </div>
     </div>
   );
