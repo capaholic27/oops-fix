@@ -723,10 +723,7 @@ const ProFormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5:
             <span className="text-stat-negative">{losses}L</span>
             <span className="text-muted-foreground ml-auto font-mono text-[10px]">{extendedForm.length} matches</span>
           </div>
-          <div className="flex flex-wrap gap-1 mb-3">
-            {extendedForm.map((r, i) => <FormBadge key={i} result={r} />)}
-          </div>
-          <div className="space-y-1 max-h-56 overflow-y-auto pt-2 border-t border-border">
+          <div className="space-y-1 max-h-56 overflow-y-auto">
             {extendedViews.map((v, i) => {
               const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
               return (
