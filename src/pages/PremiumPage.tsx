@@ -656,17 +656,17 @@ const ProDashboard = ({
       <div>
         <div className="flex items-center gap-2 mb-3">
           <Crown className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats · AI Predict</span>
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} onPredict={() => setStatPrediction("goals")} locked={!unlocked} delay={200} />
-          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} onPredict={() => setStatPrediction("corners")} locked={!unlocked} delay={250} />
-          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} onPredict={() => setStatPrediction("shots")} locked={!unlocked} delay={300} />
-          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} onPredict={() => setStatPrediction("cards")} locked={!unlocked} delay={350} />
-          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} onPredict={() => setStatPrediction("fouls")} locked={!unlocked} delay={400} />
-          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} onPredict={() => setStatPrediction("cleanSheets")} locked={!unlocked} delay={450} />
-          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} onPredict={() => setStatPrediction("btts")} locked={!unlocked} delay={500} />
-          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} onPredict={() => setStatPrediction("shots")} locked={!unlocked} delay={550} />
+          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} />
+          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} />
+          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} />
+          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} />
+          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} />
+          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} />
+          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} />
+          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} delay={550} />
         </div>
       </div>
 
@@ -773,17 +773,11 @@ const ProDashboard = ({
 
       <AdBanner variant="inline" />
 
-      {statPrediction && (
-        <StatPredictionDialog
-          open={!!statPrediction}
-          onOpenChange={(v) => { if (!v) setStatPrediction(null); }}
-          category={statPrediction}
-          teamName={teamName}
-          opponentName={nextOpponentName}
-          stats={stats}
-          opponentStats={opponentStats}
-        />
-      )}
+      <PredictionDialog
+        open={showPredict}
+        onOpenChange={setShowPredict}
+        allMatches={allMatches}
+      />
     </div>
   );
 };
