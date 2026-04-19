@@ -477,11 +477,13 @@ const ProDashboard = ({
 
       {/* ─── Hero Banner ─── */}
       <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/[0.06] p-4 shadow-lg relative overflow-hidden">
-        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md text-[9px] font-bold bg-primary text-primary-foreground tracking-wider">PRO</div>
         <div className="flex items-start gap-3">
           <TeamLogo teamName={teamName} size="lg" />
-          <div className="flex-1 min-w-0 pr-12">
-            <h2 className="text-xl font-bold leading-tight truncate">{teamName}</h2>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-xl font-bold leading-tight truncate">{teamName}</h2>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary text-primary-foreground tracking-wider flex-shrink-0">PRO</span>
+            </div>
             <p className="text-[11px] text-muted-foreground font-medium mt-1 truncate">
               {teamMatches[0]?.league_name || "League"} · {stats.matchesPlayed} matches
             </p>
