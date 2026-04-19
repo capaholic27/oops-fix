@@ -18,7 +18,8 @@ import { FormBadge } from "@/components/FormBadge";
 import { MomentumChart } from "@/components/MomentumChart";
 import { PlayerHighlights, PredictionDialog } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
-import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
+import { MatchVote } from "@/components/MatchVote";
+import { StatCardDetail } from "@/components/StatCardDetail";
 import { AdBanner } from "@/components/AdBanner";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -248,6 +249,7 @@ const ProStatCard = ({
   subtitle,
   trend,
   delay = 0,
+  onClick,
 }: {
   label: string;
   value: string | number;
@@ -255,6 +257,7 @@ const ProStatCard = ({
   subtitle?: string;
   trend?: "positive" | "negative" | "neutral" | "warn";
   delay?: number;
+  onClick?: () => void;
 }) => {
   const trendColor = {
     positive: "text-stat-positive",
@@ -264,8 +267,14 @@ const ProStatCard = ({
   };
 
   return (
-    <div
-      className="rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden"
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "text-left rounded-xl border border-border bg-card p-3 opacity-0 animate-fade-up relative overflow-hidden transition-all",
+        onClick && "hover:border-primary/40 hover:shadow-md active:scale-[0.98] cursor-pointer"
+      )}
       style={{ animationDelay: `${delay}ms` }}
     >
       {/* Shimmer accent */}
@@ -280,7 +289,7 @@ const ProStatCard = ({
         </div>
         {subtitle && <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>}
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -377,9 +386,7 @@ const ProDashboard = ({
 }) => {
   const [pastN, setPastN] = useState(15);
   const [showPredict, setShowPredict] = useState(false);
-  const [showAllResults, setShowAllResults] = useState(false);
-  const [manualOpponent, setManualOpponent] = useState<string | null>(null);
-  const [oppSearch, setOppSearch] = useState("");
+  const [openStat, setOpenStat] = useState<StatKey | null>(null);
 
   const { data: teamMatches = [] } = useTeamMatches(teamName);
   const { data: fixtures = [] } = useFixtures(teamName);
