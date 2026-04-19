@@ -561,14 +561,14 @@ const ProDashboard = ({
           <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} />
-          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} />
-          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} />
-          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} />
-          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} />
-          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} />
-          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} />
-          <ProStatCard label="SOT Rate" value={`${stats.avgShotsFor > 0 ? ((stats.avgShotsOnTargetFor / stats.avgShotsFor) * 100).toFixed(0) : "0"}%`} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`Conversion accuracy`} delay={550} />
+          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} onClick={() => setOpenStat("over25")} />
+          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} onClick={() => setOpenStat("corners")} />
+          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} onClick={() => setOpenStat("shots")} />
+          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} onClick={() => setOpenStat("cards")} />
+          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} onClick={() => setOpenStat("fouls")} />
+          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
+          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} onClick={() => setOpenStat("over25")} />
+          <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={550} onClick={() => setOpenStat("record")} />
         </div>
       </div>
 
@@ -670,7 +670,7 @@ const ProDashboard = ({
         allFixtures={[]}
         allMatches={allMatches}
         onFixtureChange={() => {}}
-        onOpponentSelect={(opp) => setManualOpponent(opp)}
+        onOpponentSelect={() => {}}
       />
 
       <AdBanner variant="inline" />
@@ -680,6 +680,78 @@ const ProDashboard = ({
         onOpenChange={setShowPredict}
         allMatches={allMatches}
       />
+
+      {openStat && (
+        <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
+      )}
+    </div>
+  );
+};
+
+/* ─── Pro Form Strip (badges + More toggle, like Stats page) ─── */
+const ProFormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [range, setRange] = useState(10);
+  const extendedViews = views.slice(-range).slice().reverse();
+  const extendedForm = extendedViews.map((v) => v.result);
+  const wins = extendedForm.filter((r) => r === "W").length;
+  const draws = extendedForm.filter((r) => r === "D").length;
+  const losses = extendedForm.filter((r) => r === "L").length;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          {formLast5.map((r, i) => <FormBadge key={i} result={r} />)}
+        </div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className={cn(
+            "px-2.5 py-1 text-[10px] font-semibold rounded-md transition-all",
+            expanded ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {expanded ? "Less" : "More"}
+        </button>
+      </div>
+      {expanded && (
+        <div className="mt-2 rounded-xl border border-border bg-card p-3">
+          <div className="flex items-center gap-1 mb-2">
+            <span className="text-[10px] text-muted-foreground font-medium">Last</span>
+            {([10, 20, 30, 40, 50] as const).map((n) => (
+              <button key={n} onClick={() => setRange(n)} className={cn(
+                "px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md transition-colors",
+                range === n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+              )}>{n}</button>
+            ))}
+          </div>
+          <div className="flex gap-3 mb-2 text-xs font-semibold">
+            <span className="text-stat-positive">{wins}W</span>
+            <span className="text-stat-warn">{draws}D</span>
+            <span className="text-stat-negative">{losses}L</span>
+            <span className="text-muted-foreground ml-auto font-mono text-[10px]">{extendedForm.length} matches</span>
+          </div>
+          <div className="flex flex-wrap gap-1 mb-3">
+            {extendedForm.map((r, i) => <FormBadge key={i} result={r} />)}
+          </div>
+          <div className="space-y-1 max-h-56 overflow-y-auto pt-2 border-t border-border">
+            {extendedViews.map((v, i) => {
+              const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+              return (
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <FormBadge result={v.result} />
+                  <span className="text-muted-foreground font-mono w-14 flex-shrink-0">{dateStr}</span>
+                  <span className="font-medium truncate flex-1">
+                    <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
+                    {v.opponent}
+                  </span>
+                  <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
