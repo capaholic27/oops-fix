@@ -180,6 +180,9 @@ const ProfilePage = () => {
             </div>
           </div>
 
+          {/* Vote / Prediction History */}
+          <VoteHistory />
+
           {/* Account */}
           <div>
             <p className="text-xs font-semibold text-muted-foreground px-1 mb-2 uppercase tracking-wider">Account</p>
