@@ -580,24 +580,39 @@ const ProDashboard = ({
           <p className="text-xs text-muted-foreground">No upcoming fixture found</p>
         )}
         <div className="mt-2 relative">
-          <input
-            type="text"
-            placeholder="Change opponent…"
-            value={oppSearch}
-            onChange={(e) => setOppSearch(e.target.value)}
-            className="w-full h-8 px-3 text-xs rounded-lg border border-border bg-muted/50 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
-          />
-          {oppSearchFiltered.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-10 rounded-lg border border-border bg-card shadow-lg max-h-32 overflow-y-auto">
-              {oppSearchFiltered.map(t => (
-                <button
-                  key={t}
-                  onClick={() => { setManualOpponent(t); setOppSearch(""); }}
-                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 border-b border-border last:border-b-0"
-                >
-                  <TeamLogo teamName={t} size="xs" />{t}
-                </button>
-              ))}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Change opponent…"
+              value={oppSearch}
+              onChange={(e) => setOppSearch(e.target.value)}
+              className="w-full h-8 px-3 pr-7 text-xs rounded-lg border border-border bg-muted/50 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+            {oppSearch && (
+              <button
+                onClick={() => setOppSearch("")}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground"
+                aria-label="Clear search"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {oppSearch.trim() && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-lg border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
+              {oppSearchFiltered.length === 0 ? (
+                <p className="px-3 py-2 text-[11px] text-muted-foreground text-center">No teams found</p>
+              ) : (
+                oppSearchFiltered.slice(0, 30).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => { setManualOpponent(t); setOppSearch(""); }}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-muted flex items-center gap-2 border-b border-border last:border-b-0"
+                  >
+                    <TeamLogo teamName={t} size="xs" />{t}
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
