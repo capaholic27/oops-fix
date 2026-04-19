@@ -16,7 +16,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { FormBadge } from "@/components/FormBadge";
 import { MomentumChart } from "@/components/MomentumChart";
-import { PlayerHighlights } from "@/pages/TeamPage";
+import { PlayerHighlights, PredictionDialog } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { WinProbabilityGauge } from "@/components/WinProbabilityGauge";
 import { AdBanner } from "@/components/AdBanner";
