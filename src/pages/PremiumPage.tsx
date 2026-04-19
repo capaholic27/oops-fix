@@ -376,7 +376,8 @@ const ProDashboard = ({
   onSwitchTeam: (team: string) => void;
 }) => {
   const [pastN, setPastN] = useState(15);
-  const [statPrediction, setStatPrediction] = useState<StatPredictionCategory | null>(null);
+  const [showPredict, setShowPredict] = useState(false);
+  const [showAllResults, setShowAllResults] = useState(false);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
   const [oppSearch, setOppSearch] = useState("");
 
