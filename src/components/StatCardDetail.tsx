@@ -22,6 +22,16 @@ const labels: Record<StatKey, string> = {
   cleanSheets: "Clean Sheets",
 };
 
+const descriptions: Record<StatKey, string> = {
+  record: "Final score of each match — goals scored vs. goals conceded.",
+  corners: "Corner kicks won by the team vs. corners conceded to the opponent.",
+  cards: "Yellow (Y) and red (R) cards picked up in each match.",
+  fouls: "Fouls committed by the team, with fouls drawn (suffered) shown in brackets.",
+  shots: "Total shots taken with shots on target (SOT) shown alongside.",
+  over25: "Combined goals in the match — useful for over/under 2.5 trends.",
+  cleanSheets: "Matches where the team kept the opponent off the scoresheet.",
+};
+
 function getStatValue(v: TeamMatchView, key: StatKey): string {
   switch (key) {
     case "record": return `${v.goalsFor}-${v.goalsAgainst}`;
@@ -44,11 +54,16 @@ export const StatCardDetail = ({ statKey, views, onClose }: Props) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-card border-b-2 border-border px-3 py-2 flex items-center justify-between z-10">
-          <span className="text-xs font-bold uppercase tracking-wider">{labels[statKey]} — Match by Match</span>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded">
-            <X className="w-4 h-4" />
-          </button>
+        <div className="sticky top-0 bg-card border-b-2 border-border z-10">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider">{labels[statKey]} — Match by Match</span>
+            <button onClick={onClose} className="p-1 hover:bg-muted rounded">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="px-3 pb-2 text-[11px] text-muted-foreground leading-snug">
+            {descriptions[statKey]}
+          </p>
         </div>
 
         {/* Match rows */}

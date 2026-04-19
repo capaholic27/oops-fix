@@ -691,8 +691,7 @@ const ProDashboard = ({
 /* ─── Pro Form Strip (badges + More toggle, like Stats page) ─── */
 const ProFormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
   const [expanded, setExpanded] = useState(false);
-  const [range, setRange] = useState(10);
-  const extendedViews = views.slice(-range).slice().reverse();
+  const extendedViews = views.slice().reverse();
   const extendedForm = extendedViews.map((v) => v.result);
   const wins = extendedForm.filter((r) => r === "W").length;
   const draws = extendedForm.filter((r) => r === "D").length;
@@ -716,15 +715,6 @@ const ProFormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5:
       </div>
       {expanded && (
         <div className="mt-2 rounded-xl border border-border bg-card p-3">
-          <div className="flex items-center gap-1 mb-2">
-            <span className="text-[10px] text-muted-foreground font-medium">Last</span>
-            {([10, 20, 30, 40, 50] as const).map((n) => (
-              <button key={n} onClick={() => setRange(n)} className={cn(
-                "px-2 py-0.5 text-[10px] font-mono font-semibold rounded-md transition-colors",
-                range === n ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
-              )}>{n}</button>
-            ))}
-          </div>
           <div className="flex gap-3 mb-2 text-xs font-semibold">
             <span className="text-stat-positive">{wins}W</span>
             <span className="text-stat-warn">{draws}D</span>

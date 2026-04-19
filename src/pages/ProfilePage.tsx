@@ -6,6 +6,7 @@ import {
 import { themes, applyTheme, getStoredTheme, type ThemeId } from "@/lib/themes";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthForm } from "@/components/AuthForm";
+import { VoteHistory } from "@/components/VoteHistory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -178,6 +179,9 @@ const ProfilePage = () => {
               </button>
             </div>
           </div>
+
+          {/* Vote / Prediction History */}
+          <VoteHistory />
 
           {/* Account */}
           <div>
