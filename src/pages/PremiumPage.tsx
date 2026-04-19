@@ -33,6 +33,7 @@ function isPremiumUnlocked(): boolean {
 }
 
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
+type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
 const STAT_CATEGORIES: { id: StatPredictionCategory; label: string; icon: React.ReactNode; emoji: string }[] = [
   { id: "corners", label: "Corners", icon: <Flag className="w-4 h-4" />, emoji: "🚩" },
@@ -401,14 +402,16 @@ const ProDashboard = ({
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
 
-  const nextOpponentName = useMemo(() => {
-    if (manualOpponent) return manualOpponent;
-    if (fixtures.length === 0) return undefined;
+  const nextFixture = useMemo(() => {
+    if (fixtures.length === 0) return null;
     const today = new Date().toISOString().split("T")[0];
-    const next = fixtures.find((f) => f.match_date >= today);
-    if (!next) return undefined;
-    return next.home_team === teamName ? next.away_team : next.home_team;
-  }, [fixtures, teamName, manualOpponent]);
+    return fixtures.find((f) => f.match_date >= today) ?? null;
+  }, [fixtures]);
+
+  const nextOpponentName = useMemo(() => {
+    if (!nextFixture) return undefined;
+    return nextFixture.home_team === teamName ? nextFixture.away_team : nextFixture.home_team;
+  }, [nextFixture, teamName]);
 
   const opponentStats = useMemo(() => {
     if (!nextOpponentName) return null;
@@ -421,21 +424,6 @@ const ProDashboard = ({
 
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
   const mentality = computeMentality(allTeamViews.map(v => v.result));
-
-  const oppSearchFiltered = useMemo(() => {
-    const q = oppSearch.toLowerCase().trim();
-    const candidates = allTeams.filter(t => t !== teamName);
-    if (!q) return candidates;
-    // Prefix matches first, then substring — show all matches, no cap
-    const prefix: string[] = [];
-    const contains: string[] = [];
-    for (const t of candidates) {
-      const lower = t.toLowerCase();
-      if (lower.startsWith(q)) prefix.push(t);
-      else if (lower.includes(q)) contains.push(t);
-    }
-    return [...prefix, ...contains];
-  }, [allTeams, oppSearch, teamName]);
 
   // ─── Derived insights ───
   const gfPerGame = stats.matchesPlayed > 0 ? stats.goalsFor / stats.matchesPlayed : 0;
