@@ -778,21 +778,17 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         </div>
       </section>
 
+      {/* Fan Vote on next fixture */}
+      {nextFixture && (
+        <MatchVote
+          homeTeam={nextFixture.home_team}
+          awayTeam={nextFixture.away_team}
+          matchDate={nextFixture.match_date}
+        />
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
-        <WinProbabilityGauge
-          probability={stats.winProbability}
-          teamName={selectedTeam}
-          allTeams={getUniqueTeams(allMatches)}
-          getOpponentWinProbability={(opp) => {
-            const oppViews = allMatches
-              .map((m) => getTeamMatchView(m, opp))
-              .filter((v): v is TeamMatchView => v !== null)
-              .slice(-pastN);
-            if (oppViews.length === 0) return null;
-            return aggregateStats(oppViews).winProbability;
-          }}
-        />
         <StatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend={parseFloat(winRate) > 50 ? "positive" : "neutral"} subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={150} onClick={() => setOpenStat("record")} />
         <StatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Total ${(stats.avgCornersFor + stats.avgCornersAgainst).toFixed(1)}`} delay={200} onClick={() => setOpenStat("corners")} />
         <StatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 Y · ${stats.avgRedCards.toFixed(2)} 🔴 R`} delay={250} onClick={() => setOpenStat("cards")} />
