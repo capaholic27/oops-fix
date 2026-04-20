@@ -432,8 +432,6 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Theme */}
-          <ThemeSection activeTheme={activeTheme} onSelect={handleTheme} />
 
           {/* Support & About */}
           <div>
