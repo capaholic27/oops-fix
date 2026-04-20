@@ -17,11 +17,23 @@ import { toast } from "sonner";
 
 type Profile = {
   display_name: string | null;
+  username?: string | null;
   favorite_team: string | null;
   favorite_league: string | null;
   notifications_enabled: boolean;
   created_at?: string;
 };
+
+const LEAGUE_OPTIONS = [
+  { code: "", name: "No default" },
+  { code: "E0", name: "Premier League" },
+  { code: "SP1", name: "La Liga" },
+  { code: "I1", name: "Serie A" },
+  { code: "D1", name: "Bundesliga" },
+  { code: "F1", name: "Ligue 1" },
+  { code: "N1", name: "Eredivisie" },
+  { code: "P1", name: "Primeira Liga" },
+];
 
 const APP_VERSION = "1.0.0";
 
@@ -49,7 +61,7 @@ const ProfilePage = () => {
     if (!user) { setProfile(null); setVoteCount(0); return; }
     supabase
       .from("profiles")
-      .select("display_name, favorite_team, favorite_league, notifications_enabled, created_at")
+      .select("display_name, username, favorite_team, favorite_league, notifications_enabled, created_at")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
@@ -186,7 +198,12 @@ const ProfilePage = () => {
                     </h2>
                   </button>
                 )}
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  {profile?.username && (
+                    <span className="text-[11px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      @{profile.username}
+                    </span>
+                  )}
                   <Mail className="w-3 h-3 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
@@ -205,7 +222,7 @@ const ProfilePage = () => {
             <div>
               <div className="flex items-center justify-between px-1 mb-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Teams</p>
-                <button onClick={() => navigate("/")} className="text-xs text-primary font-medium">View all</button>
+                <button onClick={() => navigate("/team")} className="text-xs text-primary font-medium hover:underline">View all</button>
               </div>
               <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide">
