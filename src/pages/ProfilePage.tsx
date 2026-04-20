@@ -50,6 +50,15 @@ const ProfilePage = () => {
   const [voteCount, setVoteCount] = useState(0);
   const [changingPw, setChangingPw] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [compact, setCompact] = useState(() => localStorage.getItem("fe_compact") === "1");
+
+  const toggleCompact = () => {
+    const next = !compact;
+    setCompact(next);
+    localStorage.setItem("fe_compact", next ? "1" : "0");
+    document.documentElement.classList.toggle("density-compact", next);
+    toast.success(next ? "Compact mode on" : "Compact mode off");
+  };
 
   const handleTheme = (id: ThemeId) => {
     setActiveTheme(id);
