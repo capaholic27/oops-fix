@@ -811,63 +811,74 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
   );
 };
 
-/* ─── Locked Tease Preview ─── */
+/* ─── Locked Tease Preview — mock of Bet Markets Probability ─── */
 const ProLockedTease = () => {
-  const teaseStats = [
-    { label: "Win Rate", value: "67%", trend: "+12%", color: "text-stat-positive" },
-    { label: "Avg Goals", value: "2.4", trend: "+0.3", color: "text-stat-positive" },
-    { label: "Clean Sheets", value: "48%", trend: "-5%", color: "text-stat-negative" },
-    { label: "BTTS", value: "61%", trend: "+8%", color: "text-stat-positive" },
+  const groups: { title: string; rows: { label: string; pct: number }[] }[] = [
+    {
+      title: "Goals Markets",
+      rows: [
+        { label: "Over 1.5", pct: 84 },
+        { label: "Over 2.5", pct: 67 },
+        { label: "Over 3.5", pct: 41 },
+        { label: "BTTS", pct: 58 },
+      ],
+    },
+    {
+      title: "Corners Markets",
+      rows: [
+        { label: "Over 8.5", pct: 72 },
+        { label: "Over 9.5", pct: 55 },
+        { label: "Over 10.5", pct: 38 },
+      ],
+    },
+    {
+      title: "Cards Markets",
+      rows: [
+        { label: "Over 3.5 Cards", pct: 63 },
+        { label: "Over 4.5 Cards", pct: 44 },
+      ],
+    },
   ];
+
+  const colorFor = (pct: number) =>
+    pct >= 65 ? "text-stat-positive" : pct >= 45 ? "text-primary" : pct >= 30 ? "text-stat-warn" : "text-muted-foreground";
+
   return (
     <div className="relative -mx-1">
-      <div className="space-y-3 px-1 pointer-events-none select-none" aria-hidden>
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/60" />
-            <div className="flex-1 space-y-1.5">
-              <div className="h-3.5 w-32 rounded bg-muted" />
-              <div className="h-2.5 w-20 rounded bg-muted/60" />
-            </div>
-            <div className="px-2 py-1 rounded-md bg-primary/15 text-primary text-[10px] font-bold">PRO</div>
+      <div className="px-1 pointer-events-none select-none" aria-hidden>
+        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md space-y-4">
+          <div className="flex items-center gap-2">
+            <Percent className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold text-primary uppercase tracking-wider">
+              Bet Markets Probability
+            </span>
+            <span className="ml-auto px-2 py-0.5 rounded-md bg-primary/15 text-primary text-[10px] font-bold">
+              PRO
+            </span>
           </div>
-          <div className="flex gap-1">
-            {["W","W","D","L","W","W","W","D","W","L"].map((r, i) => (
-              <div key={i} className={cn(
-                "w-5 h-5 rounded text-[9px] font-bold flex items-center justify-center text-white",
-                r === "W" && "bg-stat-positive",
-                r === "D" && "bg-stat-neutral",
-                r === "L" && "bg-stat-negative",
-              )}>{r}</div>
-            ))}
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {teaseStats.map((s, i) => (
-            <div key={i} className="rounded-xl border border-border bg-card p-3 space-y-1">
-              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{s.label}</div>
-              <div className="flex items-baseline justify-between">
-                <span className="font-mono-data text-xl font-semibold">{s.value}</span>
-                <span className={cn("text-[10px] font-semibold", s.color)}>{s.trend}</span>
+          {groups.map((g) => (
+            <div key={g.title} className="space-y-2">
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                {g.title}
               </div>
-              <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${50 + i * 12}%` }} />
+              <div className="grid grid-cols-2 gap-2">
+                {g.rows.map((r) => (
+                  <div key={r.label} className="rounded-lg border border-border bg-card p-2.5 space-y-1.5">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-[10px] font-medium text-muted-foreground">{r.label}</span>
+                      <span className={cn("font-mono-data text-sm font-bold", colorFor(r.pct))}>
+                        {r.pct}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${r.pct}%` }} />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="rounded-xl border border-border bg-gradient-to-br from-primary/10 to-card p-4 space-y-2">
-          <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold">AI Match Prediction</span>
-          </div>
-          <div className="space-y-1.5">
-            <div className="h-2.5 w-full rounded bg-muted" />
-            <div className="h-2.5 w-5/6 rounded bg-muted" />
-            <div className="h-2.5 w-4/6 rounded bg-muted" />
-          </div>
         </div>
       </div>
 
