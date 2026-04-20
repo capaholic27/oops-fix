@@ -271,6 +271,21 @@ const ProfilePage = () => {
                   />
                 }
               />
+              {/* Default league */}
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <Globe className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Default League</span>
+                <select
+                  value={profile?.favorite_league || ""}
+                  onChange={(e) => updateProfile({ favorite_league: e.target.value || null })}
+                  className="h-8 px-2 rounded-lg border border-border bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[140px]"
+                >
+                  {LEAGUE_OPTIONS.map(l => (
+                    <option key={l.code} value={l.code}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Notifications */}
               <button
                 onClick={() => updateProfile({ notifications_enabled: !profile?.notifications_enabled })}
                 className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
@@ -283,6 +298,45 @@ const ProfilePage = () => {
                   <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${profile?.notifications_enabled ? "translate-x-4" : "translate-x-0"}`} />
                 </div>
               </button>
+              {/* Compact mode */}
+              <button
+                onClick={toggleCompact}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1 text-left">Compact Density</span>
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${compact ? "bg-primary" : "bg-muted"}`}>
+                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${compact ? "translate-x-4" : "translate-x-0"}`} />
+                </div>
+              </button>
+              {/* Theme picker inline */}
+              <div className="px-4 py-3.5">
+                <div className="flex items-center gap-3 mb-3">
+                  <Palette className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium flex-1">Appearance</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{themes.find(t => t.id === activeTheme)?.name}</span>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {themes.map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => handleTheme(theme.id)}
+                      title={theme.name}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        activeTheme === theme.id ? "border-primary scale-105 shadow-md" : "border-border hover:border-primary/40"
+                      }`}
+                      style={{ background: theme.preview }}
+                    >
+                      {activeTheme === theme.id && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <Check className="w-3.5 h-3.5 text-white drop-shadow" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 text-center">Tap a swatch to switch theme instantly</p>
+              </div>
             </div>
           </div>
 
