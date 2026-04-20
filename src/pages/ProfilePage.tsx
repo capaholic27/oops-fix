@@ -215,7 +215,7 @@ const ProfilePage = () => {
                       onClick={() => navigate(`/team/${encodeURIComponent(team)}`)}
                       className="flex flex-col items-center gap-1 min-w-[56px] p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
                     >
-                      <TeamLogo teamName={team} size={36} />
+                      <TeamLogo teamName={team} size="md" />
                       <span className="text-[10px] font-medium truncate w-full text-center">{team}</span>
                     </button>
                   ))}
