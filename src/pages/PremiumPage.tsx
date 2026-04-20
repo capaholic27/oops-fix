@@ -856,85 +856,90 @@ const ProLockedTease = () => {
   const blurMask =
     "linear-gradient(to bottom, transparent 0%, transparent 18%, rgba(0,0,0,0.25) 32%, rgba(0,0,0,0.6) 48%, rgba(0,0,0,0.9) 65%, #000 80%)";
 
+
   return (
-    <div className="relative -mx-1">
-      <div className="px-1 pointer-events-none select-none" aria-hidden>
-        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md space-y-4">
-          <div className="flex items-center gap-2">
-            <Percent className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold text-primary uppercase tracking-wider">
-              Bet Markets Probability
-            </span>
-            <span className="ml-auto px-2 py-0.5 rounded-md bg-primary/15 text-primary text-[10px] font-bold">
-              PRO
-            </span>
-          </div>
-
-          {groups.map((g) => (
-            <div key={g.title} className="space-y-2">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                {g.title}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {g.rows.map((r) => (
-                  <div key={r.label} className="rounded-lg border border-border bg-card p-2.5 space-y-1.5">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-[10px] font-medium text-muted-foreground">{r.label}</span>
-                      <span className={cn("font-mono-data text-sm font-bold", colorFor(r.pct))}>
-                        {r.pct}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: `${r.pct}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+    <div className="space-y-5">
+      {/* ── Teased Bet Markets section ── */}
+      <div className="relative -mx-1">
+        <div className="px-1 pointer-events-none select-none" aria-hidden>
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md space-y-4">
+            <div className="flex items-center gap-2">
+              <Percent className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                Bet Markets Probability
+              </span>
+              <span className="ml-auto px-2 py-0.5 rounded-md bg-primary/15 text-primary text-[10px] font-bold">
+                PRO
+              </span>
             </div>
-          ))}
 
-          {/* Feature list — what's inside Pro */}
-          <div className="pt-2 space-y-2">
-            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-primary" />
-              What's inside Pro
-            </div>
-            <div className="grid grid-cols-1 gap-2">
-              {features.map((f) => (
-                <div
-                  key={f.title}
-                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-3"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                    {f.icon}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-foreground">{f.title}</div>
-                    <div className="text-[11px] text-muted-foreground leading-snug">{f.desc}</div>
-                  </div>
+            {groups.map((g) => (
+              <div key={g.title} className="space-y-2">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  {g.title}
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {g.rows.map((r) => (
+                    <div key={r.label} className="rounded-lg border border-border bg-card p-2.5 space-y-1.5">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[10px] font-medium text-muted-foreground">{r.label}</span>
+                        <span className={cn("font-mono-data text-sm font-bold", colorFor(r.pct))}>
+                          {r.pct}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${r.pct}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* Smooth blur — feathered mask */}
+        <div
+          className="pointer-events-none absolute inset-0 backdrop-blur-md"
+          style={{ WebkitMaskImage: blurMask, maskImage: blurMask }}
+        />
+        {/* Smooth fade into background */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 30%, hsl(var(--background) / 0.15) 50%, hsl(var(--background) / 0.45) 70%, hsl(var(--background) / 0.8) 88%, hsl(var(--background)) 100%)",
+          }}
+        />
       </div>
 
-      {/* Smooth blur overlay — feathered mask prevents hard edges/banding */}
-      <div
-        className="pointer-events-none absolute inset-0 backdrop-blur-md"
-        style={{
-          WebkitMaskImage: blurMask,
-          maskImage: blurMask,
-        }}
-      />
-      {/* Smooth color fade into background — multi-stop, no ridges */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(to bottom, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 30%, hsl(var(--background) / 0.15) 50%, hsl(var(--background) / 0.45) 70%, hsl(var(--background) / 0.8) 88%, hsl(var(--background)) 100%)",
-        }}
-      />
+      {/* ── Crisp "What's inside Pro" feature section ── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-bold tracking-tight">What's inside Pro</h2>
+          <div className="flex-1 h-px bg-border ml-1" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-2">
+          {features.map((f, i) => (
+            <div
+              key={f.title}
+              className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-colors opacity-0 animate-fade-up"
+              style={{ animationDelay: `${i * 50}ms` }}
+            >
+              <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                {f.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-foreground">{f.title}</div>
+                <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">{f.desc}</div>
+              </div>
+              <CheckCircle2 className="w-4 h-4 text-primary/60 flex-shrink-0 mt-0.5" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
