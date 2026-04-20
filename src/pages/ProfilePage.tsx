@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   User, Palette, Check, LogOut, Bell, BellOff, Heart,
-  ChevronRight, Shield, Mail,
+  ChevronRight, Shield, Mail, Star, Vote, Calendar, Lock,
+  Download, Trash2, MessageCircle, Info, Sparkles, Globe,
+  KeyRound, ExternalLink,
 } from "lucide-react";
 import { themes, applyTheme, getStoredTheme, type ThemeId } from "@/lib/themes";
 import { useAuth } from "@/hooks/useAuth";
+import { useFavorites } from "@/hooks/useFavorites";
 import { AuthForm } from "@/components/AuthForm";
 import { VoteHistory } from "@/components/VoteHistory";
+import { TeamLogo } from "@/components/TeamLogo";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -15,28 +20,36 @@ type Profile = {
   favorite_team: string | null;
   favorite_league: string | null;
   notifications_enabled: boolean;
+  created_at?: string;
 };
 
+const APP_VERSION = "1.0.0";
+
 const ProfilePage = () => {
+  const navigate = useNavigate();
   const [activeTheme, setActiveTheme] = useState<ThemeId>(getStoredTheme);
   const { user, loading, signOut } = useAuth();
+  const { favorites } = useFavorites();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [editingTeam, setEditingTeam] = useState(false);
   const [teamInput, setTeamInput] = useState("");
+  const [voteCount, setVoteCount] = useState(0);
+  const [changingPw, setChangingPw] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
 
   const handleTheme = (id: ThemeId) => {
     setActiveTheme(id);
     applyTheme(id);
   };
 
-  // Fetch profile
+  // Fetch profile + vote count
   useEffect(() => {
-    if (!user) { setProfile(null); return; }
+    if (!user) { setProfile(null); setVoteCount(0); return; }
     supabase
       .from("profiles")
-      .select("display_name, favorite_team, favorite_league, notifications_enabled")
+      .select("display_name, favorite_team, favorite_league, notifications_enabled, created_at")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
@@ -46,6 +59,11 @@ const ProfilePage = () => {
           setTeamInput(data.favorite_team || "");
         }
       });
+    supabase
+      .from("match_votes")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .then(({ count }) => setVoteCount(count || 0));
   }, [user]);
 
   const updateProfile = async (updates: Partial<Profile>) => {
@@ -64,6 +82,55 @@ const ProfilePage = () => {
     toast.success("Signed out");
   };
 
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Password updated");
+    setNewPassword("");
+    setChangingPw(false);
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+    const { data: votes } = await supabase
+      .from("match_votes")
+      .select("*")
+      .eq("user_id", user.id);
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      profile,
+      favorites,
+      votes: votes || [],
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `footballedge-data-${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Data exported");
+  };
+
+  const handleClearCache = () => {
+    const keepKeys = ["fe_theme", "fe_favorite_teams", "supabase.auth.token"];
+    const toRemove = Object.keys(localStorage).filter(
+      k => !keepKeys.includes(k) && !k.startsWith("sb-")
+    );
+    toRemove.forEach(k => localStorage.removeItem(k));
+    toast.success(`Cleared ${toRemove.length} cached items`);
+  };
+
+  const memberSince = profile?.created_at
+    ? new Date(profile.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" })
+    : "—";
+
+  const initials = (profile?.display_name || user?.email || "U")
+    .split(/[\s@]/)[0]
+    .slice(0, 2)
+    .toUpperCase();
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -76,7 +143,6 @@ const ProfilePage = () => {
     <div className="p-4 pb-20 max-w-lg mx-auto space-y-5 overflow-y-auto">
       {!user ? (
         <>
-          {/* Not logged in */}
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm text-center">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <User className="w-7 h-7 text-primary" />
@@ -85,38 +151,34 @@ const ProfilePage = () => {
             <p className="text-sm text-muted-foreground mb-6">Sign in to save preferences & personalize your experience</p>
             <AuthForm />
           </div>
-
-          {/* Theme selector still available when logged out */}
           <ThemeSection activeTheme={activeTheme} onSelect={handleTheme} />
         </>
       ) : (
         <>
-          {/* Profile Header */}
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          {/* Profile Header with avatar + stats */}
+          <div className="rounded-2xl border border-border bg-gradient-to-br from-card to-primary/5 p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <User className="w-6 h-6 text-primary" />
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center flex-shrink-0 text-primary-foreground font-bold text-lg shadow-md">
+                {initials}
               </div>
               <div className="flex-1 min-w-0">
                 {editingName ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      autoFocus
-                      value={nameInput}
-                      onChange={e => setNameInput(e.target.value)}
-                      onBlur={() => {
-                        setEditingName(false);
-                        if (nameInput.trim() && nameInput !== profile?.display_name) {
-                          updateProfile({ display_name: nameInput.trim() });
-                        }
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                        if (e.key === "Escape") { setEditingName(false); setNameInput(profile?.display_name || ""); }
-                      }}
-                      className="flex-1 h-8 px-2 rounded-lg border border-border bg-background text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
-                    />
-                  </div>
+                  <input
+                    autoFocus
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    onBlur={() => {
+                      setEditingName(false);
+                      if (nameInput.trim() && nameInput !== profile?.display_name) {
+                        updateProfile({ display_name: nameInput.trim() });
+                      }
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") { setEditingName(false); setNameInput(profile?.display_name || ""); }
+                    }}
+                    className="w-full h-8 px-2 rounded-lg border border-border bg-background text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
                 ) : (
                   <button onClick={() => setEditingName(true)} className="text-left group">
                     <h2 className="text-lg font-bold truncate group-hover:text-primary transition-colors">
@@ -130,13 +192,42 @@ const ProfilePage = () => {
                 </div>
               </div>
             </div>
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-border/60">
+              <StatPill icon={<Vote className="w-3.5 h-3.5" />} label="Votes" value={voteCount} />
+              <StatPill icon={<Star className="w-3.5 h-3.5" />} label="Favorites" value={favorites.length} />
+              <StatPill icon={<Calendar className="w-3.5 h-3.5" />} label="Since" value={memberSince} />
+            </div>
           </div>
 
-          {/* Settings */}
+          {/* Favorite teams quick access */}
+          {favorites.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between px-1 mb-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Teams</p>
+                <button onClick={() => navigate("/")} className="text-xs text-primary font-medium">View all</button>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                  {favorites.slice(0, 8).map(team => (
+                    <button
+                      key={team}
+                      onClick={() => navigate(`/team/${encodeURIComponent(team)}`)}
+                      className="flex flex-col items-center gap-1 min-w-[56px] p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <TeamLogo teamName={team} size="md" />
+                      <span className="text-[10px] font-medium truncate w-full text-center">{team}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Preferences */}
           <div>
             <p className="text-xs font-semibold text-muted-foreground px-1 mb-2 uppercase tracking-wider">Preferences</p>
             <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
-              {/* Favorite Team */}
               <SettingRow
                 icon={<Heart className="w-4 h-4" />}
                 label="Favorite Team"
@@ -163,8 +254,6 @@ const ProfilePage = () => {
                   />
                 }
               />
-
-              {/* Notifications */}
               <button
                 onClick={() => updateProfile({ notifications_enabled: !profile?.notifications_enabled })}
                 className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
@@ -172,7 +261,7 @@ const ProfilePage = () => {
                 <span className="text-primary">
                   {profile?.notifications_enabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
                 </span>
-                <span className="text-sm font-medium flex-1 text-left">Notifications</span>
+                <span className="text-sm font-medium flex-1 text-left">Match Notifications</span>
                 <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${profile?.notifications_enabled ? "bg-primary" : "bg-muted"}`}>
                   <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${profile?.notifications_enabled ? "translate-x-4" : "translate-x-0"}`} />
                 </div>
@@ -183,15 +272,76 @@ const ProfilePage = () => {
           {/* Vote / Prediction History */}
           <VoteHistory />
 
-          {/* Account */}
+          {/* Pro upgrade CTA */}
+          <button
+            onClick={() => navigate("/premium")}
+            className="w-full rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 p-4 text-left shadow-sm hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground shadow">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold">Upgrade to Pro</p>
+                <p className="text-xs text-muted-foreground">AI predictions, deep insights & more</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </button>
+
+          {/* Account & Security */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground px-1 mb-2 uppercase tracking-wider">Account</p>
+            <p className="text-xs font-semibold text-muted-foreground px-1 mb-2 uppercase tracking-wider">Account & Security</p>
             <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
+              {/* Change password */}
+              <div>
+                <button
+                  onClick={() => setChangingPw(!changingPw)}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+                >
+                  <KeyRound className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium flex-1 text-left">Change Password</span>
+                  <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${changingPw ? "rotate-90" : ""}`} />
+                </button>
+                {changingPw && (
+                  <div className="px-4 pb-3 flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="New password (min 6 chars)"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      className="flex-1 h-9 px-3 rounded-lg border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                    <button
+                      onClick={handleChangePassword}
+                      className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90"
+                    >
+                      Save
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <Shield className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium flex-1">Privacy & Security</span>
-                <span className="text-xs text-muted-foreground">Email verified</span>
+                <span className="text-sm font-medium flex-1">Email Verified</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">ACTIVE</span>
               </div>
+              <button
+                onClick={handleExportData}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Download className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1 text-left">Export My Data</span>
+                <span className="text-xs text-muted-foreground">JSON</span>
+              </button>
+              <button
+                onClick={handleClearCache}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1 text-left">Clear Cache</span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-3 px-4 py-3.5 text-destructive hover:bg-destructive/5 transition-colors"
@@ -204,11 +354,60 @@ const ProfilePage = () => {
 
           {/* Theme */}
           <ThemeSection activeTheme={activeTheme} onSelect={handleTheme} />
+
+          {/* Support & About */}
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground px-1 mb-2 uppercase tracking-wider">Support</p>
+            <div className="rounded-2xl border border-border bg-card overflow-hidden divide-y divide-border">
+              <a
+                href="mailto:support@footballedge.app?subject=Feedback"
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Send Feedback</span>
+                <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+              </a>
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); toast.info("Privacy policy coming soon"); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Lock className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Privacy Policy</span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </a>
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); toast.info("Terms coming soon"); }}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Globe className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Terms of Service</span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </a>
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <Info className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Version</span>
+                <span className="text-xs text-muted-foreground font-mono">v{APP_VERSION}</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center mt-4">
+              Made with ⚽ for football fans
+            </p>
+          </div>
         </>
       )}
     </div>
   );
 };
+
+const StatPill = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: number | string }) => (
+  <div className="flex flex-col items-center gap-0.5 py-1">
+    <span className="text-primary">{icon}</span>
+    <span className="text-sm font-bold leading-none mt-1">{value}</span>
+    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</span>
+  </div>
+);
 
 const SettingRow = ({
   icon, label, value, editing, onEdit, editContent,
