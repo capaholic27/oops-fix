@@ -856,18 +856,6 @@ const ProLockedTease = () => {
   const blurMask =
     "linear-gradient(to bottom, transparent 0%, transparent 18%, rgba(0,0,0,0.25) 32%, rgba(0,0,0,0.6) 48%, rgba(0,0,0,0.9) 65%, #000 80%)";
 
-  const features: { icon: React.ReactNode; title: string; desc: string }[] = [
-    { icon: <Brain className="w-4 h-4" />, title: "Powerful AI Predictions", desc: "Per-stat AI analysis on corners, cards, shots & goals." },
-    { icon: <Eye className="w-4 h-4" />, title: "Key Match Insights", desc: "Edges, trends and value angles surfaced automatically." },
-    { icon: <Users className="w-4 h-4" />, title: "Squad Info", desc: "Top scorers, assist leaders and player form at a glance." },
-    { icon: <Percent className="w-4 h-4" />, title: "Bet Markets Probability", desc: "Live model odds for goals, corners and cards markets." },
-    { icon: <Activity className="w-4 h-4" />, title: "Tactical Profile", desc: "Predicted playing style vs the next opponent." },
-    { icon: <Trophy className="w-4 h-4" />, title: "Head-to-Head Edge", desc: "Win probability gauge powered by Dixon-Coles." },
-  ];
-
-  // Smooth blur via feathered mask (no banding/ridges)
-  const blurMask =
-    "linear-gradient(to bottom, transparent 0%, transparent 18%, rgba(0,0,0,0.25) 32%, rgba(0,0,0,0.6) 48%, rgba(0,0,0,0.9) 65%, #000 80%)";
 
   return (
     <div className="space-y-5">
