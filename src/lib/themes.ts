@@ -211,8 +211,6 @@ export const themes: ThemeConfig[] = [
       "--stat-warn": "38 85% 55%",
     },
   },
-];
-
   {
     id: "rose",
     name: "Rose Noir",
