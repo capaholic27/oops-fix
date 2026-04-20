@@ -843,6 +843,19 @@ const ProLockedTease = () => {
   const colorFor = (pct: number) =>
     pct >= 65 ? "text-stat-positive" : pct >= 45 ? "text-primary" : pct >= 30 ? "text-stat-warn" : "text-muted-foreground";
 
+  const features: { icon: React.ReactNode; title: string; desc: string }[] = [
+    { icon: <Brain className="w-4 h-4" />, title: "Powerful AI Predictions", desc: "Per-stat AI analysis on corners, cards, shots & goals." },
+    { icon: <Eye className="w-4 h-4" />, title: "Key Match Insights", desc: "Edges, trends and value angles surfaced automatically." },
+    { icon: <Users className="w-4 h-4" />, title: "Squad Info", desc: "Top scorers, assist leaders and player form at a glance." },
+    { icon: <Percent className="w-4 h-4" />, title: "Bet Markets Probability", desc: "Live model odds for goals, corners and cards markets." },
+    { icon: <Activity className="w-4 h-4" />, title: "Tactical Profile", desc: "Predicted playing style vs the next opponent." },
+    { icon: <Trophy className="w-4 h-4" />, title: "Head-to-Head Edge", desc: "Win probability gauge powered by Dixon-Coles." },
+  ];
+
+  // Smooth blur via mask: feathered top→bottom (no banding)
+  const blurMask =
+    "linear-gradient(to bottom, transparent 0%, transparent 18%, rgba(0,0,0,0.25) 32%, rgba(0,0,0,0.6) 48%, rgba(0,0,0,0.9) 65%, #000 80%)";
+
   return (
     <div className="relative -mx-1">
       <div className="px-1 pointer-events-none select-none" aria-hidden>
@@ -879,22 +892,49 @@ const ProLockedTease = () => {
               </div>
             </div>
           ))}
+
+          {/* Feature list — what's inside Pro */}
+          <div className="pt-2 space-y-2">
+            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-primary" />
+              What's inside Pro
+            </div>
+            <div className="grid grid-cols-1 gap-2">
+              {features.map((f) => (
+                <div
+                  key={f.title}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                    {f.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-foreground">{f.title}</div>
+                    <div className="text-[11px] text-muted-foreground leading-snug">{f.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Overlay: clear at top → progressively blurred + faded into bg at bottom */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-x-0 top-1/3 bottom-0 backdrop-blur-[2px]" />
-        <div className="absolute inset-x-0 top-1/2 bottom-0 backdrop-blur-[5px]" />
-        <div className="absolute inset-x-0 top-2/3 bottom-0 backdrop-blur-[10px]" />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(to bottom, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 25%, hsl(var(--background) / 0.4) 55%, hsl(var(--background) / 0.85) 80%, hsl(var(--background)) 100%)",
-          }}
-        />
-      </div>
+      {/* Smooth blur overlay — feathered mask prevents hard edges/banding */}
+      <div
+        className="pointer-events-none absolute inset-0 backdrop-blur-md"
+        style={{
+          WebkitMaskImage: blurMask,
+          maskImage: blurMask,
+        }}
+      />
+      {/* Smooth color fade into background — multi-stop, no ridges */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(to bottom, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 30%, hsl(var(--background) / 0.15) 50%, hsl(var(--background) / 0.45) 70%, hsl(var(--background) / 0.8) 88%, hsl(var(--background)) 100%)",
+        }}
+      />
     </div>
   );
 };
