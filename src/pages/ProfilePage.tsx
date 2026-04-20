@@ -17,11 +17,23 @@ import { toast } from "sonner";
 
 type Profile = {
   display_name: string | null;
+  username?: string | null;
   favorite_team: string | null;
   favorite_league: string | null;
   notifications_enabled: boolean;
   created_at?: string;
 };
+
+const LEAGUE_OPTIONS = [
+  { code: "", name: "No default" },
+  { code: "E0", name: "Premier League" },
+  { code: "SP1", name: "La Liga" },
+  { code: "I1", name: "Serie A" },
+  { code: "D1", name: "Bundesliga" },
+  { code: "F1", name: "Ligue 1" },
+  { code: "N1", name: "Eredivisie" },
+  { code: "P1", name: "Primeira Liga" },
+];
 
 const APP_VERSION = "1.0.0";
 
@@ -38,6 +50,15 @@ const ProfilePage = () => {
   const [voteCount, setVoteCount] = useState(0);
   const [changingPw, setChangingPw] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [compact, setCompact] = useState(() => localStorage.getItem("fe_compact") === "1");
+
+  const toggleCompact = () => {
+    const next = !compact;
+    setCompact(next);
+    localStorage.setItem("fe_compact", next ? "1" : "0");
+    document.documentElement.classList.toggle("density-compact", next);
+    toast.success(next ? "Compact mode on" : "Compact mode off");
+  };
 
   const handleTheme = (id: ThemeId) => {
     setActiveTheme(id);
@@ -49,7 +70,7 @@ const ProfilePage = () => {
     if (!user) { setProfile(null); setVoteCount(0); return; }
     supabase
       .from("profiles")
-      .select("display_name, favorite_team, favorite_league, notifications_enabled, created_at")
+      .select("display_name, username, favorite_team, favorite_league, notifications_enabled, created_at")
       .eq("user_id", user.id)
       .single()
       .then(({ data }) => {
@@ -186,7 +207,12 @@ const ProfilePage = () => {
                     </h2>
                   </button>
                 )}
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  {profile?.username && (
+                    <span className="text-[11px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      @{profile.username}
+                    </span>
+                  )}
                   <Mail className="w-3 h-3 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
@@ -205,7 +231,7 @@ const ProfilePage = () => {
             <div>
               <div className="flex items-center justify-between px-1 mb-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Your Teams</p>
-                <button onClick={() => navigate("/")} className="text-xs text-primary font-medium">View all</button>
+                <button onClick={() => navigate("/team")} className="text-xs text-primary font-medium hover:underline">View all</button>
               </div>
               <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide">
@@ -254,6 +280,21 @@ const ProfilePage = () => {
                   />
                 }
               />
+              {/* Default league */}
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <Globe className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Default League</span>
+                <select
+                  value={profile?.favorite_league || ""}
+                  onChange={(e) => updateProfile({ favorite_league: e.target.value || null })}
+                  className="h-8 px-2 rounded-lg border border-border bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[140px]"
+                >
+                  {LEAGUE_OPTIONS.map(l => (
+                    <option key={l.code} value={l.code}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Notifications */}
               <button
                 onClick={() => updateProfile({ notifications_enabled: !profile?.notifications_enabled })}
                 className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
@@ -266,6 +307,45 @@ const ProfilePage = () => {
                   <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${profile?.notifications_enabled ? "translate-x-4" : "translate-x-0"}`} />
                 </div>
               </button>
+              {/* Compact mode */}
+              <button
+                onClick={toggleCompact}
+                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1 text-left">Compact Density</span>
+                <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${compact ? "bg-primary" : "bg-muted"}`}>
+                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${compact ? "translate-x-4" : "translate-x-0"}`} />
+                </div>
+              </button>
+              {/* Theme picker inline */}
+              <div className="px-4 py-3.5">
+                <div className="flex items-center gap-3 mb-3">
+                  <Palette className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium flex-1">Appearance</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{themes.find(t => t.id === activeTheme)?.name}</span>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {themes.map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => handleTheme(theme.id)}
+                      title={theme.name}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        activeTheme === theme.id ? "border-primary scale-105 shadow-md" : "border-border hover:border-primary/40"
+                      }`}
+                      style={{ background: theme.preview }}
+                    >
+                      {activeTheme === theme.id && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <Check className="w-3.5 h-3.5 text-white drop-shadow" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2 text-center">Tap a swatch to switch theme instantly</p>
+              </div>
             </div>
           </div>
 
@@ -352,8 +432,6 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Theme */}
-          <ThemeSection activeTheme={activeTheme} onSelect={handleTheme} />
 
           {/* Support & About */}
           <div>
