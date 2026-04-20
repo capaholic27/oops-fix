@@ -880,28 +880,8 @@ const PremiumPage = () => {
         {unlocked ? "Lock (Dev Mode)" : "Unlock Pro — Free Trial"}
       </button>
 
-      {/* Feature preview when locked */}
-      {!unlocked && (
-        <div className="space-y-2">
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">Per-Stat AI Predictions</span>
-          <div className="grid grid-cols-2 gap-2">
-            {STAT_CATEGORIES.map(cat => (
-              <div key={cat.id} className="rounded-xl border border-border bg-card p-3 flex items-center gap-2.5 opacity-60">
-                <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  {cat.icon}
-                </div>
-                <div>
-                  <span className="text-xs font-semibold">{cat.label}</span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Lock className="w-2.5 h-2.5 text-muted-foreground" />
-                    <span className="text-[9px] text-muted-foreground">Pro Only</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Tease preview when locked — clear at top, fades into bg at bottom */}
+      {!unlocked && <ProLockedTease />}
 
       {/* Team selector when unlocked */}
       {unlocked && (
