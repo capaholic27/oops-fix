@@ -45,9 +45,11 @@ ${markets.map(m => `- ${m}`).join("\n")}
 RULES:
 - User provides a TARGET combined odds and a RISK LEVEL (low, medium, high).
 - You must construct a bet slip that approximately hits the target odds.
-- Low risk: favor heavy favorites, safer markets. Max 2-3 legs.
-- Medium risk: mix result markets with stat markets. 3-4 legs allowed.
-- High risk: include underdogs, correct scores, combos. 4-6 legs allowed.
+- If a REQUIRED NUMBER OF LEGS is specified, you MUST use EXACTLY that many legs. Do not add more or fewer.
+- If no required legs count is given, use these defaults:
+  - Low risk: favor heavy favorites, safer markets. Max 2-3 legs.
+  - Medium risk: mix result markets with stat markets. 3-4 legs allowed.
+  - High risk: include underdogs, correct scores, combos. 4-6 legs allowed.
 - USE DIVERSE MARKETS from the allowed list — don't repeat the same market type.
 - Each leg must have a clear data-driven reason referencing team tendencies.
 - Show individual odds per leg and the combined accumulator odds.
