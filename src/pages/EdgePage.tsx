@@ -253,6 +253,67 @@ const BetBuilder = () => {
             );
           })}
         </div>
+
+        {/* Market Filter */}
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowMarkets(!showMarkets)}
+            className="flex items-center justify-between w-full text-xs font-bold text-foreground"
+          >
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+              <span>Markets</span>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {enabledMarkets.size}/{ALL_MARKETS.length}
+              </span>
+            </div>
+            <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", showMarkets && "rotate-180")} />
+          </button>
+          {showMarkets && (
+            <div className="space-y-2.5 pt-1">
+              {MARKET_CATEGORIES.map(cat => {
+                const items = ALL_MARKETS.filter(m => m.category === cat);
+                const allOn = items.every(m => enabledMarkets.has(m.id));
+                return (
+                  <div key={cat} className="space-y-1.5">
+                    <button
+                      onClick={() => toggleCategory(cat)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider"
+                    >
+                      <div className={cn(
+                        "w-3 h-3 rounded border flex items-center justify-center transition-colors",
+                        allOn ? "bg-primary border-primary" : "border-muted-foreground/40"
+                      )}>
+                        {allOn && <CheckCircle2 className="w-2 h-2 text-primary-foreground" />}
+                      </div>
+                      {cat}
+                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map(m => {
+                        const on = enabledMarkets.has(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => toggleMarket(m.id)}
+                            className={cn(
+                              "text-[10px] font-semibold px-2 py-1 rounded-md border transition-all",
+                              on
+                                ? "border-primary/40 bg-primary/10 text-primary"
+                                : "border-border bg-card/40 text-muted-foreground line-through opacity-60"
+                            )}
+                          >
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={buildBet}
           disabled={loading || !odds}
