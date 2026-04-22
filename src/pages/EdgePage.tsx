@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Crosshair, Star, Lock, Gem, BarChart3, AlertTriangle, Loader2,
   TrendingUp, ChevronRight, Zap, Shield, Target, RefreshCw,
-  DollarSign, ArrowRight, CheckCircle2, Info,
+  DollarSign, ArrowRight, CheckCircle2, Info, Filter, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -58,6 +58,27 @@ const RISK_LEVELS = [
   { id: "medium", label: "Medium", icon: Target, desc: "Balanced risk & reward", color: "text-amber-400" },
   { id: "high", label: "High Risk", icon: Zap, desc: "Big odds, bigger risk", color: "text-red-400" },
 ] as const;
+
+const ALL_MARKETS = [
+  { id: "1x2", label: "1X2", category: "Result" },
+  { id: "double_chance", label: "Double Chance", category: "Result" },
+  { id: "draw_no_bet", label: "Draw No Bet", category: "Result" },
+  { id: "over_under_goals", label: "Over/Under Goals", category: "Goals" },
+  { id: "btts", label: "BTTS", category: "Goals" },
+  { id: "correct_score", label: "Correct Score", category: "Goals" },
+  { id: "ht_ft", label: "HT/FT", category: "Goals" },
+  { id: "goal_both_halves", label: "Goal Both Halves", category: "Goals" },
+  { id: "clean_sheet", label: "Clean Sheet", category: "Goals" },
+  { id: "win_to_nil", label: "Win to Nil", category: "Goals" },
+  { id: "corners", label: "Corners", category: "Stats" },
+  { id: "cards", label: "Cards", category: "Stats" },
+  { id: "fouls", label: "Fouls", category: "Stats" },
+  { id: "shots", label: "Shots", category: "Stats" },
+  { id: "shots_on_target", label: "Shots on Target", category: "Stats" },
+  { id: "offsides", label: "Offsides", category: "Stats" },
+] as const;
+
+const MARKET_CATEGORIES = ["Result", "Goals", "Stats"] as const;
 
 /* ─── Confidence badge ─── */
 const ConfidenceBadge = ({ value }: { value: number }) => {
@@ -135,6 +156,34 @@ const BetBuilder = () => {
   const [risk, setRisk] = useState<"low" | "medium" | "high">("medium");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BetSlip | null>(null);
+  const [enabledMarkets, setEnabledMarkets] = useState<Set<string>>(
+    () => new Set(ALL_MARKETS.map(m => m.id))
+  );
+  const [showMarkets, setShowMarkets] = useState(false);
+
+  const toggleMarket = (id: string) => {
+    setEnabledMarkets(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        if (next.size <= 1) { toast.error("Keep at least 1 market enabled"); return prev; }
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleCategory = (cat: string) => {
+    const ids = ALL_MARKETS.filter(m => m.category === cat).map(m => m.id);
+    const allOn = ids.every(id => enabledMarkets.has(id));
+    setEnabledMarkets(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => allOn ? next.delete(id) : next.add(id));
+      if (next.size === 0) { toast.error("Keep at least 1 market enabled"); return prev; }
+      return next;
+    });
+  };
 
   const buildBet = async () => {
     const parsed = parseFloat(odds);
@@ -146,7 +195,11 @@ const BetBuilder = () => {
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("build-bet", {
-        body: { targetOdds: parsed, riskLevel: risk },
+        body: {
+          targetOdds: parsed,
+          riskLevel: risk,
+          enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -200,6 +253,67 @@ const BetBuilder = () => {
             );
           })}
         </div>
+
+        {/* Market Filter */}
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowMarkets(!showMarkets)}
+            className="flex items-center justify-between w-full text-xs font-bold text-foreground"
+          >
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-primary" />
+              <span>Markets</span>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {enabledMarkets.size}/{ALL_MARKETS.length}
+              </span>
+            </div>
+            <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", showMarkets && "rotate-180")} />
+          </button>
+          {showMarkets && (
+            <div className="space-y-2.5 pt-1">
+              {MARKET_CATEGORIES.map(cat => {
+                const items = ALL_MARKETS.filter(m => m.category === cat);
+                const allOn = items.every(m => enabledMarkets.has(m.id));
+                return (
+                  <div key={cat} className="space-y-1.5">
+                    <button
+                      onClick={() => toggleCategory(cat)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider"
+                    >
+                      <div className={cn(
+                        "w-3 h-3 rounded border flex items-center justify-center transition-colors",
+                        allOn ? "bg-primary border-primary" : "border-muted-foreground/40"
+                      )}>
+                        {allOn && <CheckCircle2 className="w-2 h-2 text-primary-foreground" />}
+                      </div>
+                      {cat}
+                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map(m => {
+                        const on = enabledMarkets.has(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => toggleMarket(m.id)}
+                            className={cn(
+                              "text-[10px] font-semibold px-2 py-1 rounded-md border transition-all",
+                              on
+                                ? "border-primary/40 bg-primary/10 text-primary"
+                                : "border-border bg-card/40 text-muted-foreground line-through opacity-60"
+                            )}
+                          >
+                            {m.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={buildBet}
           disabled={loading || !odds}
