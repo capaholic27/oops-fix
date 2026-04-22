@@ -472,6 +472,7 @@ const BetBuilder = () => {
   );
   const [showMarkets, setShowMarkets] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState("");
+  const [maxLegs, setMaxLegs] = useState<number | null>(null);
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
