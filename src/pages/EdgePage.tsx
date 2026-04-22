@@ -195,7 +195,11 @@ const BetBuilder = () => {
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("build-bet", {
-        body: { targetOdds: parsed, riskLevel: risk },
+        body: {
+          targetOdds: parsed,
+          riskLevel: risk,
+          enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
