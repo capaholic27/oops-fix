@@ -1,12 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Crosshair, Star, Lock, Gem, BarChart3, AlertTriangle, Loader2,
+  Crosshair, Star, Lock, Unlock, Gem, BarChart3, AlertTriangle, Loader2,
   TrendingUp, ChevronRight, Zap, Shield, Target, RefreshCw,
   DollarSign, ArrowRight, CheckCircle2, Info, Filter, ChevronDown,
+  Sparkles, Brain, Eye, Percent, Activity, Trophy,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+const EDGE_UNLOCKED_KEY = "fe_edge_unlocked";
+function isEdgeUnlocked(): boolean {
+  try { return localStorage.getItem(EDGE_UNLOCKED_KEY) === "true"; } catch { return false; }
+}
 
 /* ─── Types ─── */
 type Pick = {
@@ -150,6 +156,123 @@ const SectionHeader = ({ icon: Icon, emoji, title, count }: { icon: any; emoji: 
   </div>
 );
 
+/* ─── Locked Tease ─── */
+const EdgeLockedTease = () => {
+  const teasePicks = [
+    { match: "Arsenal vs Chelsea", prediction: "Over 2.5", confidence: 78, market: "Goals", reasoning: "Both teams averaging 3.1 goals in last 6 meetings." },
+    { match: "Man City vs Liverpool", prediction: "BTTS Yes", confidence: 82, market: "BTTS", reasoning: "Head-to-head BTTS rate of 80% in last 10." },
+    { match: "Real Madrid vs Barcelona", prediction: "Over 10.5", confidence: 65, market: "Corners", reasoning: "Average 12.3 corners per El Clásico." },
+  ];
+
+  const teaseAlerts = [
+    { label: "Value: Arsenal ML", pct: 72 },
+    { label: "Edge: BTTS @ 1.85", pct: 68 },
+    { label: "Under 3.5 Cards", pct: 55 },
+    { label: "Over 9.5 Corners", pct: 61 },
+  ];
+
+  const features = [
+    { icon: <Star className="w-4 h-4" />, title: "AI Best Picks", desc: "Daily curated picks with confidence scores and reasoning." },
+    { icon: <Brain className="w-4 h-4" />, title: "AI Bet Builder", desc: "Enter your target odds and risk — AI builds the optimal parlay." },
+    { icon: <Eye className="w-4 h-4" />, title: "Value Alerts", desc: "Instantly spot when odds are mispriced by the market." },
+    { icon: <Gem className="w-4 h-4" />, title: "Undervalued Odds", desc: "Model-backed opportunities the market is sleeping on." },
+    { icon: <Percent className="w-4 h-4" />, title: "Market Probabilities", desc: "See true probabilities across 16+ betting markets." },
+    { icon: <Activity className="w-4 h-4" />, title: "Risk Profiling", desc: "Choose low, medium, or high risk bet construction." },
+  ];
+
+  const blurMask =
+    "linear-gradient(to bottom, transparent 0%, transparent 18%, rgba(0,0,0,0.25) 32%, rgba(0,0,0,0.6) 48%, rgba(0,0,0,0.9) 65%, #000 80%)";
+
+  return (
+    <div className="space-y-5">
+      {/* Teased picks preview */}
+      <div className="relative -mx-1">
+        <div className="px-1 pointer-events-none select-none" aria-hidden>
+          <div className="space-y-2">
+            {teasePicks.map((p, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card/60 p-3.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground">{p.match}</p>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-primary/15 text-primary">{p.market}</span>
+                      <ConfidenceBadge value={p.confidence} />
+                    </div>
+                  </div>
+                  <p className="text-sm font-black text-primary">{p.prediction}</p>
+                </div>
+                <p className="text-[11px] text-muted-foreground">{p.reasoning}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Teased value alerts */}
+          <div className="mt-4 rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Value Alerts</span>
+              <span className="ml-auto px-2 py-0.5 rounded-md bg-primary/15 text-primary text-[10px] font-bold">EDGE</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {teaseAlerts.map(r => (
+                <div key={r.label} className="rounded-lg border border-border bg-card p-2.5 space-y-1.5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[10px] font-medium text-muted-foreground">{r.label}</span>
+                    <span className="font-mono text-sm font-bold text-primary">{r.pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${r.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Blur overlay */}
+        <div
+          className="pointer-events-none absolute inset-0 backdrop-blur-md"
+          style={{ WebkitMaskImage: blurMask, maskImage: blurMask }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, hsl(var(--background) / 0) 0%, hsl(var(--background) / 0) 30%, hsl(var(--background) / 0.15) 50%, hsl(var(--background) / 0.45) 70%, hsl(var(--background) / 0.8) 88%, hsl(var(--background)) 100%)",
+          }}
+        />
+      </div>
+
+      {/* Features list */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-bold tracking-tight">What's inside Edge</h2>
+          <div className="flex-1 h-px bg-border ml-1" />
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          {features.map((f, i) => (
+            <div
+              key={f.title}
+              className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3 hover:border-primary/30 transition-colors opacity-0 animate-fade-up"
+              style={{ animationDelay: `${i * 50}ms` }}
+            >
+              <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                {f.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-foreground">{f.title}</div>
+                <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">{f.desc}</div>
+              </div>
+              <CheckCircle2 className="w-4 h-4 text-primary/60 flex-shrink-0 mt-0.5" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─── Bet Builder ─── */
 const BetBuilder = () => {
   const [odds, setOdds] = useState("");
@@ -204,6 +327,9 @@ const BetBuilder = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setResult(data as BetSlip);
+      toast.success("Bet slip built successfully!", {
+        description: `${(data as BetSlip).slip?.length || 0} legs at ${(data as BetSlip).combinedOdds?.toFixed(2)}x combined odds`,
+      });
     } catch (e: any) {
       toast.error(e.message || "Failed to build bet");
     } finally {
@@ -333,6 +459,12 @@ const BetBuilder = () => {
       {/* Result */}
       {result?.slip && (
         <div className="rounded-xl border border-primary/20 bg-card/60 backdrop-blur-sm overflow-hidden">
+          {/* Success banner */}
+          <div className="px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-bold text-emerald-400">Bet slip built successfully</span>
+          </div>
+
           <div className="px-4 py-3 border-b border-border bg-primary/5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-foreground">Your Bet Slip</span>
@@ -389,9 +521,16 @@ const BetBuilder = () => {
 
 /* ─── Main Edge Page ─── */
 const EdgePage = () => {
+  const [unlocked, setUnlocked] = useState(isEdgeUnlocked);
   const [tab, setTab] = useState<"picks" | "builder">("picks");
   const [edgeData, setEdgeData] = useState<EdgeData | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const toggleUnlock = () => {
+    const next = !unlocked;
+    setUnlocked(next);
+    localStorage.setItem(EDGE_UNLOCKED_KEY, String(next));
+  };
 
   const fetchEdge = useCallback(async () => {
     setLoading(true);
@@ -409,13 +548,43 @@ const EdgePage = () => {
     }
   }, []);
 
-  useEffect(() => { fetchEdge(); }, [fetchEdge]);
+  useEffect(() => {
+    if (unlocked) fetchEdge();
+  }, [unlocked, fetchEdge]);
 
   const TABS = [
     { id: "picks", label: "Today's Edge", icon: Crosshair },
     { id: "builder", label: "Bet Builder", icon: DollarSign },
   ] as const;
 
+  /* ── Locked state ── */
+  if (!unlocked) {
+    return (
+      <div className="min-h-full p-4 pb-24 max-w-lg mx-auto space-y-5">
+        <div className="text-center space-y-2 pt-2">
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto shadow-lg">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold">Unlock Edge</h1>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+            AI-powered picks, value alerts, and a smart bet builder — your unfair advantage.
+          </p>
+        </div>
+
+        <button
+          onClick={toggleUnlock}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 shadow-md transition-all"
+        >
+          <Zap className="w-4 h-4" />
+          Unlock Edge — Free Trial
+        </button>
+
+        <EdgeLockedTease />
+      </div>
+    );
+  }
+
+  /* ── Unlocked state ── */
   return (
     <div className="min-h-full bg-background">
       {/* Hero banner */}
@@ -426,10 +595,17 @@ const EdgePage = () => {
             <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
               <Crosshair className="w-4.5 h-4.5 text-primary" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-base font-black text-foreground tracking-tight">Edge</h2>
               <p className="text-[10px] text-muted-foreground font-medium">How you win</p>
             </div>
+            <button
+              onClick={toggleUnlock}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground bg-muted/50 transition-colors"
+            >
+              <Unlock className="w-3 h-3" />
+              Lock
+            </button>
           </div>
           {edgeData?.summary && (
             <div className="mt-2.5 flex items-start gap-2 bg-card/60 border border-border rounded-lg px-3 py-2">
@@ -486,7 +662,6 @@ const EdgePage = () => {
               </div>
             ) : (
               <>
-                {/* Best Picks */}
                 {edgeData?.bestPicks?.length ? (
                   <section>
                     <SectionHeader icon={Star} emoji="⭐" title="Best Picks Today" count={edgeData.bestPicks.length} />
@@ -498,7 +673,6 @@ const EdgePage = () => {
                   </section>
                 ) : null}
 
-                {/* High Confidence */}
                 {edgeData?.highConfidence?.length ? (
                   <section>
                     <SectionHeader icon={Lock} emoji="🔒" title="High Confidence" count={edgeData.highConfidence.length} />
@@ -510,7 +684,6 @@ const EdgePage = () => {
                   </section>
                 ) : null}
 
-                {/* Value Alerts */}
                 {edgeData?.valueAlerts?.length ? (
                   <section>
                     <SectionHeader icon={AlertTriangle} emoji="🚨" title="Value Alerts" count={edgeData.valueAlerts.length} />
@@ -522,7 +695,6 @@ const EdgePage = () => {
                   </section>
                 ) : null}
 
-                {/* Undervalued */}
                 {edgeData?.undervalued?.length ? (
                   <section>
                     <SectionHeader icon={Gem} emoji="💎" title="Undervalued Odds" count={edgeData.undervalued.length} />
