@@ -59,6 +59,27 @@ const RISK_LEVELS = [
   { id: "high", label: "High Risk", icon: Zap, desc: "Big odds, bigger risk", color: "text-red-400" },
 ] as const;
 
+const ALL_MARKETS = [
+  { id: "1x2", label: "1X2", category: "Result" },
+  { id: "double_chance", label: "Double Chance", category: "Result" },
+  { id: "draw_no_bet", label: "Draw No Bet", category: "Result" },
+  { id: "over_under_goals", label: "Over/Under Goals", category: "Goals" },
+  { id: "btts", label: "BTTS", category: "Goals" },
+  { id: "correct_score", label: "Correct Score", category: "Goals" },
+  { id: "ht_ft", label: "HT/FT", category: "Goals" },
+  { id: "goal_both_halves", label: "Goal Both Halves", category: "Goals" },
+  { id: "clean_sheet", label: "Clean Sheet", category: "Goals" },
+  { id: "win_to_nil", label: "Win to Nil", category: "Goals" },
+  { id: "corners", label: "Corners", category: "Stats" },
+  { id: "cards", label: "Cards", category: "Stats" },
+  { id: "fouls", label: "Fouls", category: "Stats" },
+  { id: "shots", label: "Shots", category: "Stats" },
+  { id: "shots_on_target", label: "Shots on Target", category: "Stats" },
+  { id: "offsides", label: "Offsides", category: "Stats" },
+] as const;
+
+const MARKET_CATEGORIES = ["Result", "Goals", "Stats"] as const;
+
 /* ─── Confidence badge ─── */
 const ConfidenceBadge = ({ value }: { value: number }) => {
   const color = value >= 75 ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
