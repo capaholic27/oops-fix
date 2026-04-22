@@ -786,13 +786,12 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         {(() => {
           const mentality = computeMentality(allTeamViews.map(v => v.result));
           return (
-            <div className="stat-card opacity-0 animate-fade-up col-span-2" style={{ animationDelay: "475ms" }}>
+            <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "475ms" }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="stat-label">Mentality</span>
-                <span className="text-lg">{mentality.emoji}</span>
+                <span className="text-base">{mentality.emoji}</span>
               </div>
-              <span className="font-mono text-lg font-bold text-foreground leading-none">{mentality.label}</span>
-              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{mentality.description}</p>
+              <span className="stat-value">{mentality.label}</span>
               <div className="mt-2">
                 <div className="probability-bar">
                   <div
@@ -803,7 +802,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
                     }}
                   />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium mt-0.5 block">Intensity: {mentality.intensity}%</span>
+                <span className="text-[10px] text-muted-foreground font-medium mt-0.5 block">{mentality.intensity}%</span>
               </div>
             </div>
           );
