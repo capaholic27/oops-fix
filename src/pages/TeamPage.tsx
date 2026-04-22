@@ -789,10 +789,10 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
             <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "475ms" }}>
               <div className="flex items-center justify-between mb-1">
                 <span className="stat-label">Mentality</span>
-                <span className="text-base">{mentality.emoji}</span>
+                <span className="text-sm">{mentality.emoji}</span>
               </div>
-              <span className="stat-value">{mentality.label}</span>
-              <div className="mt-2">
+              <span className="text-base font-bold leading-tight text-foreground">{mentality.label}</span>
+              <div className="mt-1.5">
                 <div className="probability-bar">
                   <div
                     className="h-full rounded-full transition-all duration-700 ease-out"
@@ -802,7 +802,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
                     }}
                   />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-medium mt-0.5 block">{mentality.intensity}%</span>
+                <span className="text-[9px] text-muted-foreground font-medium mt-0.5 block">{mentality.intensity}%</span>
               </div>
             </div>
           );
