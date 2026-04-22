@@ -526,11 +526,14 @@ const EdgePage = () => {
   const [edgeData, setEdgeData] = useState<EdgeData | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const toggleUnlock = () => {
-    const next = !unlocked;
-    setUnlocked(next);
-    localStorage.setItem(EDGE_UNLOCKED_KEY, String(next));
-  };
+  // Sync with Pro unlock from other components
+  useEffect(() => {
+    const onStorage = () => setUnlocked(isEdgeUnlocked());
+    window.addEventListener("storage", onStorage);
+    // Also poll in case same-tab update
+    const interval = setInterval(() => setUnlocked(isEdgeUnlocked()), 500);
+    return () => { window.removeEventListener("storage", onStorage); clearInterval(interval); };
+  }, []);
 
   const fetchEdge = useCallback(async () => {
     setLoading(true);
