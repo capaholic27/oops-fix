@@ -520,6 +520,7 @@ const BetBuilder = () => {
           riskLevel: risk,
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
           leagueFilter: leagueFilter || undefined,
+          maxLegs: maxLegs || undefined,
         },
       });
       if (error) throw error;
