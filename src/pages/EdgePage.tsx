@@ -501,6 +501,7 @@ const BetBuilder = () => {
   const applyTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
     setOdds(tpl.odds);
     setRisk(tpl.risk);
+    setMaxLegs(tpl.legs);
     toast.info(`Template: ${tpl.label}`, { description: tpl.desc });
   };
 
