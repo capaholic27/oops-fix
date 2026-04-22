@@ -156,6 +156,34 @@ const BetBuilder = () => {
   const [risk, setRisk] = useState<"low" | "medium" | "high">("medium");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BetSlip | null>(null);
+  const [enabledMarkets, setEnabledMarkets] = useState<Set<string>>(
+    () => new Set(ALL_MARKETS.map(m => m.id))
+  );
+  const [showMarkets, setShowMarkets] = useState(false);
+
+  const toggleMarket = (id: string) => {
+    setEnabledMarkets(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        if (next.size <= 1) { toast.error("Keep at least 1 market enabled"); return prev; }
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleCategory = (cat: string) => {
+    const ids = ALL_MARKETS.filter(m => m.category === cat).map(m => m.id);
+    const allOn = ids.every(id => enabledMarkets.has(id));
+    setEnabledMarkets(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => allOn ? next.delete(id) : next.add(id));
+      if (next.size === 0) { toast.error("Keep at least 1 market enabled"); return prev; }
+      return next;
+    });
+  };
 
   const buildBet = async () => {
     const parsed = parseFloat(odds);
