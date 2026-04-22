@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Crosshair, Star, Lock, Gem, BarChart3, AlertTriangle, Loader2,
   TrendingUp, ChevronRight, Zap, Shield, Target, RefreshCw,
-  DollarSign, ArrowRight, CheckCircle2, Info,
+  DollarSign, ArrowRight, CheckCircle2, Info, Filter, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
