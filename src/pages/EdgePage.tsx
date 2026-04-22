@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Crosshair, Star, Lock, Unlock, Gem, BarChart3, AlertTriangle, Loader2,
+  Crosshair, Star, Lock, Gem, BarChart3, AlertTriangle, Loader2,
   TrendingUp, ChevronRight, Zap, Shield, Target, RefreshCw,
   DollarSign, ArrowRight, CheckCircle2, Info, Filter, ChevronDown,
-  Sparkles, Brain, Eye, Percent, Activity, Trophy,
+  Sparkles, Brain, Eye, Percent, Activity,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
