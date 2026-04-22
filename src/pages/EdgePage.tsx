@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Crosshair, Star, Lock, Gem, BarChart3, AlertTriangle, Loader2,
   TrendingUp, ChevronRight, Zap, Shield, Target, RefreshCw,
   DollarSign, ArrowRight, CheckCircle2, Info, Filter, ChevronDown,
-  Sparkles, Brain, Eye, Percent, Activity,
+  Sparkles, Brain, Eye, Percent, Activity, Calendar, Trophy, HelpCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -273,6 +273,194 @@ const EdgeLockedTease = () => {
   );
 };
 
+/* ─── Edge History ─── */
+const EDGE_HISTORY_KEY = "fe_edge_history";
+type EdgeHistoryEntry = {
+  id: string;
+  date: string;
+  slip: BetLeg[];
+  combinedOdds: number;
+  result?: "win" | "loss" | "pending";
+  league?: string;
+  betType?: string;
+};
+
+function loadHistory(): EdgeHistoryEntry[] {
+  try { return JSON.parse(localStorage.getItem(EDGE_HISTORY_KEY) || "[]"); } catch { return []; }
+}
+function saveHistory(h: EdgeHistoryEntry[]) {
+  localStorage.setItem(EDGE_HISTORY_KEY, JSON.stringify(h.slice(0, 100)));
+}
+
+const EdgeHistory = () => {
+  const [history, setHistory] = useState(loadHistory);
+  const [period, setPeriod] = useState<"7" | "30">("7");
+  const [filterLeague, setFilterLeague] = useState("");
+  const [filterType, setFilterType] = useState("");
+
+  const cutoff = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - parseInt(period));
+    return d.toISOString();
+  }, [period]);
+
+  const filtered = useMemo(() => {
+    let items = history.filter(h => h.date >= cutoff);
+    if (filterLeague) items = items.filter(h => h.slip.some(l => l.match.toLowerCase().includes(filterLeague.toLowerCase())));
+    if (filterType) items = items.filter(h => h.betType === filterType);
+    return items;
+  }, [history, cutoff, filterLeague, filterType]);
+
+  const stats = useMemo(() => {
+    const settled = filtered.filter(h => h.result && h.result !== "pending");
+    const wins = settled.filter(h => h.result === "win").length;
+    const total = settled.length;
+    const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : "—";
+    const roi = total > 0
+      ? ((settled.reduce((acc, h) => acc + (h.result === "win" ? h.combinedOdds - 1 : -1), 0) / total) * 100).toFixed(1)
+      : "—";
+    return { wins, total, winRate, roi, pending: filtered.filter(h => h.result === "pending").length };
+  }, [filtered]);
+
+  const leagues = useMemo(() => {
+    const set = new Set<string>();
+    history.forEach(h => h.slip.forEach(l => {
+      const parts = l.match.split(" vs ");
+      if (parts.length === 2) set.add(l.match);
+    }));
+    return Array.from(set).slice(0, 10);
+  }, [history]);
+
+  const markResult = (id: string, result: "win" | "loss") => {
+    const updated = history.map(h => h.id === id ? { ...h, result } : h);
+    setHistory(updated);
+    saveHistory(updated);
+  };
+
+  if (history.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card/60 p-4 text-center space-y-2">
+        <Calendar className="w-6 h-6 text-muted-foreground mx-auto" />
+        <p className="text-xs text-muted-foreground">No edge history yet. Build your first bet to start tracking!</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Trophy className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-bold text-foreground">Edge Performance</h3>
+      </div>
+
+      {/* Period toggle */}
+      <div className="flex gap-2">
+        {(["7", "30"] as const).map(p => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={cn(
+              "text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all",
+              period === p ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+            )}
+          >
+            Past {p} days
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap">
+        <select
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+          className="text-[10px] h-7 rounded-md border border-border bg-background px-2 text-foreground"
+        >
+          <option value="">All types</option>
+          <option value="single">Single</option>
+          <option value="double">Double</option>
+          <option value="accumulator">Accumulator</option>
+        </select>
+      </div>
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+          <p className="text-[10px] text-muted-foreground">Win Rate</p>
+          <p className="text-sm font-black text-foreground">{stats.winRate}%</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+          <p className="text-[10px] text-muted-foreground">ROI</p>
+          <p className={cn("text-sm font-black", parseFloat(stats.roi as string) > 0 ? "text-emerald-400" : parseFloat(stats.roi as string) < 0 ? "text-red-400" : "text-foreground")}>
+            {stats.roi !== "—" ? `${parseFloat(stats.roi as string) > 0 ? "+" : ""}${stats.roi}%` : "—"}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-2.5 text-center">
+          <p className="text-[10px] text-muted-foreground">Record</p>
+          <p className="text-sm font-black text-foreground">{stats.wins}W / {stats.total - stats.wins}L</p>
+        </div>
+      </div>
+
+      {/* Summary message */}
+      {stats.total > 0 && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-primary shrink-0" />
+          <p className="text-[11px] text-foreground">
+            If you followed all edges: <span className="font-bold text-primary">{parseFloat(stats.roi as string) > 0 ? "+" : ""}{stats.roi}%</span> ROI over {stats.total} bets
+          </p>
+        </div>
+      )}
+
+      {/* Recent entries */}
+      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+        {filtered.slice(0, 10).map(entry => (
+          <div key={entry.id} className="rounded-lg border border-border bg-card/60 px-3 py-2 flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold text-foreground truncate">
+                {entry.slip.length} leg{entry.slip.length > 1 ? "s" : ""} @ {entry.combinedOdds.toFixed(2)}x
+              </p>
+              <p className="text-[9px] text-muted-foreground">{new Date(entry.date).toLocaleDateString()}</p>
+            </div>
+            {entry.result === "pending" ? (
+              <div className="flex gap-1">
+                <button onClick={() => markResult(entry.id, "win")} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">W</button>
+                <button onClick={() => markResult(entry.id, "loss")} className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold">L</button>
+              </div>
+            ) : (
+              <span className={cn(
+                "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                entry.result === "win" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+              )}>
+                {entry.result === "win" ? "WON" : "LOST"}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Quick Bet Templates ─── */
+const QUICK_TEMPLATES = [
+  { id: "safe_single", label: "Safe Single", odds: "1.50", risk: "low" as const, legs: 1, desc: "Single low-risk pick" },
+  { id: "quick_double", label: "Quick Double", odds: "3.00", risk: "medium" as const, legs: 2, desc: "Two balanced picks" },
+  { id: "value_treble", label: "Value Treble", odds: "6.00", risk: "medium" as const, legs: 3, desc: "Three value picks" },
+  { id: "big_acca", label: "Big Acca", odds: "15.00", risk: "high" as const, legs: 5, desc: "High odds accumulator" },
+];
+
+/* ─── League list for filter ─── */
+const BET_LEAGUES = [
+  { code: "PL", name: "Premier League" },
+  { code: "BL1", name: "Bundesliga" },
+  { code: "SA", name: "Serie A" },
+  { code: "PD", name: "La Liga" },
+  { code: "FL1", name: "Ligue 1" },
+  { code: "DED", name: "Eredivisie" },
+  { code: "PPL", name: "Primeira Liga" },
+  { code: "ELC", name: "Championship" },
+];
+
 /* ─── Bet Builder ─── */
 const BetBuilder = () => {
   const [odds, setOdds] = useState("");
@@ -283,6 +471,7 @@ const BetBuilder = () => {
     () => new Set(ALL_MARKETS.map(m => m.id))
   );
   const [showMarkets, setShowMarkets] = useState(false);
+  const [leagueFilter, setLeagueFilter] = useState("");
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
@@ -308,6 +497,12 @@ const BetBuilder = () => {
     });
   };
 
+  const applyTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
+    setOdds(tpl.odds);
+    setRisk(tpl.risk);
+    toast.info(`Template: ${tpl.label}`, { description: tpl.desc });
+  };
+
   const buildBet = async () => {
     const parsed = parseFloat(odds);
     if (!parsed || parsed < 1.1 || parsed > 1000) {
@@ -322,13 +517,31 @@ const BetBuilder = () => {
           targetOdds: parsed,
           riskLevel: risk,
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+          leagueFilter: leagueFilter || undefined,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setResult(data as BetSlip);
+      const slip = data as BetSlip;
+      setResult(slip);
+
+      // Save to history
+      const entry: EdgeHistoryEntry = {
+        id: crypto.randomUUID(),
+        date: new Date().toISOString(),
+        slip: slip.slip || [],
+        combinedOdds: slip.combinedOdds || parsed,
+        result: "pending",
+        league: leagueFilter || undefined,
+        betType: (slip.slip?.length || 0) === 1 ? "single" : (slip.slip?.length || 0) === 2 ? "double" : "accumulator",
+      };
+      const history = loadHistory();
+      history.unshift(entry);
+      saveHistory(history);
+
       toast.success("Bet slip built successfully!", {
-        description: `${(data as BetSlip).slip?.length || 0} legs at ${(data as BetSlip).combinedOdds?.toFixed(2)}x combined odds`,
+        description: `${slip.slip?.length || 0} legs at ${slip.combinedOdds?.toFixed(2)}x combined odds`,
+        duration: 5000,
       });
     } catch (e: any) {
       toast.error(e.message || "Failed to build bet");
@@ -337,8 +550,42 @@ const BetBuilder = () => {
     }
   };
 
+  // Check for help message: did AI suggest adding leagues?
+  const needsHelp = result && result.advice && (
+    result.advice.toLowerCase().includes("not enough") ||
+    result.advice.toLowerCase().includes("insufficient") ||
+    result.advice.toLowerCase().includes("add") ||
+    (result.combinedOdds && parseFloat(odds) > 0 && Math.abs(result.combinedOdds - parseFloat(odds)) / parseFloat(odds) > 0.3)
+  );
+
   return (
     <div className="space-y-4">
+      {/* Quick Templates */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Zap className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[10px] font-bold text-foreground uppercase tracking-wider">Quick Templates</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {QUICK_TEMPLATES.map(tpl => (
+            <button
+              key={tpl.id}
+              onClick={() => applyTemplate(tpl)}
+              className={cn(
+                "flex flex-col items-start gap-0.5 p-2.5 rounded-lg border transition-all text-left",
+                odds === tpl.odds && risk === tpl.risk
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-card/40 hover:border-primary/30"
+              )}
+            >
+              <span className="text-[11px] font-bold text-foreground">{tpl.label}</span>
+              <span className="text-[9px] text-muted-foreground">{tpl.desc}</span>
+              <span className="text-[10px] font-mono font-bold text-primary mt-0.5">{tpl.odds}x · {tpl.legs} leg{tpl.legs > 1 ? "s" : ""}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Odds input */}
       <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -355,6 +602,30 @@ const BetBuilder = () => {
           onChange={e => setOdds(e.target.value)}
           className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
+
+        {/* League Filter */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] font-bold text-foreground">League</span>
+          </div>
+          <select
+            value={leagueFilter}
+            onChange={e => setLeagueFilter(e.target.value)}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="">All Leagues</option>
+            {BET_LEAGUES.map(l => (
+              <option key={l.code} value={l.name}>{l.name}</option>
+            ))}
+          </select>
+          {leagueFilter && (
+            <p className="text-[9px] text-muted-foreground">
+              Bet will focus on upcoming {leagueFilter} matches
+            </p>
+          )}
+        </div>
+
         {/* Risk selector */}
         <div className="grid grid-cols-3 gap-2">
           {RISK_LEVELS.map(r => {
@@ -513,8 +784,36 @@ const BetBuilder = () => {
               )}
             </div>
           )}
+
+          {/* Help message when odds don't match */}
+          {needsHelp && (
+            <div className="px-4 py-3 border-t border-amber-500/20 bg-amber-500/5">
+              <div className="flex items-start gap-2">
+                <HelpCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-amber-400">Not enough matches to hit your target odds</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {leagueFilter
+                      ? `${leagueFilter} may not have enough fixtures today. Try adding more leagues or lowering your target odds.`
+                      : "Try adding more leagues or adjusting your target odds for better results."}
+                  </p>
+                  {leagueFilter && (
+                    <button
+                      onClick={() => { setLeagueFilter(""); toast.info("League filter cleared — will search all leagues"); }}
+                      className="text-[10px] font-bold text-primary hover:underline mt-1"
+                    >
+                      Remove league filter & rebuild →
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Edge History */}
+      <EdgeHistory />
     </div>
   );
 };
