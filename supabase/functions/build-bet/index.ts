@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, availableMatches } = await req.json();
+    const { targetOdds, riskLevel, availableMatches, enabledMarkets } = await req.json();
 
     if (!targetOdds || !riskLevel) {
       return new Response(JSON.stringify({ error: "Missing targetOdds or riskLevel" }), {
