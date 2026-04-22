@@ -574,13 +574,7 @@ const EdgePage = () => {
           </p>
         </div>
 
-        <button
-          onClick={toggleUnlock}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 shadow-md transition-all"
-        >
-          <Zap className="w-4 h-4" />
-          Unlock Edge — Free Trial
-        </button>
+        <p className="text-xs text-muted-foreground mt-1">Unlock via the <span className="font-bold text-primary">Pro</span> page to access Edge.</p>
 
         <EdgeLockedTease />
       </div>
@@ -602,13 +596,7 @@ const EdgePage = () => {
               <h2 className="text-base font-black text-foreground tracking-tight">Edge</h2>
               <p className="text-[10px] text-muted-foreground font-medium">How you win</p>
             </div>
-            <button
-              onClick={toggleUnlock}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-muted-foreground hover:text-foreground bg-muted/50 transition-colors"
-            >
-              <Unlock className="w-3 h-3" />
-              Lock
-            </button>
+            <span className="px-2 py-0.5 rounded-md bg-primary/15 text-primary text-[10px] font-bold">PRO</span>
           </div>
           {edgeData?.summary && (
             <div className="mt-2.5 flex items-start gap-2 bg-card/60 border border-border rounded-lg px-3 py-2">
