@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  CalendarDays, Lock, Zap, Newspaper, User, RefreshCw,
+  CalendarDays, Lock, Zap, Crosshair, User, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSyncData } from "@/hooks/useMatches";
@@ -10,7 +10,7 @@ import { applyTheme, getStoredTheme } from "@/lib/themes";
 import UpcomingGamesPage from "@/pages/UpcomingGamesPage";
 import PremiumPage from "@/pages/PremiumPage";
 import TeamPage from "@/pages/TeamPage";
-import NewsPage from "@/pages/NewsPage";
+import EdgePage from "@/pages/EdgePage";
 import ProfilePage from "@/pages/ProfilePage";
 import { AdBanner } from "@/components/AdBanner";
 
@@ -18,7 +18,7 @@ const PAGES = [
   { id: "upcoming", label: "Games", icon: CalendarDays },
   { id: "premium", label: "Pro", icon: Lock },
   { id: "team", label: "Stats", icon: Zap },
-  { id: "news", label: "News", icon: Newspaper },
+  { id: "edge", label: "Edge", icon: Crosshair },
   { id: "profile", label: "You", icon: User },
 ];
 
@@ -105,7 +105,7 @@ const Index = () => {
             <TeamPage key={resetKeys[2]} />
           </div>
           <div className={cn("w-full h-full", 3 !== activePage && "hidden")}>
-            <NewsPage key={resetKeys[3]} />
+            <EdgePage key={resetKeys[3]} />
           </div>
           <div className={cn("w-full h-full", 4 !== activePage && "hidden")}>
             <ProfilePage key={resetKeys[4]} />
