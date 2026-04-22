@@ -564,17 +564,32 @@ const EdgePage = () => {
   if (!unlocked) {
     return (
       <div className="min-h-full p-4 pb-24 max-w-lg mx-auto space-y-5">
-        <div className="text-center space-y-2 pt-2">
-          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto shadow-lg">
-            <Lock className="w-8 h-8 text-muted-foreground" />
+        <div className="text-center space-y-3 pt-2">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto shadow-lg">
+            <Lock className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold">Unlock Edge</h1>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto">
             AI-powered picks, value alerts, and a smart bet builder — your unfair advantage.
           </p>
-        </div>
 
-        <p className="text-xs text-muted-foreground mt-1">Unlock via the <span className="font-bold text-primary">Pro</span> page to access Edge.</p>
+          {/* Clear Pro unlock CTA */}
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2 mt-2">
+            <div className="flex items-center justify-center gap-2">
+              <Gem className="w-4 h-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">Edge is included with Pro</span>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Upgrade to <span className="font-bold text-primary">Pro</span> to unlock full access to Edge — AI picks, bet builder, value alerts, and all premium analytics in one subscription.
+            </p>
+            <a
+              href="/premium"
+              className="inline-flex items-center gap-1.5 mt-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors"
+            >
+              Go to Pro <ArrowRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </div>
 
         <EdgeLockedTease />
       </div>
