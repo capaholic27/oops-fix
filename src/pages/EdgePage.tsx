@@ -472,6 +472,7 @@ const BetBuilder = () => {
   );
   const [showMarkets, setShowMarkets] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState("");
+  const [maxLegs, setMaxLegs] = useState<number | null>(null);
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
@@ -500,6 +501,7 @@ const BetBuilder = () => {
   const applyTemplate = (tpl: typeof QUICK_TEMPLATES[0]) => {
     setOdds(tpl.odds);
     setRisk(tpl.risk);
+    setMaxLegs(tpl.legs);
     toast.info(`Template: ${tpl.label}`, { description: tpl.desc });
   };
 
@@ -518,6 +520,7 @@ const BetBuilder = () => {
           riskLevel: risk,
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
           leagueFilter: leagueFilter || undefined,
+          maxLegs: maxLegs || undefined,
         },
       });
       if (error) throw error;

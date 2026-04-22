@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, availableMatches, enabledMarkets, leagueFilter } = await req.json();
+    const { targetOdds, riskLevel, availableMatches, enabledMarkets, leagueFilter, maxLegs } = await req.json();
 
     if (!targetOdds || !riskLevel) {
       return new Response(JSON.stringify({ error: "Missing targetOdds or riskLevel" }), {
@@ -45,9 +45,11 @@ ${markets.map(m => `- ${m}`).join("\n")}
 RULES:
 - User provides a TARGET combined odds and a RISK LEVEL (low, medium, high).
 - You must construct a bet slip that approximately hits the target odds.
-- Low risk: favor heavy favorites, safer markets. Max 2-3 legs.
-- Medium risk: mix result markets with stat markets. 3-4 legs allowed.
-- High risk: include underdogs, correct scores, combos. 4-6 legs allowed.
+- If a REQUIRED NUMBER OF LEGS is specified, you MUST use EXACTLY that many legs. Do not add more or fewer.
+- If no required legs count is given, use these defaults:
+  - Low risk: favor heavy favorites, safer markets. Max 2-3 legs.
+  - Medium risk: mix result markets with stat markets. 3-4 legs allowed.
+  - High risk: include underdogs, correct scores, combos. 4-6 legs allowed.
 - USE DIVERSE MARKETS from the allowed list — don't repeat the same market type.
 - Each leg must have a clear data-driven reason referencing team tendencies.
 - Show individual odds per leg and the combined accumulator odds.
@@ -69,6 +71,7 @@ Be realistic. Calibrate odds to actual football probabilities. Never guarantee w
 
 TARGET ODDS: ${targetOdds}
 RISK LEVEL: ${riskLevel}
+${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs. This is mandatory — do not use more or fewer.` : ""}
 ${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter} — prioritize upcoming matches from this league. If there aren't enough matches in this league to reach the target odds, clearly state this in your "advice" field and suggest which additional leagues or matches could be added to reach the target.` : ""}
 
 ${availableMatches ? `AVAILABLE MATCHES & MODEL DATA:\n${JSON.stringify(availableMatches, null, 2)}` : "Use typical Premier League / top European league matches for today. Generate realistic example matches with calibrated odds."}
