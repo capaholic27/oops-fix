@@ -69,6 +69,7 @@ Be realistic. Calibrate odds to actual football probabilities. Never guarantee w
 
 TARGET ODDS: ${targetOdds}
 RISK LEVEL: ${riskLevel}
+${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter} — prioritize upcoming matches from this league. If there aren't enough matches in this league to reach the target odds, clearly state this in your "advice" field and suggest which additional leagues or matches could be added to reach the target.` : ""}
 
 ${availableMatches ? `AVAILABLE MATCHES & MODEL DATA:\n${JSON.stringify(availableMatches, null, 2)}` : "Use typical Premier League / top European league matches for today. Generate realistic example matches with calibrated odds."}
 
