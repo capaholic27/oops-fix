@@ -9,9 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const EDGE_UNLOCKED_KEY = "fe_edge_unlocked";
+const PREMIUM_UNLOCKED_KEY = "fe_premium_unlocked";
 function isEdgeUnlocked(): boolean {
-  try { return localStorage.getItem(EDGE_UNLOCKED_KEY) === "true"; } catch { return false; }
+  try { return localStorage.getItem(PREMIUM_UNLOCKED_KEY) === "true"; } catch { return false; }
 }
 
 /* ─── Types ─── */
