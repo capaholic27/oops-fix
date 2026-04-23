@@ -786,24 +786,22 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         {(() => {
           const mentality = computeMentality(allTeamViews.map(v => v.result));
           return (
-            <div className="stat-card opacity-0 animate-fade-up" style={{ animationDelay: "475ms" }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="stat-label">Mentality</span>
-                <span className="text-sm">{mentality.emoji}</span>
+            <div className="rounded-2xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "475ms" }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
+                <span className="text-base leading-none">{mentality.emoji}</span>
               </div>
-              <span className="text-base font-bold leading-tight text-foreground">{mentality.label}</span>
-              <div className="mt-1.5">
-                <div className="probability-bar">
-                  <div
-                    className="h-full rounded-full transition-all duration-700 ease-out"
-                    style={{
-                      width: `${mentality.intensity}%`,
-                      background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
-                    }}
-                  />
-                </div>
-                <span className="text-[9px] text-muted-foreground font-medium mt-0.5 block">{mentality.intensity}%</span>
+              <div className="font-mono text-sm font-bold text-foreground leading-tight">{mentality.label}</div>
+              <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${mentality.intensity}%`,
+                    background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
+                  }}
+                />
               </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug line-clamp-2">{mentality.description}</p>
             </div>
           );
         })()}
