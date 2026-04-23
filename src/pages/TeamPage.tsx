@@ -563,10 +563,13 @@ export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-3 shadow-sm">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1">
         <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Player Leaderboard</span>
         <span className="text-[9px] font-mono text-muted-foreground">TOP 5</span>
       </div>
+      <p className="text-[9px] text-muted-foreground mb-2">
+        {realPlayers.length > 0 ? "2025/26 season stats from official data" : "Current season estimates"}
+      </p>
       <div className="flex gap-1.5 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
         {categories.map((cat) => (
           <button
