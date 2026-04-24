@@ -276,14 +276,16 @@ const EdgeLockedTease = () => {
 
 /* ─── Edge History ─── */
 const EDGE_HISTORY_KEY = "fe_edge_history";
+type EdgeLegStored = BetLeg & { matchDate?: string; settledAs?: "win" | "loss" | "push" | "unknown"; actual?: string };
 type EdgeHistoryEntry = {
   id: string;
   date: string;
-  slip: BetLeg[];
+  slip: EdgeLegStored[];
   combinedOdds: number;
-  result?: "win" | "loss" | "pending";
+  result?: "win" | "loss" | "pending" | "unknown";
   league?: string;
   betType?: string;
+  settledAt?: string;
 };
 
 function loadHistory(): EdgeHistoryEntry[] {
@@ -298,12 +300,56 @@ const EdgeHistory = () => {
   const [period, setPeriod] = useState<"7" | "30">("7");
   const [filterLeague, setFilterLeague] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [settling, setSettling] = useState(false);
 
   const cutoff = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - parseInt(period));
     return d.toISOString();
   }, [period]);
+
+  const runSettlement = useCallback(async (silent = true) => {
+    const current = loadHistory();
+    const pending = current.filter(h => !h.result || h.result === "pending" || h.result === "unknown");
+    if (pending.length === 0) {
+      if (!silent) toast.info("Nothing to settle");
+      return;
+    }
+    setSettling(true);
+    let changed = 0;
+    for (const entry of pending) {
+      const legs: SettleableLeg[] = entry.slip.map(l => ({
+        match: l.match,
+        market: l.market,
+        odds: l.odds,
+        matchDate: l.matchDate,
+      }));
+      try {
+        const { legResults, finalResult } = await settleSlip(legs, entry.date);
+        if (finalResult !== "pending") {
+          entry.result = finalResult;
+          entry.settledAt = new Date().toISOString();
+          entry.slip = entry.slip.map((l, i) => ({
+            ...l,
+            settledAs: legResults[i]?.result,
+            actual: legResults[i]?.actual,
+          }));
+          changed++;
+        }
+      } catch (e) {
+        console.error("Settle error:", e);
+      }
+    }
+    saveHistory(current);
+    setHistory(current);
+    setSettling(false);
+    if (!silent && changed > 0) toast.success(`Settled ${changed} bet${changed > 1 ? "s" : ""}`);
+    else if (!silent) toast.info("No bets ready to settle yet");
+  }, []);
+
+  useEffect(() => {
+    runSettlement(true);
+  }, [runSettlement]);
 
   const filtered = useMemo(() => {
     let items = history.filter(h => h.date >= cutoff);
@@ -313,30 +359,16 @@ const EdgeHistory = () => {
   }, [history, cutoff, filterLeague, filterType]);
 
   const stats = useMemo(() => {
-    const settled = filtered.filter(h => h.result && h.result !== "pending");
+    const settled = filtered.filter(h => h.result === "win" || h.result === "loss");
     const wins = settled.filter(h => h.result === "win").length;
     const total = settled.length;
     const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : "—";
     const roi = total > 0
       ? ((settled.reduce((acc, h) => acc + (h.result === "win" ? h.combinedOdds - 1 : -1), 0) / total) * 100).toFixed(1)
       : "—";
-    return { wins, total, winRate, roi, pending: filtered.filter(h => h.result === "pending").length };
+    const pending = filtered.filter(h => !h.result || h.result === "pending" || h.result === "unknown").length;
+    return { wins, total, winRate, roi, pending };
   }, [filtered]);
-
-  const leagues = useMemo(() => {
-    const set = new Set<string>();
-    history.forEach(h => h.slip.forEach(l => {
-      const parts = l.match.split(" vs ");
-      if (parts.length === 2) set.add(l.match);
-    }));
-    return Array.from(set).slice(0, 10);
-  }, [history]);
-
-  const markResult = (id: string, result: "win" | "loss") => {
-    const updated = history.map(h => h.id === id ? { ...h, result } : h);
-    setHistory(updated);
-    saveHistory(updated);
-  };
 
   if (history.length === 0) {
     return (
@@ -352,7 +384,20 @@ const EdgeHistory = () => {
       <div className="flex items-center gap-2">
         <Trophy className="w-4 h-4 text-primary" />
         <h3 className="text-sm font-bold text-foreground">Edge Performance</h3>
+        <button
+          onClick={() => runSettlement(false)}
+          disabled={settling}
+          className="ml-auto text-[10px] font-bold px-2 py-1 rounded border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors flex items-center gap-1"
+          title="Auto-check past results"
+        >
+          <RefreshCw className={cn("w-3 h-3", settling && "animate-spin")} />
+          {settling ? "Checking..." : "Auto-settle"}
+        </button>
       </div>
+
+      <p className="text-[10px] text-muted-foreground">
+        Results are auto-verified against actual match data — no manual marking.
+      </p>
 
       {/* Period toggle */}
       <div className="flex gap-2">
@@ -402,6 +447,12 @@ const EdgeHistory = () => {
         </div>
       </div>
 
+      {stats.pending > 0 && (
+        <p className="text-[10px] text-muted-foreground text-center">
+          {stats.pending} bet{stats.pending > 1 ? "s" : ""} awaiting match results
+        </p>
+      )}
+
       {/* Summary message */}
       {stats.total > 0 && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 flex items-center gap-2">
@@ -422,11 +473,14 @@ const EdgeHistory = () => {
               </p>
               <p className="text-[9px] text-muted-foreground">{new Date(entry.date).toLocaleDateString()}</p>
             </div>
-            {entry.result === "pending" ? (
-              <div className="flex gap-1">
-                <button onClick={() => markResult(entry.id, "win")} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">W</button>
-                <button onClick={() => markResult(entry.id, "loss")} className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold">L</button>
-              </div>
+            {(!entry.result || entry.result === "pending") ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                PENDING
+              </span>
+            ) : entry.result === "unknown" ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400" title="Could not verify some legs">
+                N/A
+              </span>
             ) : (
               <span className={cn(
                 "text-[10px] font-bold px-1.5 py-0.5 rounded",
