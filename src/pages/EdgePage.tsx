@@ -465,32 +465,9 @@ const EdgeHistory = () => {
       )}
 
       {/* Recent entries */}
-      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+      <div className="space-y-1.5 max-h-72 overflow-y-auto">
         {filtered.slice(0, 10).map(entry => (
-          <div key={entry.id} className="rounded-lg border border-border bg-card/60 px-3 py-2 flex items-center justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold text-foreground truncate">
-                {entry.slip.length} leg{entry.slip.length > 1 ? "s" : ""} @ {entry.combinedOdds.toFixed(2)}x
-              </p>
-              <p className="text-[9px] text-muted-foreground">{new Date(entry.date).toLocaleDateString()}</p>
-            </div>
-            {(!entry.result || entry.result === "pending") ? (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                PENDING
-              </span>
-            ) : entry.result === "unknown" ? (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400" title="Could not verify some legs">
-                N/A
-              </span>
-            ) : (
-              <span className={cn(
-                "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                entry.result === "win" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
-              )}>
-                {entry.result === "win" ? "WON" : "LOST"}
-              </span>
-            )}
-          </div>
+          <ExpandableHistoryEntry key={entry.id} entry={entry} />
         ))}
       </div>
     </div>
