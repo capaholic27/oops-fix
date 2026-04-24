@@ -8,6 +8,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { settleSlip, type SettleableLeg } from "@/lib/betSettlement";
 
 const PREMIUM_UNLOCKED_KEY = "fe_premium_unlocked";
 function isEdgeUnlocked(): boolean {
