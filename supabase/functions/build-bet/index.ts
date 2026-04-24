@@ -57,13 +57,15 @@ RULES:
 - Format output as JSON with this structure:
 {
   "slip": [
-    { "match": "Team A vs Team B", "market": "Over 9.5 Corners", "odds": 1.85, "confidence": "high", "reason": "Both teams average 5.5+ corners per game" }
+    { "match": "Team A vs Team B", "matchDate": "YYYY-MM-DD", "market": "Over 9.5 Corners", "odds": 1.85, "confidence": "high", "reason": "Both teams average 5.5+ corners per game" }
   ],
   "combinedOdds": 3.2,
   "riskAssessment": "...",
   "expectedValue": "...",
   "advice": "..."
 }
+
+CRITICAL: For each leg, include "matchDate" in YYYY-MM-DD format using the upcoming match date from the AVAILABLE MATCHES context (or today/tomorrow if no context). This is required for automatic result verification.
 
 Be realistic. Calibrate odds to actual football probabilities. Never guarantee wins.`;
 
