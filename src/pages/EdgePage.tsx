@@ -296,6 +296,101 @@ function saveHistory(h: EdgeHistoryEntry[]) {
   localStorage.setItem(EDGE_HISTORY_KEY, JSON.stringify(h.slice(0, 100)));
 }
 
+/* ─── Expandable History Entry ─── */
+const ExpandableHistoryEntry = ({ entry }: { entry: EdgeHistoryEntry }) => {
+  const [open, setOpen] = useState(false);
+  const isPending = !entry.result || entry.result === "pending";
+  const isUnknown = entry.result === "unknown";
+
+  return (
+    <div className="rounded-lg border border-border bg-card/60 overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-3 py-2 flex items-center justify-between gap-2 hover:bg-muted/30 transition-colors"
+      >
+        <div className="min-w-0 flex-1 text-left">
+          <p className="text-[10px] font-bold text-foreground truncate">
+            {entry.slip.length} leg{entry.slip.length > 1 ? "s" : ""} @ {entry.combinedOdds.toFixed(2)}x
+          </p>
+          <p className="text-[9px] text-muted-foreground">{new Date(entry.date).toLocaleDateString()}</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {isPending ? (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">PENDING</span>
+          ) : isUnknown ? (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">N/A</span>
+          ) : (
+            <span className={cn(
+              "text-[10px] font-bold px-1.5 py-0.5 rounded",
+              entry.result === "win" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+            )}>
+              {entry.result === "win" ? "WON" : "LOST"}
+            </span>
+          )}
+          <ChevronDown className={cn("w-3 h-3 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </div>
+      </button>
+      {open && (
+        <div className="border-t border-border divide-y divide-border bg-background/40">
+          {entry.slip.map((leg, i) => {
+            const settled = leg.settledAs;
+            const isWin = settled === "win";
+            const isLoss = settled === "loss";
+            return (
+              <div key={i} className="px-3 py-2 space-y-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold text-foreground truncate">{leg.match}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-[9px] font-semibold bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground">
+                        {leg.market}
+                      </span>
+                      <span className="text-[9px] font-mono font-bold text-primary">{leg.odds?.toFixed(2)}x</span>
+                    </div>
+                  </div>
+                  {settled === "win" && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 shrink-0">✓ WON</span>
+                  )}
+                  {settled === "loss" && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 shrink-0">✗ LOST</span>
+                  )}
+                  {settled === "push" && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">PUSH</span>
+                  )}
+                  {(!settled || settled === "unknown") && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 shrink-0">PENDING</span>
+                  )}
+                </div>
+                {leg.actual && (
+                  <p className={cn(
+                    "text-[10px] font-mono",
+                    isWin ? "text-emerald-400" : isLoss ? "text-red-400" : "text-muted-foreground"
+                  )}>
+                    Actual: {leg.actual}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+          {!isPending && !isUnknown && (
+            <div className="px-3 py-2 bg-muted/30 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-muted-foreground">Final</span>
+              <span className={cn(
+                "text-[10px] font-black",
+                entry.result === "win" ? "text-emerald-400" : "text-red-400"
+              )}>
+                {entry.result === "win"
+                  ? `+${(entry.combinedOdds - 1).toFixed(2)}u`
+                  : `-1.00u`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const EdgeHistory = () => {
   const [history, setHistory] = useState(loadHistory);
   const [period, setPeriod] = useState<"7" | "30">("7");
