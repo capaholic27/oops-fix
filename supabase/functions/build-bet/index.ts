@@ -46,6 +46,18 @@ RULES:
 - User provides a TARGET combined odds and a RISK LEVEL (low, medium, high).
 - You must construct a bet slip that approximately hits the target odds.
 - If a REQUIRED NUMBER OF LEGS is specified, you MUST use EXACTLY that many legs. Do not add more or fewer.
+- ODDS CALIBRATION (CRITICAL): Each leg's odds MUST match what real bookmakers (Bet365, Pinnacle, William Hill) would offer for that market. Use realistic implied probabilities:
+  • Heavy favorite ML: 1.20-1.50
+  • Moderate favorite: 1.55-1.90
+  • Even matchup: 1.95-2.20
+  • Underdog: 2.30-4.50
+  • Big underdog: 5.00+
+  • Over 2.5 goals (avg game): 1.85-2.05
+  • BTTS Yes (avg): 1.70-1.95
+  • Over 9.5 corners: 1.85-2.10
+  • Over 4.5 cards: 1.90-2.15
+  • Correct score: 6.00-15.00 typical
+- Combined odds = product of all leg odds (rounded to 2 decimals). Be exact.
 - If no required legs count is given, use these defaults:
   - Low risk: favor heavy favorites, safer markets. Max 2-3 legs.
   - Medium risk: mix result markets with stat markets. 3-4 legs allowed.
