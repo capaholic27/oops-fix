@@ -730,9 +730,26 @@ const BetBuilder = () => {
           max="1000"
           placeholder="e.g. 3.50"
           value={odds}
-          onChange={e => setOdds(e.target.value)}
+          onChange={e => {
+            setOdds(e.target.value);
+            // User-entered odds override any active template leg count
+            if (maxLegs !== null) setMaxLegs(null);
+          }}
           className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
+        {maxLegs !== null ? (
+          <div className="flex items-center justify-between text-[10px]">
+            <span className="text-muted-foreground">Template lock: <span className="font-bold text-primary">{maxLegs} legs</span></span>
+            <button
+              onClick={() => setMaxLegs(null)}
+              className="text-primary font-bold hover:underline"
+            >
+              Clear · use odds only
+            </button>
+          </div>
+        ) : (
+          <p className="text-[10px] text-muted-foreground">AI will pick the optimal number of legs to hit your target odds.</p>
+        )}
 
         {/* League Filter */}
         <div className="space-y-1.5">
