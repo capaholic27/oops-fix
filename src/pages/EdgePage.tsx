@@ -730,7 +730,11 @@ const BetBuilder = () => {
           max="1000"
           placeholder="e.g. 3.50"
           value={odds}
-          onChange={e => setOdds(e.target.value)}
+          onChange={e => {
+            setOdds(e.target.value);
+            // User-entered odds override any active template leg count
+            if (maxLegs !== null) setMaxLegs(null);
+          }}
           className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
 
