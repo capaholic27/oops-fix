@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useSyncApiFootball } from "@/hooks/useMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -39,11 +39,11 @@ import { cn } from "@/lib/utils";
 
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
-/* Top leagues for the box grid (domestic leagues only, no tournaments) */
-const TOP_LEAGUES = [
-  "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1",
-  "Eredivisie", "Primeira Liga", "Championship", "Major League Soccer",
-];
+/* Top leagues for the box grid (domestic leagues only, no tournaments).
+ * Imported from shared premium helper so Stats + Pro pages stay in sync. */
+import { TOP_LEAGUES, TOP_LEAGUES_SET, isPremiumUnlocked, subscribePremium } from "@/lib/premium";
+import { Lock } from "lucide-react";
+
 
 /* ─── Form Strip ─── */
 const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
@@ -123,6 +123,25 @@ const LeagueSelector = ({
   const [showFavSearch, setShowFavSearch] = useState(false);
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
 
+  // Pro / Free tier gating — free users can only access top-9 leagues.
+  const [unlocked, setUnlocked] = useState<boolean>(isPremiumUnlocked());
+  useEffect(() => subscribePremium(setUnlocked), []);
+  const canAccessLeague = (name: string) => unlocked || TOP_LEAGUES_SET.has(name);
+  const tryOpenLeague = (l: { code: string; name: string }) => {
+    if (!canAccessLeague(l.name)) {
+      toast.error(`${l.name} is a Pro league — unlock Pro to access all leagues.`);
+      return;
+    }
+    setSelectedLeague(l);
+  };
+  const trySelectTeam = (team: string, leagueCode: string, leagueName?: string) => {
+    if (leagueName && !canAccessLeague(leagueName)) {
+      toast.error(`${leagueName} is a Pro league — unlock Pro to access all leagues.`);
+      return;
+    }
+    onSelectTeam(team, leagueCode);
+  };
+
   const teamsByLeague = useMemo(() => {
     const map: Record<string, string[]> = {};
     leagues.forEach((l) => {
@@ -136,16 +155,19 @@ const LeagueSelector = ({
 
   const searchResults = useMemo(() => {
     if (!searchLower) return null;
-    const results: { team: string; league: { code: string; name: string } }[] = [];
+    const results: { team: string; league: { code: string; name: string }; locked: boolean }[] = [];
     leagues.forEach((l) => {
       (teamsByLeague[l.code] || []).forEach((team) => {
         if (team.toLowerCase().includes(searchLower)) {
-          results.push({ team, league: l });
+          const locked = !canAccessLeague(l.name);
+          results.push({ team, league: l, locked });
         }
       });
     });
+    // Show allowed first, then locked
+    results.sort((a, b) => Number(a.locked) - Number(b.locked));
     return results;
-  }, [searchLower, leagues, teamsByLeague]);
+  }, [searchLower, leagues, teamsByLeague, unlocked]);
 
   // Top leagues that exist in our data
   const topLeagues = useMemo(() => {
@@ -205,7 +227,7 @@ const LeagueSelector = ({
               className="flex items-center border-b border-border last:border-b-0"
             >
               <button
-                onClick={() => onSelectTeam(team, selectedLeague.code)}
+                onClick={() => trySelectTeam(team, selectedLeague.code, selectedLeague.name)}
                 className="flex-1 text-left px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-3"
               >
                 <TeamLogo teamName={team} size="sm" />
@@ -278,17 +300,18 @@ const LeagueSelector = ({
           {searchResults.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">No teams found</p>
           )}
-          {searchResults.map(({ team, league: l }) => (
-            <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
+          {searchResults.map(({ team, league: l, locked }) => (
+            <div key={`${l.code}-${team}`} className={cn("flex items-center border-b border-border last:border-b-0", locked && "opacity-60")}>
               <button
-                onClick={() => onSelectTeam(team, l.code)}
+                onClick={() => trySelectTeam(team, l.code, l.name)}
                 className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
               >
                 <TeamLogo teamName={team} size="sm" />
-                <div>
+                <div className="flex-1 min-w-0">
                   <span className="font-medium">{team}</span>
                   <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
                 </div>
+                {locked && <Lock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
               </button>
               <button
                 onClick={() => toggleFavorite(team)}
@@ -312,7 +335,7 @@ const LeagueSelector = ({
                     return (
                       <button
                         key={`fav-${fav.team}`}
-                        onClick={() => onSelectTeam(fav.team, fav.league.code)}
+                        onClick={() => trySelectTeam(fav.team, fav.league.code, fav.league.name)}
                         className="relative flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
                       >
                         <button
@@ -398,7 +421,7 @@ const LeagueSelector = ({
               {topLeagues.map((l) => (
                 <button
                   key={l.code}
-                  onClick={() => setSelectedLeague(l)}
+                  onClick={() => tryOpenLeague(l)}
                   className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
                 >
                   <LeagueLogo leagueName={l.name} size="md" />
@@ -408,20 +431,32 @@ const LeagueSelector = ({
             </div>
           )}
 
-          {/* All leagues list */}
+          {/* All leagues list — locked leagues are visible but require Pro */}
           {filter === "all" && (
             <div className="space-y-2">
-              {leagues.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => setSelectedLeague(l)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
-                >
-                  <LeagueLogo leagueName={l.name} size="sm" />
-                  <span className="text-sm font-medium flex-1">{l.name}</span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              ))}
+              {leagues.map((l) => {
+                const locked = !canAccessLeague(l.name);
+                return (
+                  <button
+                    key={l.code}
+                    onClick={() => tryOpenLeague(l)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left",
+                      locked && "opacity-60"
+                    )}
+                  >
+                    <LeagueLogo leagueName={l.name} size="sm" />
+                    <span className="text-sm font-medium flex-1">{l.name}</span>
+                    {locked ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        <Lock className="w-3 h-3" /> Pro
+                      </span>
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 

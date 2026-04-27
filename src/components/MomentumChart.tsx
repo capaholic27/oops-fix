@@ -117,7 +117,9 @@ function generateFallbackPlayers(views: TeamMatchView[], teamName: string): Play
   if (views.length === 0) return [];
   const avgGF = views.reduce((s, v) => s + v.goalsFor, 0) / views.length;
   const avgShots = views.reduce((s, v) => s + v.shotsFor, 0) / views.length;
+  // Full 25-man squad — starters first, then rotation, then backups.
   const positions: { pos: string; mult: number }[] = [
+    // Starting XI
     { pos: "ST", mult: 1.0 },
     { pos: "AM", mult: 0.85 },
     { pos: "RW", mult: 0.78 },
@@ -128,8 +130,23 @@ function generateFallbackPlayers(views: TeamMatchView[], teamName: string): Play
     { pos: "CB", mult: 0.42 },
     { pos: "RB", mult: 0.5 },
     { pos: "LB", mult: 0.48 },
-    { pos: "MF", mult: 0.4 },
     { pos: "GK", mult: 0.25 },
+    // Bench / rotation
+    { pos: "ST", mult: 0.55 },
+    { pos: "AM", mult: 0.5 },
+    { pos: "RW", mult: 0.45 },
+    { pos: "LW", mult: 0.42 },
+    { pos: "MF", mult: 0.4 },
+    { pos: "MF", mult: 0.36 },
+    { pos: "DM", mult: 0.34 },
+    { pos: "CB", mult: 0.32 },
+    { pos: "RB", mult: 0.3 },
+    { pos: "LB", mult: 0.28 },
+    { pos: "GK", mult: 0.18 },
+    // Youth / depth
+    { pos: "MF", mult: 0.22 },
+    { pos: "ST", mult: 0.2 },
+    { pos: "CB", mult: 0.18 },
   ];
   const squad = getSyntheticSquad(teamName, positions.length);
   return positions.map((p, i) => ({
@@ -154,12 +171,14 @@ export const MomentumChart = ({ views, teamName }: Props) => {
   const players = useMemo<PlayerProfile[]>(() => {
     if (realPlayers.length > 0) {
       // Sort by attacking impact so the star players appear first.
+      // Show the full squad (no cap) — users want to browse every player.
       return realPlayers
         .map(realToProfile)
-        .sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists))
-        .slice(0, 30);
+        .sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists));
     }
-    return PLAYER_PROFILES[teamName] ?? generateFallbackPlayers(views, teamName);
+    // Fallback: generate a full synthetic squad (~25 players) so the card
+    // never collapses to just a handful when the real-squad fetch fails.
+    return generateFallbackPlayers(views, teamName);
   }, [realPlayers, views, teamName]);
 
   const [selectedIdx, setSelectedIdx] = useState(0);

@@ -27,10 +27,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const PREMIUM_UNLOCKED_KEY = "fe_premium_unlocked";
-function isPremiumUnlocked(): boolean {
-  try { return localStorage.getItem(PREMIUM_UNLOCKED_KEY) === "true"; } catch { return false; }
-}
+import { PREMIUM_UNLOCKED_KEY, isPremiumUnlocked, emitPremiumChanged } from "@/lib/premium";
 
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
@@ -955,6 +952,7 @@ const PremiumPage = () => {
     const next = !unlocked;
     setUnlocked(next);
     localStorage.setItem(PREMIUM_UNLOCKED_KEY, String(next));
+    emitPremiumChanged();
   };
 
   if (isLoading) {
