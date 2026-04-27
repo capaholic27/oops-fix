@@ -70,43 +70,70 @@ async function findTeamId(teamName: string, apiKey: string): Promise<number | nu
   return null;
 }
 
-async function fetchSquadStats(teamId: number, season: number, apiKey: string): Promise<ApiPlayer[]> {
-  // /players?team=X&season=Y is paginated
-  const all: any[] = [];
+/**
+ * Fetches the CURRENT squad (1 API call) and enriches with last-season stats (paginated).
+ * Returns ApiPlayer[] for ALL roster members, even if they have no stats yet.
+ * `maxStatsCalls` limits the pagination cost; remaining unused calls should be refunded by caller.
+ * Returns { players, callsUsed }.
+ */
+async function fetchSquadWithStats(
+  teamId: number,
+  apiKey: string,
+  maxStatsCalls: number,
+): Promise<{ players: ApiPlayer[]; callsUsed: number }> {
+  let callsUsed = 0;
+
+  // 1) Current squad (always 1 call)
+  const squadRes = await apiFetch("/players/squads", { team: String(teamId) }, apiKey);
+  callsUsed += 1;
+  const roster: any[] = squadRes?.[0]?.players ?? [];
+  if (roster.length === 0) return { players: [], callsUsed };
+
+  // 2) Stats by player ID for last completed season (paginated)
+  const statsByPid = new Map<number, any>();
   let page = 1;
   let totalPages = 1;
-  do {
-    const url = new URL(`https://${RAPIDAPI_HOST}/players`);
-    url.searchParams.set("team", String(teamId));
-    url.searchParams.set("season", String(season));
-    url.searchParams.set("page", String(page));
-    const res = await fetch(url.toString(), { headers: { "x-apisports-key": apiKey } });
-    if (!res.ok) break;
-    const json = await res.json();
-    if (json.response) all.push(...json.response);
-    totalPages = json.paging?.total ?? 1;
-    page++;
-    if (page > 10) break; // safety
-  } while (page <= totalPages);
+  while (page <= totalPages && callsUsed < 1 + maxStatsCalls) {
+    try {
+      const url = new URL(`https://${RAPIDAPI_HOST}/players`);
+      url.searchParams.set("team", String(teamId));
+      url.searchParams.set("season", String(STATS_SEASON));
+      url.searchParams.set("page", String(page));
+      const res = await fetch(url.toString(), { headers: { "x-apisports-key": apiKey } });
+      callsUsed += 1;
+      if (!res.ok) break;
+      const json = await res.json();
+      totalPages = json.paging?.total ?? 1;
+      for (const row of (json.response || [])) {
+        const pid = row.player?.id;
+        if (pid != null) statsByPid.set(pid, row);
+      }
+      page++;
+    } catch (e) {
+      console.error("stats page error", e);
+      break;
+    }
+  }
 
-  return all.map((row: any): ApiPlayer => {
-    const p = row.player ?? {};
-    const s = (row.statistics?.[0]) ?? {};
-    const games = s.games ?? {};
-    const goals = s.goals ?? {};
-    const shots = s.shots ?? {};
-    const fouls = s.fouls ?? {};
-    const cards = s.cards ?? {};
-    const fullName = p.name || `${p.firstname ?? ""} ${p.lastname ?? ""}`.trim();
-    const short = p.firstname && p.lastname
-      ? `${p.firstname[0]}. ${p.lastname}`
-      : fullName;
+  // 3) Merge: every roster member becomes an ApiPlayer
+  const players: ApiPlayer[] = roster.map((p: any): ApiPlayer => {
+    const row = statsByPid.get(p.id);
+    const stat = row?.statistics?.[0] ?? {};
+    const games = stat.games ?? {};
+    const goals = stat.goals ?? {};
+    const shots = stat.shots ?? {};
+    const fouls = stat.fouls ?? {};
+    const cards = stat.cards ?? {};
+    const fullName = row?.player?.name ?? p.name ?? "";
+    const fn = row?.player?.firstname;
+    const ln = row?.player?.lastname;
+    const short = fn && ln ? `${fn[0]}. ${ln}` : (p.name ?? fullName);
     return {
       name: short,
       fullName,
-      photo: p.photo ?? null,
-      number: games.number ?? null,
-      position: games.position ?? null,
+      photo: p.photo ?? row?.player?.photo ?? null,
+      number: p.number ?? games.number ?? null,
+      position: p.position ?? games.position ?? null,
       goals: Number(goals.total ?? 0) || 0,
       assists: Number(goals.assists ?? 0) || 0,
       shots: Number(shots.total ?? 0) || 0,
@@ -119,6 +146,8 @@ async function fetchSquadStats(teamId: number, season: number, apiKey: string): 
       rating: games.rating ? Number(games.rating) : null,
     };
   });
+
+  return { players, callsUsed };
 }
 
 Deno.serve(async (req) => {
