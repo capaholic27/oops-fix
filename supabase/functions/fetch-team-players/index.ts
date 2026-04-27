@@ -222,16 +222,10 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 3) Try seasons in order
-    let players: ApiPlayer[] = [];
-    let usedSeason: number | null = null;
-    for (const s of SEASONS) {
-      const before = usedCalls;
-      players = await fetchSquadStats(teamId, s, apiKey);
-      // /players is paginated — assume up to 3 pages used
-      usedCalls = Math.min(RESERVE, before + 3);
-      if (players.length > 0) { usedSeason = s; break; }
-    }
+    // 3) Fetch current squad + last-season stats (typically 1 + 3 calls)
+    const { players, callsUsed: squadCalls } = await fetchSquadWithStats(teamId, apiKey, RESERVE - usedCalls - 1);
+    usedCalls += squadCalls;
+    const usedSeason: number | null = players.length > 0 ? STATS_SEASON : null;
     // Refund any unused calls
     await refundQuota(supabase, RESERVE - usedCalls);
 
