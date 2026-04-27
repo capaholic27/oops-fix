@@ -2,6 +2,7 @@
 // Caches in `team_injuries` for 12h. Tries season 2025 first, falls back to 2024.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { adminClient, reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,10 @@ const corsHeaders = {
 
 const RAPIDAPI_HOST = "v3.football.api-sports.io";
 const SEASONS = [2025, 2024];
-const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h — fresher than squad cache
+// Extend cache: injuries don't change often. 7 days keeps us well under the 100/day cap.
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// If cache exists but is stale, still serve it when API quota is exhausted.
+const STALE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Injury = {
   playerName: string;
@@ -112,22 +116,43 @@ Deno.serve(async (req) => {
     );
 
     // Cache check
-    if (!force) {
-      const { data: cached } = await supabase
-        .from("team_injuries")
-        .select("*")
-        .eq("team_name", teamName)
-        .maybeSingle();
-      if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) < CACHE_TTL_MS) {
-        return new Response(JSON.stringify({
-          success: true, cached: true, team: teamName,
-          season: cached.season, injuries: cached.injuries,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+    const { data: cached } = await supabase
+      .from("team_injuries")
+      .select("*")
+      .eq("team_name", teamName)
+      .maybeSingle();
+
+    const cachedAge = cached ? Date.now() - new Date(cached.fetched_at).getTime() : Infinity;
+    const fresh = cached && cachedAge < CACHE_TTL_MS;
+
+    if (!force && fresh) {
+      return new Response(JSON.stringify({
+        success: true, cached: true, team: teamName,
+        season: cached!.season, injuries: cached!.injuries,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Reserve quota: 1 /teams + up to 2 /injuries = 3 max
+    const reservation = await reserveQuota(supabase, 3);
+    if (!reservation.ok) {
+      if (cached && cachedAge < STALE_TTL_MS) {
+        return new Response(JSON.stringify({
+          success: true, cached: true, stale: true, quotaExhausted: true,
+          team: teamName, season: cached.season, injuries: cached.injuries,
+          remaining: reservation.remaining,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        success: true, team: teamName, injuries: [], season: null, source: "quota-exhausted",
+        quotaExhausted: true, remaining: reservation.remaining,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    let usedCalls = 0;
     const teamId = await findTeamId(teamName, apiKey);
+    usedCalls += 1;
     if (!teamId) {
+      await refundQuota(supabase, 3 - usedCalls);
       return new Response(JSON.stringify({
         success: true, team: teamName, injuries: [], season: null, source: "none",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -137,8 +162,10 @@ Deno.serve(async (req) => {
     let usedSeason: number | null = null;
     for (const s of SEASONS) {
       injuries = await fetchInjuries(teamId, s, apiKey);
+      usedCalls += 1;
       if (injuries.length > 0) { usedSeason = s; break; }
     }
+    await refundQuota(supabase, 3 - usedCalls);
 
     await supabase.from("team_injuries").upsert({
       team_name: teamName,

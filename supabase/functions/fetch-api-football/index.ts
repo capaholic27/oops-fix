@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,7 +99,20 @@ Deno.serve(async (req) => {
     const allFixtures: any[] = [];
     const allResults: any[] = [];
     let apiCalls = 0;
-    const maxCalls = 80;
+
+    // Respect the shared daily quota: leave headroom for ad-hoc team/injury lookups.
+    const usedToday = await getTodayCount(supabase);
+    const remaining = Math.max(0, DAILY_LIMIT - usedToday);
+    // Cap this bulk run at 60% of remaining (or 60, whichever is lower) to leave room.
+    const maxCalls = Math.min(60, Math.floor(remaining * 0.6));
+
+    if (maxCalls < 1) {
+      return new Response(JSON.stringify({
+        success: true, fixtures: 0, results: 0, apiCalls: 0,
+        skipped: true, reason: "daily-quota-low", usedToday, remaining,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     const leaguesToSync = leagueFilter
@@ -112,6 +126,10 @@ Deno.serve(async (req) => {
         // Rate limit: wait 7s between calls (10 req/min limit)
         if (apiCalls > 0 && apiCalls % 9 === 0) await delay(60000);
         else if (apiCalls > 0) await delay(3000);
+
+        // Reserve 1 quota slot before each external call
+        const slot = await reserveQuota(supabase, 1);
+        if (!slot.ok) { console.log("Daily quota exhausted mid-run"); break; }
 
         try {
           const data = await apiFetch("/fixtures", {
@@ -169,6 +187,8 @@ Deno.serve(async (req) => {
           }
         } catch (err) {
           console.error(`Error for ${league.name} (${season}):`, err);
+          // Refund the reserved slot since the call effectively failed
+          await refundQuota(supabase, 1);
         }
       }
       if (apiCalls >= maxCalls) break;
@@ -226,6 +246,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    const finalUsed = await getTodayCount(supabase);
     return new Response(
       JSON.stringify({
         success: true,
@@ -233,6 +254,9 @@ Deno.serve(async (req) => {
         results: resultsInserted,
         apiCalls,
         leaguesFetched: leaguesToSync.length,
+        quotaUsedToday: finalUsed,
+        quotaRemaining: Math.max(0, DAILY_LIMIT - finalUsed),
+        dailyLimit: DAILY_LIMIT,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
