@@ -127,6 +127,10 @@ Deno.serve(async (req) => {
         if (apiCalls > 0 && apiCalls % 9 === 0) await delay(60000);
         else if (apiCalls > 0) await delay(3000);
 
+        // Reserve 1 quota slot before each external call
+        const slot = await reserveQuota(supabase, 1);
+        if (!slot.ok) { console.log("Daily quota exhausted mid-run"); break; }
+
         try {
           const data = await apiFetch("/fixtures", {
             league: String(league.id),
