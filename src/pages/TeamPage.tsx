@@ -155,16 +155,19 @@ const LeagueSelector = ({
 
   const searchResults = useMemo(() => {
     if (!searchLower) return null;
-    const results: { team: string; league: { code: string; name: string } }[] = [];
+    const results: { team: string; league: { code: string; name: string }; locked: boolean }[] = [];
     leagues.forEach((l) => {
       (teamsByLeague[l.code] || []).forEach((team) => {
         if (team.toLowerCase().includes(searchLower)) {
-          results.push({ team, league: l });
+          const locked = !canAccessLeague(l.name);
+          results.push({ team, league: l, locked });
         }
       });
     });
+    // Show allowed first, then locked
+    results.sort((a, b) => Number(a.locked) - Number(b.locked));
     return results;
-  }, [searchLower, leagues, teamsByLeague]);
+  }, [searchLower, leagues, teamsByLeague, unlocked]);
 
   // Top leagues that exist in our data
   const topLeagues = useMemo(() => {
