@@ -227,7 +227,7 @@ const LeagueSelector = ({
               className="flex items-center border-b border-border last:border-b-0"
             >
               <button
-                onClick={() => onSelectTeam(team, selectedLeague.code)}
+                onClick={() => trySelectTeam(team, selectedLeague.code, selectedLeague.name)}
                 className="flex-1 text-left px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors flex items-center gap-3"
               >
                 <TeamLogo teamName={team} size="sm" />
@@ -335,7 +335,7 @@ const LeagueSelector = ({
                     return (
                       <button
                         key={`fav-${fav.team}`}
-                        onClick={() => onSelectTeam(fav.team, fav.league.code)}
+                        onClick={() => trySelectTeam(fav.team, fav.league.code, fav.league.name)}
                         className="relative flex flex-col items-center gap-2 p-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
                       >
                         <button
@@ -421,7 +421,7 @@ const LeagueSelector = ({
               {topLeagues.map((l) => (
                 <button
                   key={l.code}
-                  onClick={() => setSelectedLeague(l)}
+                  onClick={() => tryOpenLeague(l)}
                   className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all aspect-square justify-center"
                 >
                   <LeagueLogo leagueName={l.name} size="md" />
@@ -431,20 +431,32 @@ const LeagueSelector = ({
             </div>
           )}
 
-          {/* All leagues list */}
+          {/* All leagues list — locked leagues are visible but require Pro */}
           {filter === "all" && (
             <div className="space-y-2">
-              {leagues.map((l) => (
-                <button
-                  key={l.code}
-                  onClick={() => setSelectedLeague(l)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
-                >
-                  <LeagueLogo leagueName={l.name} size="sm" />
-                  <span className="text-sm font-medium flex-1">{l.name}</span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </button>
-              ))}
+              {leagues.map((l) => {
+                const locked = !canAccessLeague(l.name);
+                return (
+                  <button
+                    key={l.code}
+                    onClick={() => tryOpenLeague(l)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left",
+                      locked && "opacity-60"
+                    )}
+                  >
+                    <LeagueLogo leagueName={l.name} size="sm" />
+                    <span className="text-sm font-medium flex-1">{l.name}</span>
+                    {locked ? (
+                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                        <Lock className="w-3 h-3" /> Pro
+                      </span>
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 
