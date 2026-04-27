@@ -39,11 +39,11 @@ import { cn } from "@/lib/utils";
 
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
-/* Top leagues for the box grid (domestic leagues only, no tournaments) */
-const TOP_LEAGUES = [
-  "Premier League", "La Liga", "Serie A", "Bundesliga", "Ligue 1",
-  "Eredivisie", "Primeira Liga", "Championship", "Major League Soccer",
-];
+/* Top leagues for the box grid (domestic leagues only, no tournaments).
+ * Imported from shared premium helper so Stats + Pro pages stay in sync. */
+import { TOP_LEAGUES, TOP_LEAGUES_SET, isPremiumUnlocked, subscribePremium } from "@/lib/premium";
+import { Lock } from "lucide-react";
+import { useEffect } from "react";
 
 /* ─── Form Strip ─── */
 const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
