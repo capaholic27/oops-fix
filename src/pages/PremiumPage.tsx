@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 import { PREMIUM_UNLOCKED_KEY, isPremiumUnlocked, emitPremiumChanged } from "@/lib/premium";
 import { useTeamPlayers } from "@/hooks/useTeamPlayers";
+import { useTeamInjuries, classifyInjury, type TeamInjury } from "@/hooks/useTeamInjuries";
 
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
