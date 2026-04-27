@@ -4,6 +4,7 @@
 // frontend can fall back to synthetic data.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { reserveQuota, refundQuota } from "../_shared/quota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,8 +12,10 @@ const corsHeaders = {
 };
 
 const RAPIDAPI_HOST = "v3.football.api-sports.io";
-const SEASONS = [2025, 2024]; // try current 25/26 first, then previous
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const SEASONS = [2025, 2024];
+// Squads change rarely. Long cache to protect the 100/day limit.
+const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const STALE_TTL_MS = 60 * 24 * 60 * 60 * 1000; // serve stale up to 60 days if quota exhausted
 
 type ApiPlayer = {
   name: string;
