@@ -146,27 +146,47 @@ Deno.serve(async (req) => {
     );
 
     // 1) Cache check
-    if (!force) {
-      const { data: cached } = await supabase
-        .from("team_players")
-        .select("*")
-        .eq("team_name", teamName)
-        .maybeSingle();
-      if (cached && (Date.now() - new Date(cached.fetched_at).getTime()) < CACHE_TTL_MS) {
-        return new Response(JSON.stringify({
-          success: true,
-          cached: true,
-          team: teamName,
-          season: cached.season,
-          players: cached.players,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+    const { data: cached } = await supabase
+      .from("team_players")
+      .select("*")
+      .eq("team_name", teamName)
+      .maybeSingle();
+
+    const cachedAge = cached ? Date.now() - new Date(cached.fetched_at).getTime() : Infinity;
+    const fresh = cached && cachedAge < CACHE_TTL_MS;
+
+    if (!force && fresh) {
+      return new Response(JSON.stringify({
+        success: true, cached: true, team: teamName,
+        season: cached!.season, players: cached!.players,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Reserve quota: /teams (1) + /players paginated (typically 2-3, reserve 5 max)
+    const RESERVE = 6;
+    const reservation = await reserveQuota(supabase, RESERVE);
+    if (!reservation.ok) {
+      // Out of quota — serve stale cache if recent enough
+      if (cached && cachedAge < STALE_TTL_MS) {
+        return new Response(JSON.stringify({
+          success: true, cached: true, stale: true, quotaExhausted: true,
+          team: teamName, season: cached.season, players: cached.players,
+          remaining: reservation.remaining,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        success: true, team: teamName, players: [], season: null,
+        source: "quota-exhausted", quotaExhausted: true, remaining: reservation.remaining,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    let usedCalls = 0;
     // 2) Resolve team id
     const teamId = await findTeamId(teamName, apiKey);
+    usedCalls += 1;
     if (!teamId) {
       console.log(`No API-Football team for "${teamName}"`);
+      await refundQuota(supabase, RESERVE - usedCalls);
       return new Response(JSON.stringify({
         success: true, team: teamName, players: [], season: null, source: "none",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -176,7 +196,10 @@ Deno.serve(async (req) => {
     let players: ApiPlayer[] = [];
     let usedSeason: number | null = null;
     for (const s of SEASONS) {
+      const before = usedCalls;
       players = await fetchSquadStats(teamId, s, apiKey);
+      // /players is paginated — assume up to 3 pages used
+      usedCalls = Math.min(RESERVE, before + 3);
       if (players.length > 0) { usedSeason = s; break; }
     }
 
