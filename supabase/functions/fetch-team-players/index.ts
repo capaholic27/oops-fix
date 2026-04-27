@@ -12,7 +12,8 @@ const corsHeaders = {
 };
 
 const RAPIDAPI_HOST = "v3.football.api-sports.io";
-const SEASONS = [2025, 2024];
+// Free plan only allows seasons 2022-2024. Use 2024 for historical stats.
+const STATS_SEASON = 2024;
 // Squads change rarely. Long cache to protect the 100/day limit.
 const CACHE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const STALE_TTL_MS = 60 * 24 * 60 * 60 * 1000; // serve stale up to 60 days if quota exhausted
