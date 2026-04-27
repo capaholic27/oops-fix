@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     }
 
     // Reserve quota: 1 /teams + up to 2 /injuries = 3 max
-    const reservation = await reserveQuota(supabase, 3);
+    const reservation = await reserveQuota(supabase, 2);
     if (!reservation.ok) {
       if (cached && cachedAge < STALE_TTL_MS) {
         return new Response(JSON.stringify({
