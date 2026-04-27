@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     const teamId = await findTeamId(teamName, apiKey);
     usedCalls += 1;
     if (!teamId) {
-      await refundQuota(supabase, 3 - usedCalls);
+      await refundQuota(supabase, 2 - usedCalls);
       return new Response(JSON.stringify({
         success: true, team: teamName, injuries: [], season: null, source: "none",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
