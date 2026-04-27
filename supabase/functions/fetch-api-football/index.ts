@@ -246,6 +246,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    const finalUsed = await getTodayCount(supabase);
     return new Response(
       JSON.stringify({
         success: true,
@@ -253,6 +254,9 @@ Deno.serve(async (req) => {
         results: resultsInserted,
         apiCalls,
         leaguesFetched: leaguesToSync.length,
+        quotaUsedToday: finalUsed,
+        quotaRemaining: Math.max(0, DAILY_LIMIT - finalUsed),
+        dailyLimit: DAILY_LIMIT,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
