@@ -202,6 +202,8 @@ Deno.serve(async (req) => {
       usedCalls = Math.min(RESERVE, before + 3);
       if (players.length > 0) { usedSeason = s; break; }
     }
+    // Refund any unused calls
+    await refundQuota(supabase, RESERVE - usedCalls);
 
     // 4) Cache (upsert)
     if (players.length > 0) {
