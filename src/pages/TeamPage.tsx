@@ -123,6 +123,25 @@ const LeagueSelector = ({
   const [showFavSearch, setShowFavSearch] = useState(false);
   const { favorites, toggleFavorite, isFavorite } = useFavorites();
 
+  // Pro / Free tier gating — free users can only access top-9 leagues.
+  const [unlocked, setUnlocked] = useState<boolean>(isPremiumUnlocked());
+  useEffect(() => subscribePremium(setUnlocked), []);
+  const canAccessLeague = (name: string) => unlocked || TOP_LEAGUES_SET.has(name);
+  const tryOpenLeague = (l: { code: string; name: string }) => {
+    if (!canAccessLeague(l.name)) {
+      toast.error(`${l.name} is a Pro league — unlock Pro to access all leagues.`);
+      return;
+    }
+    setSelectedLeague(l);
+  };
+  const trySelectTeam = (team: string, leagueCode: string, leagueName?: string) => {
+    if (leagueName && !canAccessLeague(leagueName)) {
+      toast.error(`${leagueName} is a Pro league — unlock Pro to access all leagues.`);
+      return;
+    }
+    onSelectTeam(team, leagueCode);
+  };
+
   const teamsByLeague = useMemo(() => {
     const map: Record<string, string[]> = {};
     leagues.forEach((l) => {
