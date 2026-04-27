@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       usedCalls += 1;
       if (injuries.length > 0) { usedSeason = s; break; }
     }
-    await refundQuota(supabase, 3 - usedCalls);
+    await refundQuota(supabase, 2 - usedCalls);
 
     await supabase.from("team_injuries").upsert({
       team_name: teamName,
