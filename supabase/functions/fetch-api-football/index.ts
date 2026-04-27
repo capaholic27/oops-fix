@@ -99,7 +99,20 @@ Deno.serve(async (req) => {
     const allFixtures: any[] = [];
     const allResults: any[] = [];
     let apiCalls = 0;
-    const maxCalls = 80;
+
+    // Respect the shared daily quota: leave headroom for ad-hoc team/injury lookups.
+    const usedToday = await getTodayCount(supabase);
+    const remaining = Math.max(0, DAILY_LIMIT - usedToday);
+    // Cap this bulk run at 60% of remaining (or 60, whichever is lower) to leave room.
+    const maxCalls = Math.min(60, Math.floor(remaining * 0.6));
+
+    if (maxCalls < 1) {
+      return new Response(JSON.stringify({
+        success: true, fixtures: 0, results: 0, apiCalls: 0,
+        skipped: true, reason: "daily-quota-low", usedToday, remaining,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
     const leaguesToSync = leagueFilter
