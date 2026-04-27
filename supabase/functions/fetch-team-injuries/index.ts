@@ -10,10 +10,9 @@ const corsHeaders = {
 };
 
 const RAPIDAPI_HOST = "v3.football.api-sports.io";
-const SEASONS = [2025, 2024];
-// Extend cache: injuries don't change often. 7 days keeps us well under the 100/day cap.
+// Free plan only allows 2022-2024
+const SEASONS = [2024];
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-// If cache exists but is stale, still serve it when API quota is exhausted.
 const STALE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Injury = {
@@ -133,7 +132,7 @@ Deno.serve(async (req) => {
     }
 
     // Reserve quota: 1 /teams + up to 2 /injuries = 3 max
-    const reservation = await reserveQuota(supabase, 3);
+    const reservation = await reserveQuota(supabase, 2);
     if (!reservation.ok) {
       if (cached && cachedAge < STALE_TTL_MS) {
         return new Response(JSON.stringify({
@@ -152,7 +151,7 @@ Deno.serve(async (req) => {
     const teamId = await findTeamId(teamName, apiKey);
     usedCalls += 1;
     if (!teamId) {
-      await refundQuota(supabase, 3 - usedCalls);
+      await refundQuota(supabase, 2 - usedCalls);
       return new Response(JSON.stringify({
         success: true, team: teamName, injuries: [], season: null, source: "none",
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -165,7 +164,7 @@ Deno.serve(async (req) => {
       usedCalls += 1;
       if (injuries.length > 0) { usedSeason = s; break; }
     }
-    await refundQuota(supabase, 3 - usedCalls);
+    await refundQuota(supabase, 2 - usedCalls);
 
     await supabase.from("team_injuries").upsert({
       team_name: teamName,
