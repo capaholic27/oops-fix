@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 import { PREMIUM_UNLOCKED_KEY, isPremiumUnlocked, emitPremiumChanged } from "@/lib/premium";
 import { useTeamPlayers } from "@/hooks/useTeamPlayers";
+import { useTeamInjuries, classifyInjury, type TeamInjury } from "@/hooks/useTeamInjuries";
 
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
@@ -769,72 +770,121 @@ const Insight = ({ icon, text }: { icon: React.ReactNode; text: React.ReactNode 
   </div>
 );
 
-/* ─── Squad Insights (data-driven aggregate + per-player narratives) ───
- * Mirrors the "Key Insights" card style but for individual players —
- * surfaces in/out status, injuries (ACL, hamstring, etc.), suspensions,
- * fitness, form trajectory and projected impact on the next match. */
+/* ─── Squad Insights — real injury data + per-player impact narratives ───
+ * Pulls live injuries/suspensions from API-Football via the
+ * `fetch-team-injuries` edge function, matches them against the squad,
+ * and explains how each absence affects the next match. */
 type PlayerStatus = {
   state: "available" | "doubtful" | "injured" | "suspended" | "returning";
-  detail: string;          // e.g. "ACL — out 6 months", "Yellow card accumulation"
+  detail: string;          // "ACL — long-term absence"
+  reason: string | null;   // raw reason from API ("Knee Injury")
   impactPct: number;       // -100..+100 net effect on team strength
-  impactLabel: string;     // human-readable summary
+  impactLabel: string;     // human-readable explanation
+  weeksOut: number;
 };
 
-/* Deterministic hash so the same player on the same team always gets the same
- * status — no flicker between renders, but feels realistic. Replace with a
- * real injuries API later (API-Football /injuries endpoint). */
-const hashStr = (s: string): number => {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return Math.abs(h);
-};
+/** Normalize a player name for fuzzy matching across providers
+ *  ("M. Salah" vs "Mohamed Salah" vs "Mohamed M. Salah" -> "salah") */
+function nameKey(name: string): string {
+  if (!name) return "";
+  // Take last token, strip punctuation & accents, lowercase
+  const cleaned = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z\s]/g, " ")
+    .trim()
+    .split(/\s+/);
+  if (cleaned.length === 0) return "";
+  // Use last name (most distinctive across short/long forms)
+  return cleaned[cleaned.length - 1].toLowerCase();
+}
 
-const INJURIES = [
-  { d: "ACL tear — out 6+ months", impact: -22, state: "injured" as const },
-  { d: "Hamstring strain — out 3 weeks", impact: -12, state: "injured" as const },
-  { d: "Ankle sprain — out 2 weeks", impact: -10, state: "injured" as const },
-  { d: "Calf injury — doubtful", impact: -6, state: "doubtful" as const },
-  { d: "Illness — late fitness test", impact: -4, state: "doubtful" as const },
-  { d: "Knock — managed minutes", impact: -3, state: "doubtful" as const },
-  { d: "Suspended — straight red", impact: -14, state: "suspended" as const },
-  { d: "Suspended — 5 yellows accumulated", impact: -8, state: "suspended" as const },
-  { d: "Returning from injury — match fit", impact: +5, state: "returning" as const },
-];
-
-function getPlayerStatus(playerName: string, teamName: string, importance: number): PlayerStatus {
-  const h = hashStr(`${teamName}::${playerName}`);
-  const roll = h % 100;
-  // ~78% available, 22% something going on
-  if (roll < 78) {
+function buildStatus(
+  injury: TeamInjury | undefined,
+  importance: number,
+  goals: number,
+  assists: number,
+  position: string,
+): PlayerStatus {
+  if (!injury) {
     return {
       state: "available",
-      detail: "Match fit · expected to start",
+      detail: "Match fit · expected to be available",
+      reason: null,
       impactPct: 0,
       impactLabel: "No change to projected XI",
+      weeksOut: 0,
     };
   }
-  const inj = INJURIES[h % INJURIES.length];
-  // Scale impact by player importance (star striker out hurts more than 4th-choice CB)
-  const scaledImpact = Math.round(inj.impact * (0.4 + importance * 0.6));
+
+  const cls = classifyInjury(injury);
+  // Scale base impact by player importance (star striker hurts more than 4th-CB).
+  // Importance is 0..1 (relative to top contributor on the team).
+  const baseImpact = cls.severity * 25; // up to 25 pts for a critical absence
+  const scaledImpact = Math.round(baseImpact * (0.4 + importance * 0.6) * (cls.severity < 0 ? -1 : -1));
+  // Returning players have negative severity → flip sign so impact becomes positive
+  const finalImpact = cls.severity < 0 ? Math.abs(scaledImpact) : scaledImpact;
+
+  // Build a position-aware narrative
+  const pos = position.toUpperCase();
+  const isAttacker = pos.startsWith("ATT") || pos === "F" || pos === "ST" || pos.includes("W");
+  const isMidfielder = pos.startsWith("MID") || pos === "M";
+  const isDefender = pos.startsWith("DEF") || pos === "D" || pos === "CB" || pos === "LB" || pos === "RB";
+  const isGK = pos.startsWith("GOAL") || pos === "G";
+
+  let impactLabel: string;
+  if (cls.state === "returning") {
+    impactLabel = "First-team option returns — boosts depth & rotation";
+  } else if (finalImpact <= -18) {
+    impactLabel = isAttacker
+      ? `Major attacking blow — ${goals}G ${assists}A absent from the front line`
+      : isMidfielder
+      ? "Major midfield loss — control & ball progression weakened"
+      : isDefender
+      ? "Major defensive blow — backline reshuffle, more chances conceded"
+      : isGK
+      ? "Goalkeeper change — clean-sheet probability drops"
+      : "Major blow — first-choice starter ruled out";
+  } else if (finalImpact <= -10) {
+    impactLabel = isAttacker
+      ? "Meaningful attacking loss — goal output likely to dip"
+      : isMidfielder
+      ? "Midfield disruption — tempo and creativity affected"
+      : isDefender
+      ? "Defensive reshuffle — set-piece risk increases"
+      : "Meaningful loss — output likely to dip";
+  } else if (finalImpact < 0) {
+    impactLabel = cls.state === "doubtful"
+      ? "Late call — minor disruption if ruled out"
+      : "Squad rotation — depth player covers the role";
+  } else {
+    impactLabel = "No measurable impact on next match";
+  }
+
   return {
-    state: inj.state,
-    detail: inj.d,
-    impactPct: scaledImpact,
-    impactLabel: scaledImpact <= -15
-      ? "Major blow — team noticeably weaker"
-      : scaledImpact <= -8
-      ? "Meaningful loss — output likely to dip"
-      : scaledImpact < 0
-      ? "Minor disruption — squad can absorb"
-      : "Boost — first-team option returns",
+    state: cls.state,
+    detail: cls.label,
+    reason: injury.reason,
+    impactPct: finalImpact,
+    impactLabel,
+    weeksOut: cls.weeksOut,
   };
 }
 
 const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; teamName: string }) => {
   const { data: realPlayers = [] } = useTeamPlayers(teamName);
+  const { data: injuries = [], isLoading: injuriesLoading } = useTeamInjuries(teamName);
 
-  // Build a ranked list — prefer real squad data, fall back to simple
-  // synthetic top contributors derived from team aggregates.
+  // Index injuries by last-name key for fuzzy match
+  const injuryByKey = useMemo(() => {
+    const m = new Map<string, TeamInjury>();
+    for (const inj of injuries) {
+      const k = nameKey(inj.playerName);
+      if (k && !m.has(k)) m.set(k, inj);
+    }
+    return m;
+  }, [injuries]);
+
   type Ranked = { name: string; position: string; goals: number; assists: number; apps: number; importance: number; photo?: string | null; number?: number | null };
   const ranked: Ranked[] = useMemo(() => {
     if (realPlayers.length > 0) {
@@ -843,7 +893,7 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
         (a.goals * 2 + a.assists * 1.5 + (a.appearances || 0) * 0.1)
       );
       const max = Math.max(1, sorted[0].goals * 2 + sorted[0].assists * 1.5);
-      return sorted.slice(0, 18).map((p) => ({
+      return sorted.slice(0, 24).map((p) => ({
         name: p.name,
         position: p.position || "—",
         goals: p.goals,
@@ -859,7 +909,6 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
 
   if (teamViews.length === 0 && ranked.length === 0) return null;
 
-  // Aggregate squad output (kept from old version, now compact)
   const totalGoals = teamViews.reduce((s, v) => s + v.goalsFor, 0);
   const totalSot = teamViews.reduce((s, v) => s + v.shotsOnTargetFor, 0);
   const totalCorners = teamViews.reduce((s, v) => s + v.cornersFor, 0);
@@ -874,37 +923,37 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
     { label: "Cards", value: totalCards, icon: <AlertTriangle className="w-3.5 h-3.5" />, color: "text-stat-negative" },
   ];
 
-  // Per-player insights: status, form trajectory, impact narrative
+  // Per-player insights — use real injury data when available
   const playerInsights = ranked.map((p) => {
-    const status = getPlayerStatus(p.name, teamName, p.importance);
-    // Form trajectory — deterministic, derived from name hash so it's stable
-    const trendRoll = hashStr(`${teamName}|${p.name}|trend`) % 100;
-    const trend: "up" | "down" | "flat" = trendRoll < 40 ? "up" : trendRoll < 70 ? "flat" : "down";
+    const inj = injuryByKey.get(nameKey(p.name));
+    const status = buildStatus(inj, p.importance, p.goals, p.assists, p.position);
     const ga = p.goals + p.assists;
-    return { ...p, status, trend, ga };
+    return { ...p, status, ga };
   });
 
-  // Net team impact = sum of impactPct from non-available players, clamped
-  const netImpact = Math.max(-40, Math.min(20,
-    playerInsights.reduce((s, p) => s + (p.status.state === "available" ? 0 : p.status.impactPct), 0)
+  // Surface unmatched API injuries (e.g. youth/loan players not in our top 24)
+  const matchedKeys = new Set(ranked.map((p) => nameKey(p.name)));
+  const unmatchedInjuries = injuries.filter((i) => !matchedKeys.has(nameKey(i.playerName)));
+
+  const netImpact = Math.max(-50, Math.min(25,
+    playerInsights.reduce((s, p) => s + p.status.impactPct, 0)
   ));
-  const netLabel = netImpact <= -20
+  const netLabel = netImpact <= -25
     ? "Significantly weakened"
-    : netImpact <= -10
+    : netImpact <= -12
     ? "Moderately weakened"
     : netImpact < 0
     ? "Slightly affected"
     : netImpact > 0
     ? "Boosted by returning player"
     : "Full strength available";
-  const netColor = netImpact <= -10 ? "text-stat-negative" : netImpact < 0 ? "text-stat-warn" : "text-stat-positive";
+  const netColor = netImpact <= -12 ? "text-stat-negative" : netImpact < 0 ? "text-stat-warn" : "text-stat-positive";
 
-  // Counts for top summary chips
   const counts = {
     available: playerInsights.filter((p) => p.status.state === "available").length,
-    doubtful: playerInsights.filter((p) => p.status.state === "doubtful").length,
-    injured: playerInsights.filter((p) => p.status.state === "injured").length,
-    suspended: playerInsights.filter((p) => p.status.state === "suspended").length,
+    doubtful: playerInsights.filter((p) => p.status.state === "doubtful").length + unmatchedInjuries.filter((i) => (i.type || "").toLowerCase().includes("question")).length,
+    injured: playerInsights.filter((p) => p.status.state === "injured").length + unmatchedInjuries.filter((i) => !(i.type || "").toLowerCase().includes("question") && !SUSP_RE.test(i.reason || "")).length,
+    suspended: playerInsights.filter((p) => p.status.state === "suspended").length + unmatchedInjuries.filter((i) => SUSP_RE.test(i.reason || "")).length,
     returning: playerInsights.filter((p) => p.status.state === "returning").length,
   };
 
@@ -913,12 +962,14 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
     const aIssue = a.status.state !== "available" ? 1 : 0;
     const bIssue = b.status.state !== "available" ? 1 : 0;
     if (aIssue !== bIssue) return bIssue - aIssue;
-    if (aIssue) return a.status.impactPct - b.status.impactPct; // most negative first
+    if (aIssue) return a.status.impactPct - b.status.impactPct;
     return b.ga - a.ga;
   });
 
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? sortedInsights : sortedInsights.slice(0, 6);
+
+  const dataLabel = injuries.length > 0 ? "Live injuries · API-Football" : injuriesLoading ? "Loading injuries…" : "No reported injuries";
 
   return (
     <div className="rounded-2xl border border-border bg-card p-4 opacity-0 animate-fade-up space-y-4" style={{ animationDelay: "680ms" }}>
@@ -930,7 +981,6 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
         </span>
       </div>
 
-      {/* Aggregate squad output strip */}
       {teamViews.length > 0 && (
         <div className="grid grid-cols-5 gap-1.5">
           {aggregates.map((it) => (
@@ -945,7 +995,6 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
 
       {ranked.length > 0 && (
         <>
-          {/* Availability summary */}
           <div className="rounded-xl border border-border bg-background/40 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
@@ -963,27 +1012,50 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
               {counts.injured > 0 && <Pill color="bg-stat-negative/15 text-stat-negative" label={`${counts.injured} injured`} />}
               {counts.suspended > 0 && <Pill color="bg-stat-negative/15 text-stat-negative" label={`${counts.suspended} suspended`} />}
             </div>
+            <p className="text-[9px] text-muted-foreground font-mono uppercase tracking-wider pt-0.5">{dataLabel}</p>
           </div>
 
-          {/* Per-player insight rows */}
           <div className="space-y-1.5">
             {visible.map((p) => (
               <PlayerInsightRow key={p.name} player={p} />
             ))}
           </div>
 
-          {sortedInsights.length > 6 && (
+          {/* Surface injuries to players not in our top-24 list (squad depth players) */}
+          {unmatchedInjuries.length > 0 && expanded && (
+            <div className="space-y-1.5 pt-1 border-t border-border">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Other absentees</p>
+              {unmatchedInjuries.slice(0, 8).map((inj) => {
+                const cls = classifyInjury(inj);
+                return (
+                  <div key={`${inj.playerName}-${inj.fixtureDate}`} className="flex items-start gap-2.5 rounded-lg border border-border/40 bg-background/30 p-2">
+                    <span className={cn(
+                      "mt-1.5 w-2 h-2 rounded-full flex-shrink-0",
+                      cls.state === "suspended" || cls.state === "injured" ? "bg-stat-negative" :
+                      cls.state === "doubtful" ? "bg-stat-warn" : "bg-primary"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground truncate">{inj.playerName}</p>
+                      <p className="text-[10px] text-muted-foreground">{cls.label}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {(sortedInsights.length > 6 || unmatchedInjuries.length > 0) && (
             <button
               onClick={() => setExpanded((v) => !v)}
               className="w-full text-[10px] font-semibold text-primary hover:underline pt-1"
             >
-              {expanded ? "Show less" : `Show all ${sortedInsights.length} players`}
+              {expanded ? "Show less" : `Show all${unmatchedInjuries.length ? ` + ${unmatchedInjuries.length} other absentees` : ` ${sortedInsights.length} players`}`}
             </button>
           )}
 
           <p className="text-[10px] text-muted-foreground leading-relaxed">
-            Player availability, injuries and form impact on the next match.
-            Status is derived from squad data; verify with the latest team news before betting.
+            Live injury data from API-Football, mapped to projected impact on the next match.
+            Cached for 12h — verify with official team news close to kickoff.
           </p>
         </>
       )}
@@ -991,13 +1063,15 @@ const PlayerInsights = ({ teamViews, teamName }: { teamViews: TeamMatchView[]; t
   );
 };
 
+const SUSP_RE = /suspend|red card|yellow|ban/i;
+
 const Pill = ({ label, color }: { label: string; color: string }) => (
   <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold", color)}>{label}</span>
 );
 
 const PlayerInsightRow = ({ player }: { player: {
   name: string; position: string; goals: number; assists: number; apps: number;
-  status: PlayerStatus; trend: "up" | "down" | "flat"; ga: number; number?: number | null;
+  status: PlayerStatus; ga: number; number?: number | null;
 } }) => {
   const { status } = player;
   const dot =
@@ -1006,26 +1080,21 @@ const PlayerInsightRow = ({ player }: { player: {
     status.state === "doubtful" ? "bg-stat-warn" :
     "bg-stat-negative";
 
-  const TrendIcon =
-    player.trend === "up" ? ArrowUpRight :
-    player.trend === "down" ? ArrowDownRight :
-    Minus;
-  const trendColor =
-    player.trend === "up" ? "text-stat-positive" :
-    player.trend === "down" ? "text-stat-negative" :
-    "text-muted-foreground";
-
   return (
     <div className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-background/40 p-2.5">
       <span className={cn("mt-1.5 w-2 h-2 rounded-full flex-shrink-0", dot)} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
           <span className="text-xs font-bold text-foreground truncate">{player.name}</span>
           {typeof player.number === "number" && (
             <span className="font-mono text-[9px] text-muted-foreground">#{player.number}</span>
           )}
           <span className="text-[9px] font-mono text-muted-foreground uppercase">{player.position}</span>
-          <TrendIcon className={cn("w-3 h-3 ml-auto flex-shrink-0", trendColor)} />
+          {status.state !== "available" && status.weeksOut > 0 && (
+            <span className="ml-auto text-[9px] font-mono font-semibold text-muted-foreground">
+              ~{status.weeksOut}w out
+            </span>
+          )}
         </div>
         <p className="text-[10.5px] text-muted-foreground leading-snug">
           <span className="text-foreground font-medium">{status.detail}.</span>{" "}

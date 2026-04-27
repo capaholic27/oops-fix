@@ -215,6 +215,42 @@ export type Database = {
         }
         Relationships: []
       }
+      team_injuries: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          id: string
+          injuries: Json
+          league_code: string | null
+          season: number | null
+          source: string
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          injuries?: Json
+          league_code?: string | null
+          season?: number | null
+          source?: string
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          injuries?: Json
+          league_code?: string | null
+          season?: number | null
+          source?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_players: {
         Row: {
           created_at: string
