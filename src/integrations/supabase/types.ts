@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_quota: {
+        Row: {
+          count: number
+          day: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          count?: number
+          day: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          count?: number
+          day?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fixtures: {
         Row: {
           away_team: string
@@ -292,7 +313,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_api_quota: { Args: { _count?: number }; Returns: number }
     }
     Enums: {
       vote_choice: "home" | "draw" | "away"
