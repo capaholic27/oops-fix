@@ -154,12 +154,14 @@ export const MomentumChart = ({ views, teamName }: Props) => {
   const players = useMemo<PlayerProfile[]>(() => {
     if (realPlayers.length > 0) {
       // Sort by attacking impact so the star players appear first.
+      // Show the full squad (no cap) — users want to browse every player.
       return realPlayers
         .map(realToProfile)
-        .sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists))
-        .slice(0, 30);
+        .sort((a, b) => (b.goals + b.assists) - (a.goals + a.assists));
     }
-    return PLAYER_PROFILES[teamName] ?? generateFallbackPlayers(views, teamName);
+    // Fallback: generate a full synthetic squad (~25 players) so the card
+    // never collapses to just a handful when the real-squad fetch fails.
+    return generateFallbackPlayers(views, teamName);
   }, [realPlayers, views, teamName]);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
