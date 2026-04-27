@@ -2,6 +2,7 @@
 // Caches in `team_injuries` for 12h. Tries season 2025 first, falls back to 2024.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { adminClient, reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,7 +11,10 @@ const corsHeaders = {
 
 const RAPIDAPI_HOST = "v3.football.api-sports.io";
 const SEASONS = [2025, 2024];
-const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h — fresher than squad cache
+// Extend cache: injuries don't change often. 7 days keeps us well under the 100/day cap.
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// If cache exists but is stale, still serve it when API quota is exhausted.
+const STALE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Injury = {
   playerName: string;
