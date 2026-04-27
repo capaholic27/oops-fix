@@ -10,10 +10,9 @@ const corsHeaders = {
 };
 
 const RAPIDAPI_HOST = "v3.football.api-sports.io";
-const SEASONS = [2025, 2024];
-// Extend cache: injuries don't change often. 7 days keeps us well under the 100/day cap.
+// Free plan only allows 2022-2024
+const SEASONS = [2024];
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-// If cache exists but is stale, still serve it when API quota is exhausted.
 const STALE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Injury = {
