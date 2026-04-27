@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useSyncApiFootball } from "@/hooks/useMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -43,7 +43,7 @@ type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "
  * Imported from shared premium helper so Stats + Pro pages stay in sync. */
 import { TOP_LEAGUES, TOP_LEAGUES_SET, isPremiumUnlocked, subscribePremium } from "@/lib/premium";
 import { Lock } from "lucide-react";
-import { useEffect } from "react";
+
 
 /* ─── Form Strip ─── */
 const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("W" | "D" | "L")[] }) => {
