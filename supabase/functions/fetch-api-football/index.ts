@@ -187,6 +187,8 @@ Deno.serve(async (req) => {
           }
         } catch (err) {
           console.error(`Error for ${league.name} (${season}):`, err);
+          // Refund the reserved slot since the call effectively failed
+          await refundQuota(supabase, 1);
         }
       }
       if (apiCalls >= maxCalls) break;
