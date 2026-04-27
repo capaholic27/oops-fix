@@ -300,17 +300,18 @@ const LeagueSelector = ({
           {searchResults.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">No teams found</p>
           )}
-          {searchResults.map(({ team, league: l }) => (
-            <div key={`${l.code}-${team}`} className="flex items-center border-b border-border last:border-b-0">
+          {searchResults.map(({ team, league: l, locked }) => (
+            <div key={`${l.code}-${team}`} className={cn("flex items-center border-b border-border last:border-b-0", locked && "opacity-60")}>
               <button
-                onClick={() => onSelectTeam(team, l.code)}
+                onClick={() => trySelectTeam(team, l.code, l.name)}
                 className="flex-1 text-left px-4 py-3 text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-3"
               >
                 <TeamLogo teamName={team} size="sm" />
-                <div>
+                <div className="flex-1 min-w-0">
                   <span className="font-medium">{team}</span>
                   <span className="text-muted-foreground ml-2 text-xs">{l.name}</span>
                 </div>
+                {locked && <Lock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
               </button>
               <button
                 onClick={() => toggleFavorite(team)}
