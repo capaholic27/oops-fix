@@ -52,6 +52,8 @@ type BetLeg = {
   confidence: string;
   reason: string;
   matchDate?: string;
+  matchTime?: string;
+  league?: string;
 };
 type BetSlip = {
   slip: BetLeg[];
