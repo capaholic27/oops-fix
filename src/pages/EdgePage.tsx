@@ -423,6 +423,8 @@ const EdgeHistory = () => {
     }
     setSettling(true);
     let changed = 0;
+    let quotaHit = false;
+    let quotaMsg: string | undefined;
     for (const entry of pending) {
       const legs: SettleableLeg[] = entry.slip.map(l => ({
         match: l.match,
@@ -431,7 +433,8 @@ const EdgeHistory = () => {
         matchDate: l.matchDate,
       }));
       try {
-        const { legResults, finalResult } = await settleSlip(legs, entry.date);
+        const { legResults, finalResult, quotaExhausted, quotaMessage } = await settleSlip(legs, entry.date);
+        if (quotaExhausted) { quotaHit = true; quotaMsg = quotaMessage; break; }
         if (finalResult !== "pending") {
           entry.result = finalResult;
           entry.settledAt = new Date().toISOString();
@@ -449,7 +452,12 @@ const EdgeHistory = () => {
     saveHistory(current);
     setHistory(current);
     setSettling(false);
-    if (!silent && changed > 0) toast.success(`Settled ${changed} bet${changed > 1 ? "s" : ""}`);
+    if (quotaHit) {
+      toast.warning("Daily API limit reached", {
+        description: quotaMsg || "Pending bets will auto-settle tomorrow when quota resets.",
+        duration: 6000,
+      });
+    } else if (!silent && changed > 0) toast.success(`Settled ${changed} bet${changed > 1 ? "s" : ""}`);
     else if (!silent) toast.info("No bets ready to settle yet");
   }, []);
 
