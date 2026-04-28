@@ -232,28 +232,10 @@ Deno.serve(async (req) => {
     const freeHasTarget = targetDate ? all.some(f => f.match_date === targetDate) : true;
     console.log(`Fotmob-only mode: ${all.length} fixtures (${futureFromFree} future). targetDate=${targetDate ?? "n/a"} hasTarget=${freeHasTarget}`);
 
-    // 3) API-Football top-up (only if free sources are short)
-    const needsTopup = targetDate ? !freeHasTarget : futureFromFree < 30;
-    let quotaExhausted = false;
-    let apiSpent = 0;
-    if (needsTopup && apiKey) {
-      const dates = targetDate
-        ? [targetDate]
-        : Array.from({ length: 7 }, (_, i) => addDays(i));
-      const result = await loadFromApiFootball(apiKey, supabase, dates);
-      apiSpent = result.spent;
-      quotaExhausted = result.quotaExhausted;
-      console.log(`API-Football top-up: +${result.fixtures.length} fixtures, spent ${apiSpent} call(s)`);
-      for (const f of result.fixtures) {
-        const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
-        if (seen.has(key)) continue;
-        const altKey = `*|${f.match_date}|${f.home_team}|${f.away_team}`;
-        if (seen.has(altKey)) continue;
-        seen.add(key);
-        seen.add(altKey);
-        all.push(f);
-      }
-    }
+    // 3) API-Football top-up DISABLED — Fotmob is the sole source per release config.
+    const quotaExhausted = false;
+    const apiSpent = 0;
+    void freeHasTarget; void apiKey; // keep refs to avoid unused-var noise
 
     // Upsert (idempotent — no duplicate key errors).
     let inserted = 0;
