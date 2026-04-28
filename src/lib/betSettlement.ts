@@ -169,19 +169,25 @@ function evalLeg(leg: SettleableLeg, m: MatchRow): LegSettlement {
 export type SettlementResult = {
   legResults: LegSettlement[];
   finalResult: "win" | "loss" | "pending" | "unknown";
+  quotaExhausted?: boolean;
+  quotaMessage?: string;
 };
 
 /** Fetch live match results from API-Football for fixtures missing from our DB. */
 async function fetchLiveResults(
   queries: { home: string; away: string; date: string }[]
-): Promise<Map<string, MatchRow>> {
+): Promise<{ map: Map<string, MatchRow>; quotaExhausted: boolean; quotaMessage?: string }> {
   const out = new Map<string, MatchRow>();
-  if (queries.length === 0) return out;
+  if (queries.length === 0) return { map: out, quotaExhausted: false };
   try {
     const { data, error } = await supabase.functions.invoke("settle-bet-results", {
       body: { queries },
     });
-    if (error || !data?.results) return out;
+    if (error) return { map: out, quotaExhausted: false };
+    if (data?.error === "quota_exhausted") {
+      return { map: out, quotaExhausted: true, quotaMessage: data.message };
+    }
+    if (!data?.results) return { map: out, quotaExhausted: false };
     for (const r of data.results) {
       if (!r.found || r.ft_result == null) continue;
       const key = `${normalizeTeamName(r.home)}__${normalizeTeamName(r.away)}__${r.date}`;
