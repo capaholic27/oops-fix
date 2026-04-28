@@ -216,9 +216,8 @@ Deno.serve(async (req) => {
       console.warn("Fotmob fetch failed, falling back", e);
     }
 
-    // 2) CSV (free secondary)
-    const csvFixtures = await loadFromCSV();
-
+    // 2) CSV and API-Football paths are now DISABLED — Fotmob is the sole source.
+    //    We keep the helpers in this file for emergency fallback only.
     const seen = new Set<string>();
     const all: any[] = [];
     const fotmobFixtures = (globalThis as any).__fotmobFixtures ?? [];
@@ -228,39 +227,15 @@ Deno.serve(async (req) => {
       seen.add(key);
       all.push(f);
     }
-    for (const f of csvFixtures) {
-      const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      all.push(f);
-    }
 
     const futureFromFree = all.filter((f) => f.match_date >= today()).length;
     const freeHasTarget = targetDate ? all.some(f => f.match_date === targetDate) : true;
-    console.log(`Free sources produced ${all.length} fixtures (${futureFromFree} future). targetDate=${targetDate ?? "n/a"} hasTarget=${freeHasTarget}`);
+    console.log(`Fotmob-only mode: ${all.length} fixtures (${futureFromFree} future). targetDate=${targetDate ?? "n/a"} hasTarget=${freeHasTarget}`);
 
-    // 3) API-Football top-up (only if free sources are short)
-    const needsTopup = targetDate ? !freeHasTarget : futureFromFree < 30;
-    let quotaExhausted = false;
-    let apiSpent = 0;
-    if (needsTopup && apiKey) {
-      const dates = targetDate
-        ? [targetDate]
-        : Array.from({ length: 7 }, (_, i) => addDays(i));
-      const result = await loadFromApiFootball(apiKey, supabase, dates);
-      apiSpent = result.spent;
-      quotaExhausted = result.quotaExhausted;
-      console.log(`API-Football top-up: +${result.fixtures.length} fixtures, spent ${apiSpent} call(s)`);
-      for (const f of result.fixtures) {
-        const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
-        if (seen.has(key)) continue;
-        const altKey = `*|${f.match_date}|${f.home_team}|${f.away_team}`;
-        if (seen.has(altKey)) continue;
-        seen.add(key);
-        seen.add(altKey);
-        all.push(f);
-      }
-    }
+    // 3) API-Football top-up DISABLED — Fotmob is the sole source per release config.
+    const quotaExhausted = false;
+    const apiSpent = 0;
+    void freeHasTarget; void apiKey; // keep refs to avoid unused-var noise
 
     // Upsert (idempotent — no duplicate key errors).
     let inserted = 0;
@@ -308,6 +283,40 @@ Deno.serve(async (req) => {
         resultsInserted += fresh.length;
       }
       console.log(`Inserted ${resultsInserted} Fotmob results into matches`);
+    }
+
+    // Cleanup: drop fixtures that already have a result, and any past-dated fixtures.
+    // Fotmob is the only source going forward, so we don't worry about losing rows.
+    try {
+      const { data: settled } = await supabase
+        .from("matches")
+        .select("match_date, home_team, away_team")
+        .gte("match_date", addDays(-7));
+      const settledKeys = new Set(
+        (settled ?? []).map((m: any) =>
+          `${m.match_date}|${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`
+        )
+      );
+      const { data: toCheck } = await supabase
+        .from("fixtures")
+        .select("id, match_date, home_team, away_team")
+        .gte("match_date", addDays(-7));
+      const idsToDelete = (toCheck ?? [])
+        .filter((f: any) =>
+          settledKeys.has(`${f.match_date}|${f.home_team.toLowerCase()}|${f.away_team.toLowerCase()}`)
+        )
+        .map((f: any) => f.id);
+      if (idsToDelete.length > 0) {
+        await supabase.from("fixtures").delete().in("id", idsToDelete);
+        console.log(`Removed ${idsToDelete.length} settled fixtures`);
+      }
+      const { error: stalErr, count: stalCount } = await supabase
+        .from("fixtures")
+        .delete({ count: "exact" })
+        .lt("match_date", today());
+      if (!stalErr && stalCount) console.log(`Removed ${stalCount} stale past fixtures`);
+    } catch (e) {
+      console.warn("Fixture cleanup failed", e);
     }
 
     const futureCountQ = await supabase

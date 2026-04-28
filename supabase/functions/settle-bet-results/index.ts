@@ -1,18 +1,19 @@
-// Fetches match results for settlement from API-Football.
-// Batches by date to minimize quota usage (1 API call per unique date, ~300 fixtures each).
-// Results are cached in the public.matches table via upsert so future settlements hit local DB.
+// Settles bets using Fotmob data only.
+// Strategy:
+//  1) Look up requested matches in the local `matches` table (kept in sync by fetch-fixtures + Fotmob).
+//  2) For any missing matches, pull the relevant Fotmob leagues live and re-check.
+//  3) Cache anything we resolve into `matches` for next time.
+// No API-Football, no quota concerns.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { adminClient, reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
+import { adminClient } from "../_shared/quota.ts";
+import { fetchFotmobAll } from "../_shared/fotmob.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const API_BASE = "https://v3.football.api-sports.io";
 
 type Query = { home: string; away: string; date: string };
 
@@ -26,14 +27,19 @@ function norm(s: string): string {
     .trim();
 }
 
-function matchesTeam(apiName: string, target: string): boolean {
-  const a = norm(apiName);
-  const b = norm(target);
-  if (a === b) return true;
-  // partial containment (e.g. "Manchester City" vs "Man City")
-  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) return true;
+function teamMatch(a: string, b: string): boolean {
+  const x = norm(a);
+  const y = norm(b);
+  if (x === y) return true;
+  if (x.length >= 4 && y.length >= 4 && (x.includes(y) || y.includes(x))) return true;
   return false;
 }
+
+type ResultRow = {
+  home: string; away: string; date: string;
+  found: boolean; status?: string;
+  ft_home_goals?: number; ft_away_goals?: number; ft_result?: string;
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -46,128 +52,105 @@ serve(async (req) => {
       });
     }
 
-    const API_KEY = Deno.env.get("RAPIDAPI_KEY");
-    if (!API_KEY) throw new Error("RAPIDAPI_KEY not set");
-
     const supabase = adminClient();
+    const results: ResultRow[] = [];
+    const stillMissing: Query[] = [];
 
-    // Group queries by date
-    const byDate = new Map<string, Query[]>();
+    // 1) Local DB lookup (fast, no network)
+    const dates = [...new Set(queries.map(q => q.date).filter(Boolean))];
+    const { data: localMatches = [] } = await supabase
+      .from("matches")
+      .select("match_date, home_team, away_team, ft_home_goals, ft_away_goals, ft_result")
+      .in("match_date", dates);
+
     for (const q of queries) {
-      if (!q.date || !q.home || !q.away) continue;
-      const list = byDate.get(q.date) ?? [];
-      list.push(q);
-      byDate.set(q.date, list);
-    }
-
-    const results: Array<{
-      home: string; away: string; date: string;
-      found: boolean; status?: string;
-      ft_home_goals?: number; ft_away_goals?: number; ft_result?: string;
-      ht_home_goals?: number; ht_away_goals?: number;
-    }> = [];
-
-    // Check quota up front (1 call per unique date)
-    const needed = byDate.size;
-    const reservation = await reserveQuota(supabase, needed);
-    if (!reservation.ok) {
-      return new Response(JSON.stringify({
-        error: "quota_exhausted",
-        message: `Daily API limit reached (${reservation.used}/${DAILY_LIMIT}). Results will auto-settle tomorrow.`,
-        results: [],
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    let actuallyUsed = 0;
-    const rowsToUpsert: any[] = [];
-
-    for (const [date, qs] of byDate.entries()) {
-      try {
-        const url = `${API_BASE}/fixtures?date=${date}`;
-        const resp = await fetch(url, {
-          headers: {
-            "x-apisports-key": API_KEY,
-            "Accept": "application/json",
-          },
+      if (!q.date || !q.home || !q.away) {
+        results.push({ ...q, found: false, status: "bad_input" });
+        continue;
+      }
+      const m = (localMatches ?? []).find((row: any) =>
+        row.match_date === q.date &&
+        teamMatch(row.home_team, q.home) &&
+        teamMatch(row.away_team, q.away)
+      );
+      if (m && m.ft_home_goals != null && m.ft_away_goals != null) {
+        results.push({
+          ...q, found: true, status: "FT",
+          ft_home_goals: m.ft_home_goals,
+          ft_away_goals: m.ft_away_goals,
+          ft_result: m.ft_result ?? (m.ft_home_goals > m.ft_away_goals ? "H" : m.ft_home_goals < m.ft_away_goals ? "A" : "D"),
         });
-        actuallyUsed++;
-        if (!resp.ok) {
-          console.error("api-football fixtures failed", date, resp.status);
-          for (const q of qs) results.push({ ...q, found: false, status: "api_error" });
-          continue;
-        }
-        const body = await resp.json();
-        const fixtures: any[] = body?.response ?? [];
+      } else {
+        stillMissing.push(q);
+      }
+    }
 
-        for (const q of qs) {
-          const match = fixtures.find((f) =>
-            matchesTeam(f?.teams?.home?.name ?? "", q.home) &&
-            matchesTeam(f?.teams?.away?.name ?? "", q.away)
+    // 2) Fotmob live fallback for the missing ones
+    let fotmobUsed = false;
+    if (stillMissing.length > 0) {
+      fotmobUsed = true;
+      try {
+        const { results: fmResults } = await fetchFotmobAll();
+        const rowsToUpsert: any[] = [];
+        for (const q of stillMissing) {
+          const m = fmResults.find(r =>
+            r.match_date === q.date &&
+            teamMatch(r.home_team, q.home) &&
+            teamMatch(r.away_team, q.away)
           );
-          if (!match) {
+          if (!m) {
             results.push({ ...q, found: false, status: "not_found" });
             continue;
           }
-          const status = match?.fixture?.status?.short ?? "";
-          const isFinished = ["FT", "AET", "PEN"].includes(status);
-          if (!isFinished) {
-            results.push({ ...q, found: true, status });
-            continue;
-          }
-          const hg = match?.goals?.home ?? match?.score?.fulltime?.home ?? 0;
-          const ag = match?.goals?.away ?? match?.score?.fulltime?.away ?? 0;
-          const hth = match?.score?.halftime?.home ?? 0;
-          const hta = match?.score?.halftime?.away ?? 0;
-          const ftr = hg > ag ? "H" : hg < ag ? "A" : "D";
-
           results.push({
-            ...q, found: true, status,
-            ft_home_goals: hg, ft_away_goals: ag, ft_result: ftr,
-            ht_home_goals: hth, ht_away_goals: hta,
+            ...q, found: true, status: "FT",
+            ft_home_goals: m.ft_home_goals,
+            ft_away_goals: m.ft_away_goals,
+            ft_result: m.ft_result,
           });
-
-          // Cache in matches table for future settlements
           rowsToUpsert.push({
-            league_code: match?.league?.id ? `API-${match.league.id}` : "API",
-            league_name: match?.league?.name ?? "Unknown",
-            season: String(match?.league?.season ?? new Date(date).getFullYear()),
-            match_date: date,
-            home_team: match?.teams?.home?.name ?? q.home,
-            away_team: match?.teams?.away?.name ?? q.away,
-            ft_home_goals: hg,
-            ft_away_goals: ag,
-            ft_result: ftr,
-            ht_home_goals: hth,
-            ht_away_goals: hta,
+            league_code: m.league_code,
+            league_name: m.league_name,
+            season: m.season,
+            match_date: m.match_date,
+            home_team: m.home_team,
+            away_team: m.away_team,
+            ft_home_goals: m.ft_home_goals,
+            ft_away_goals: m.ft_away_goals,
+            ft_result: m.ft_result,
           });
         }
+        if (rowsToUpsert.length > 0) {
+          // Skip dupes by checking existence first
+          const dates2 = [...new Set(rowsToUpsert.map(r => r.match_date))];
+          const { data: existing } = await supabase
+            .from("matches")
+            .select("match_date, home_team, away_team")
+            .in("match_date", dates2);
+          const existingSet = new Set(
+            (existing ?? []).map((e: any) => `${e.match_date}|${e.home_team}|${e.away_team}`)
+          );
+          const fresh = rowsToUpsert.filter(
+            r => !existingSet.has(`${r.match_date}|${r.home_team}|${r.away_team}`)
+          );
+          if (fresh.length > 0) {
+            await supabase.from("matches").insert(fresh);
+          }
+        }
       } catch (e) {
-        console.error("fetch fixtures error", date, e);
-        for (const q of qs) results.push({ ...q, found: false, status: "fetch_error" });
+        console.error("Fotmob settlement fallback failed", e);
+        for (const q of stillMissing) {
+          if (!results.some(r => r.home === q.home && r.away === q.away && r.date === q.date)) {
+            results.push({ ...q, found: false, status: "fetch_error" });
+          }
+        }
       }
     }
 
-    // Refund unused reservations
-    if (actuallyUsed < needed) {
-      await refundQuota(supabase, needed - actuallyUsed);
-    }
-
-    // Cache resolved matches for future (best-effort insert, ignore duplicates)
-    if (rowsToUpsert.length > 0) {
-      try {
-        await supabase.from("matches").insert(rowsToUpsert);
-      } catch (e) {
-        console.warn("matches cache insert failed (likely duplicates)", e);
-      }
-    }
-
-    const finalCount = await getTodayCount(supabase);
     return new Response(JSON.stringify({
       results,
-      quota: { used: finalCount, limit: DAILY_LIMIT, remaining: Math.max(0, DAILY_LIMIT - finalCount) },
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      source: fotmobUsed ? "fotmob+local" : "local",
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("settle-bet-results error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
