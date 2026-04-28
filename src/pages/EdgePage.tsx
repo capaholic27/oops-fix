@@ -54,6 +54,7 @@ type BetLeg = {
   matchDate?: string;
   matchTime?: string;
   league?: string;
+  injuryImpact?: string | null;
 };
 type BetSlip = {
   slip: BetLeg[];
@@ -422,6 +423,8 @@ const EdgeHistory = () => {
     }
     setSettling(true);
     let changed = 0;
+    let quotaHit = false;
+    let quotaMsg: string | undefined;
     for (const entry of pending) {
       const legs: SettleableLeg[] = entry.slip.map(l => ({
         match: l.match,
@@ -430,7 +433,8 @@ const EdgeHistory = () => {
         matchDate: l.matchDate,
       }));
       try {
-        const { legResults, finalResult } = await settleSlip(legs, entry.date);
+        const { legResults, finalResult, quotaExhausted, quotaMessage } = await settleSlip(legs, entry.date);
+        if (quotaExhausted) { quotaHit = true; quotaMsg = quotaMessage; break; }
         if (finalResult !== "pending") {
           entry.result = finalResult;
           entry.settledAt = new Date().toISOString();
@@ -448,7 +452,12 @@ const EdgeHistory = () => {
     saveHistory(current);
     setHistory(current);
     setSettling(false);
-    if (!silent && changed > 0) toast.success(`Settled ${changed} bet${changed > 1 ? "s" : ""}`);
+    if (quotaHit) {
+      toast.warning("Daily API limit reached", {
+        description: quotaMsg || "Pending bets will auto-settle tomorrow when quota resets.",
+        duration: 6000,
+      });
+    } else if (!silent && changed > 0) toast.success(`Settled ${changed} bet${changed > 1 ? "s" : ""}`);
     else if (!silent) toast.info("No bets ready to settle yet");
   }, []);
 
@@ -598,6 +607,22 @@ const BET_LEAGUES = [
   { code: "ELC", name: "Championship" },
 ];
 
+/* ─── Build upcoming-date list (today + next 13 days) ─── */
+function getUpcomingDates(): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const value = d.toISOString().slice(0, 10);
+    let label: string;
+    if (i === 0) label = "Today";
+    else if (i === 1) label = "Tomorrow";
+    else label = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    out.push({ value, label });
+  }
+  return out;
+}
+
 /* ─── Bet Builder ─── */
 const BetBuilder = () => {
   const [odds, setOdds] = useState("");
@@ -610,6 +635,8 @@ const BetBuilder = () => {
   const [showMarkets, setShowMarkets] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState("");
   const [maxLegs, setMaxLegs] = useState<number | null>(null);
+  const [targetDate, setTargetDate] = useState<string>(""); // "" = next 7 days
+  const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
@@ -658,11 +685,17 @@ const BetBuilder = () => {
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
           leagueFilter: leagueFilter || undefined,
           maxLegs: maxLegs || undefined,
+          targetDate: targetDate || undefined,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const slip = data as BetSlip;
+      if (!slip.slip || slip.slip.length === 0) {
+        toast.error("No matches available for the selected date/league. Try another date.");
+        setResult(slip);
+        return;
+      }
       setResult(slip);
 
       // Save to history
@@ -759,6 +792,29 @@ const BetBuilder = () => {
         ) : (
           <p className="text-[10px] text-muted-foreground">AI will pick the optimal number of legs to hit your target odds.</p>
         )}
+
+        {/* Date Picker — upcoming fixtures */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] font-bold text-foreground">Match Date</span>
+          </div>
+          <select
+            value={targetDate}
+            onChange={e => setTargetDate(e.target.value)}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="">Next 7 days (any)</option>
+            {upcomingDates.map(d => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+          <p className="text-[9px] text-muted-foreground">
+            {targetDate
+              ? `Bet will only use matches on ${new Date(targetDate).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`
+              : "AI picks from any upcoming fixture in the next week"}
+          </p>
+        </div>
 
         {/* League Filter */}
         <div className="space-y-1.5">
@@ -934,6 +990,14 @@ const BetBuilder = () => {
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground">{leg.reason}</p>
+                  {leg.injuryImpact && (
+                    <div className="flex items-start gap-1 mt-1 px-1.5 py-1 rounded bg-amber-500/10 border border-amber-500/20">
+                      <AlertTriangle className="w-2.5 h-2.5 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-amber-400 font-medium leading-snug">
+                        Squad impact: {leg.injuryImpact}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}

@@ -169,19 +169,25 @@ function evalLeg(leg: SettleableLeg, m: MatchRow): LegSettlement {
 export type SettlementResult = {
   legResults: LegSettlement[];
   finalResult: "win" | "loss" | "pending" | "unknown";
+  quotaExhausted?: boolean;
+  quotaMessage?: string;
 };
 
 /** Fetch live match results from API-Football for fixtures missing from our DB. */
 async function fetchLiveResults(
   queries: { home: string; away: string; date: string }[]
-): Promise<Map<string, MatchRow>> {
+): Promise<{ map: Map<string, MatchRow>; quotaExhausted: boolean; quotaMessage?: string }> {
   const out = new Map<string, MatchRow>();
-  if (queries.length === 0) return out;
+  if (queries.length === 0) return { map: out, quotaExhausted: false };
   try {
     const { data, error } = await supabase.functions.invoke("settle-bet-results", {
       body: { queries },
     });
-    if (error || !data?.results) return out;
+    if (error) return { map: out, quotaExhausted: false };
+    if (data?.error === "quota_exhausted") {
+      return { map: out, quotaExhausted: true, quotaMessage: data.message };
+    }
+    if (!data?.results) return { map: out, quotaExhausted: false };
     for (const r of data.results) {
       if (!r.found || r.ft_result == null) continue;
       const key = `${normalizeTeamName(r.home)}__${normalizeTeamName(r.away)}__${r.date}`;
@@ -205,7 +211,7 @@ async function fetchLiveResults(
   } catch (e) {
     console.warn("fetchLiveResults failed", e);
   }
-  return out;
+  return { map: out, quotaExhausted: false };
 }
 
 export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Promise<SettlementResult> {
@@ -246,17 +252,24 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
   }
 
   // Pass 2: fetch live results in one batched request
+  let quotaExhausted = false;
+  let quotaMessage: string | undefined;
   if (unresolvedQueries.length > 0) {
     const live = await fetchLiveResults(unresolvedQueries);
+    quotaExhausted = live.quotaExhausted;
+    quotaMessage = live.quotaMessage;
     for (let k = 0; k < unresolvedIdx.length; k++) {
       const i = unresolvedIdx[k];
       const q = unresolvedQueries[k];
       const key = `${normalizeTeamName(q.home)}__${normalizeTeamName(q.away)}__${q.date}`;
-      const row = live.get(key);
+      const row = live.map.get(key);
       if (row) {
         legResults[i] = evalLeg(legs[i], row);
       } else {
-        legResults[i] = { result: "unknown", reason: "Match not yet in results" };
+        legResults[i] = {
+          result: "unknown",
+          reason: quotaExhausted ? "Quota exhausted — retry tomorrow" : "Match not yet in results",
+        };
       }
     }
   }
@@ -273,7 +286,7 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
     if (r.result === "unknown") {
       anyUnknown = true;
       allWin = false;
-      if (r.reason?.includes("not yet") || r.reason?.includes("Unresolved")) anyPending = true;
+      if (r.reason?.includes("not yet") || r.reason?.includes("Unresolved") || r.reason?.includes("Quota")) anyPending = true;
     }
   }
 
@@ -284,5 +297,5 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
   else if (allWin) finalResult = "win";
   else finalResult = "unknown";
 
-  return { legResults: finalLegResults, finalResult };
+  return { legResults: finalLegResults, finalResult, quotaExhausted, quotaMessage };
 }
