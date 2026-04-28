@@ -38,38 +38,49 @@ type PlayerProfile = {
   passing: number;
 };
 
-/** Convert an API-Football real player into a 0-100 radar profile.
- *  Heuristic — based on per-90 goals, assists, shots, fouls drawn, position. */
+/** Convert a Fotmob real player into a 0-100 radar profile.
+ *  Fotmob's squad payload usually only has goals/assists/rating/yellow/red — no shots/fouls.
+ *  We derive the radar from rating + goals/assists + position, with a small per-player
+ *  hash so two same-position players never look identical. */
 function realToProfile(p: RealPlayer): PlayerProfile {
-  const apps = Math.max(1, p.appearances || 1);
-  const g90 = p.goals / apps;
-  const a90 = p.assists / apps;
-  const s90 = p.shots / apps;
-  const fc90 = p.fouls / apps;
   const pos = (p.position || "").toUpperCase();
+  const isGK = pos.startsWith("GOAL") || pos === "G" || pos === "GK";
+  const isDef = !isGK && (pos.startsWith("DEF") || pos === "D" || /CB|RB|LB|WB/.test(pos));
+  const isFwd = !isGK && !isDef && (pos.startsWith("ATT") || pos.startsWith("FOR") || /ST|CF|LW|RW|LF|RF/.test(pos));
+  const isMid = !isGK && !isDef && !isFwd;
 
-  const isFwd = pos.startsWith("ATT") || pos === "F" || pos === "ST";
-  const isDef = pos.startsWith("DEF") || pos === "D" || pos === "CB";
-  const isMid = pos.startsWith("MID") || pos === "M";
-  const isGK = pos.startsWith("GOAL") || pos === "G";
+  // Rating is the strongest available signal (typical range ~6.0–8.0).
+  // Map it to a 35–95 base.
+  const rating = p.rating ?? 6.6;
+  const base = Math.max(35, Math.min(95, Math.round((rating - 6.0) * 35 + 60)));
 
-  const clamp = (v: number) => Math.max(15, Math.min(99, Math.round(v)));
-  const base = p.rating ? clamp((p.rating - 5) * 18 + 55) : 55;
+  // Production bonus from real Fotmob counters.
+  const goals = p.goals || 0;
+  const assists = p.assists || 0;
+  const goalBoost = Math.min(35, goals * 3);
+  const assistBoost = Math.min(30, assists * 3);
+
+  // Deterministic per-player jitter (±8) so two CBs with similar ratings differ.
+  const seed = (p.fullName || p.name).split("").reduce((s, c) => s + c.charCodeAt(0), 0);
+  const j = (n: number) => ((seed * 9301 + n * 49297) % 233280) / 233280; // 0..1
+  const jit = (n: number, range = 8) => Math.round((j(n) - 0.5) * 2 * range);
+
+  const clamp = (v: number) => Math.max(20, Math.min(99, Math.round(v)));
 
   return {
     name: p.name,
     position: p.position || "—",
     number: p.number,
     photoUrl: p.photo,
-    goals: p.goals,
-    assists: p.assists,
-    shots: p.shots,
-    attacking: clamp(base + g90 * 60 + s90 * 8 + (isFwd ? 8 : 0) - (isDef ? 15 : 0) - (isGK ? 30 : 0)),
-    creativity: clamp(base + a90 * 80 + (isMid ? 10 : 0) - (isGK ? 25 : 0)),
-    finishing: clamp(base + (s90 > 0 ? (g90 / Math.max(0.1, s90)) * 80 : 0) + g90 * 30 - (isDef ? 20 : 0) - (isGK ? 30 : 0)),
-    aerial: clamp(base + (isDef ? 22 : 0) + (isFwd ? 12 : 0) - (isMid ? 6 : 0)),
-    defending: clamp(base + fc90 * 30 + (isDef ? 28 : 0) + (isGK ? 25 : 0) - (isFwd ? 18 : 0)),
-    passing: clamp(base + a90 * 50 + (isMid ? 18 : 0) + (isDef ? 4 : 0) - (isGK ? 10 : 0)),
+    goals,
+    assists,
+    shots: p.shots || 0,
+    attacking: clamp(base + goalBoost + (isFwd ? 15 : isMid ? 4 : isDef ? -18 : -32) + jit(1)),
+    creativity: clamp(base + assistBoost + (isMid ? 16 : isFwd ? 6 : isDef ? -8 : -22) + jit(2)),
+    finishing: clamp(base + goalBoost * 0.9 + (isFwd ? 18 : isMid ? -2 : isDef ? -22 : -34) + jit(3)),
+    aerial: clamp(base - 6 + (isDef ? 22 : isFwd ? 8 : isMid ? -6 : 14) + jit(4, 12)),
+    defending: clamp(base + (isDef ? 26 : isGK ? 22 : isMid ? -2 : -22) + jit(5)),
+    passing: clamp(base + assistBoost * 0.6 + (isMid ? 18 : isDef ? 4 : isFwd ? -2 : -16) + jit(6)),
   };
 }
 
