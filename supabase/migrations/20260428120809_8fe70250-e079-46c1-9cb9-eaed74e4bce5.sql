@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS matches_unique_dedup_idx ON public.matches (match_date, lower(home_team), lower(away_team));
