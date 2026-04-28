@@ -310,6 +310,40 @@ Deno.serve(async (req) => {
       console.log(`Inserted ${resultsInserted} Fotmob results into matches`);
     }
 
+    // Cleanup: drop fixtures that already have a result, and any past-dated fixtures.
+    // Fotmob is the only source going forward, so we don't worry about losing rows.
+    try {
+      const { data: settled } = await supabase
+        .from("matches")
+        .select("match_date, home_team, away_team")
+        .gte("match_date", addDays(-7));
+      const settledKeys = new Set(
+        (settled ?? []).map((m: any) =>
+          `${m.match_date}|${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`
+        )
+      );
+      const { data: toCheck } = await supabase
+        .from("fixtures")
+        .select("id, match_date, home_team, away_team")
+        .gte("match_date", addDays(-7));
+      const idsToDelete = (toCheck ?? [])
+        .filter((f: any) =>
+          settledKeys.has(`${f.match_date}|${f.home_team.toLowerCase()}|${f.away_team.toLowerCase()}`)
+        )
+        .map((f: any) => f.id);
+      if (idsToDelete.length > 0) {
+        await supabase.from("fixtures").delete().in("id", idsToDelete);
+        console.log(`Removed ${idsToDelete.length} settled fixtures`);
+      }
+      const { error: stalErr, count: stalCount } = await supabase
+        .from("fixtures")
+        .delete({ count: "exact" })
+        .lt("match_date", today());
+      if (!stalErr && stalCount) console.log(`Removed ${stalCount} stale past fixtures`);
+    } catch (e) {
+      console.warn("Fixture cleanup failed", e);
+    }
+
     const futureCountQ = await supabase
       .from("fixtures")
       .select("*", { count: "exact", head: true })
