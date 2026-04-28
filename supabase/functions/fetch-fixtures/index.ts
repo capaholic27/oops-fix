@@ -216,9 +216,8 @@ Deno.serve(async (req) => {
       console.warn("Fotmob fetch failed, falling back", e);
     }
 
-    // 2) CSV (free secondary)
-    const csvFixtures = await loadFromCSV();
-
+    // 2) CSV and API-Football paths are now DISABLED — Fotmob is the sole source.
+    //    We keep the helpers in this file for emergency fallback only.
     const seen = new Set<string>();
     const all: any[] = [];
     const fotmobFixtures = (globalThis as any).__fotmobFixtures ?? [];
@@ -228,16 +227,10 @@ Deno.serve(async (req) => {
       seen.add(key);
       all.push(f);
     }
-    for (const f of csvFixtures) {
-      const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      all.push(f);
-    }
 
     const futureFromFree = all.filter((f) => f.match_date >= today()).length;
     const freeHasTarget = targetDate ? all.some(f => f.match_date === targetDate) : true;
-    console.log(`Free sources produced ${all.length} fixtures (${futureFromFree} future). targetDate=${targetDate ?? "n/a"} hasTarget=${freeHasTarget}`);
+    console.log(`Fotmob-only mode: ${all.length} fixtures (${futureFromFree} future). targetDate=${targetDate ?? "n/a"} hasTarget=${freeHasTarget}`);
 
     // 3) API-Football top-up (only if free sources are short)
     const needsTopup = targetDate ? !freeHasTarget : futureFromFree < 30;
