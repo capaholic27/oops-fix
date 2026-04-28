@@ -328,6 +328,8 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         inserted,
+        resultsInserted,
+        fotmobFixtures: (globalThis as any).__fotmobFixtures?.length ?? 0,
         futureCount: futureCountQ.count ?? 0,
         targetDate: targetDate ?? null,
         targetCount,
