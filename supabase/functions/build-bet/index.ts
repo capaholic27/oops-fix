@@ -16,31 +16,62 @@ type FixtureRow = {
   league_code: string;
 };
 
-async function loadUpcomingFixtures(supabase: any, leagueFilter?: string): Promise<FixtureRow[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+const today = () => new Date().toISOString().slice(0, 10);
+const addDays = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+
+async function loadUpcomingFixtures(
+  supabase: any,
+  opts: { leagueFilter?: string; targetDate?: string; rangeDays?: number }
+): Promise<FixtureRow[]> {
+  const start = opts.targetDate || today();
+  const end = opts.targetDate
+    ? opts.targetDate
+    : addDays(opts.rangeDays ?? 7);
 
   let q = supabase
     .from("fixtures")
     .select("match_date, match_time, home_team, away_team, league_name, league_code")
-    .gte("match_date", today)
-    .lte("match_date", in7)
+    .gte("match_date", start)
+    .lte("match_date", end)
     .order("match_date", { ascending: true })
-    .limit(80);
+    .limit(120);
 
-  if (leagueFilter) {
-    q = q.ilike("league_name", `%${leagueFilter}%`);
+  if (opts.leagueFilter) {
+    q = q.ilike("league_name", `%${opts.leagueFilter}%`);
   }
 
   const { data } = await q;
   return (data ?? []) as FixtureRow[];
 }
 
+async function loadInjuriesForTeams(
+  supabase: any,
+  teams: string[]
+): Promise<Record<string, Array<{ player: string; reason: string; type: string }>>> {
+  if (teams.length === 0) return {};
+  const { data } = await supabase
+    .from("team_injuries")
+    .select("team_name, injuries")
+    .in("team_name", teams);
+  const out: Record<string, Array<{ player: string; reason: string; type: string }>> = {};
+  for (const row of (data ?? []) as any[]) {
+    const list = Array.isArray(row.injuries) ? row.injuries : [];
+    out[row.team_name] = list
+      .slice(0, 6)
+      .map((i: any) => ({
+        player: i.playerName || i.player || "Unknown",
+        reason: i.reason || "Unavailable",
+        type: i.type || "",
+      }));
+  }
+  return out;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs } = await req.json();
+    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate } = await req.json();
 
     if (!targetOdds || !riskLevel) {
       return new Response(JSON.stringify({ error: "Missing targetOdds or riskLevel" }), {
@@ -56,28 +87,55 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Load real upcoming fixtures from DB. Refresh once if empty.
-    let fixtures = await loadUpcomingFixtures(supabase, leagueFilter);
+    // Validate target date is today or future
+    let effectiveDate: string | undefined = targetDate;
+    if (effectiveDate && effectiveDate < today()) {
+      return new Response(JSON.stringify({
+        error: `Cannot build bets for past dates. Choose ${today()} or later.`,
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Load fixtures (single date, OR next 7 days). Refresh if empty.
+    let fixtures = await loadUpcomingFixtures(supabase, { leagueFilter, targetDate: effectiveDate });
     if (fixtures.length === 0) {
       try {
-        await supabase.functions.invoke("fetch-fixtures", { body: {} });
-        fixtures = await loadUpcomingFixtures(supabase, leagueFilter);
+        await supabase.functions.invoke("fetch-fixtures", { body: { force: false } });
+        fixtures = await loadUpcomingFixtures(supabase, { leagueFilter, targetDate: effectiveDate });
       } catch (e) {
         console.warn("fetch-fixtures invoke failed", e);
       }
     }
-    // Fallback: if league filter returned nothing, use all leagues
+    // Fallback: if league filter returned nothing, drop the filter
     if (fixtures.length === 0 && leagueFilter) {
-      fixtures = await loadUpcomingFixtures(supabase);
+      fixtures = await loadUpcomingFixtures(supabase, { targetDate: effectiveDate });
+    }
+    // Final fallback: widen to next 14 days if a specific date had nothing
+    if (fixtures.length === 0 && effectiveDate) {
+      fixtures = await loadUpcomingFixtures(supabase, { leagueFilter, rangeDays: 14 });
     }
 
-    const compactFixtures = fixtures.slice(0, 60).map(f => ({
+    // STRICT FUTURE-ONLY guard: drop any past dates that may have leaked in
+    fixtures = fixtures.filter(f => f.match_date >= today());
+
+    const compactFixtures = fixtures.slice(0, 80).map(f => ({
       date: f.match_date,
       time: f.match_time ?? "",
       home: f.home_team,
       away: f.away_team,
       league: f.league_name,
     }));
+
+    // Pull injury context for the involved teams
+    const teamSet = new Set<string>();
+    for (const f of compactFixtures) { teamSet.add(f.home); teamSet.add(f.away); }
+    const injuries = await loadInjuriesForTeams(supabase, Array.from(teamSet));
+    const injurySummary: Record<string, string> = {};
+    for (const [team, list] of Object.entries(injuries)) {
+      if (list.length === 0) continue;
+      injurySummary[team] = list
+        .map(i => `${i.player} (${i.reason}${i.type ? ` — ${i.type}` : ""})`)
+        .join("; ");
+    }
 
     const allMarkets = [
       "1X2 (Home Win / Draw / Away Win)", "Double Chance (1X, X2, 12)", "Draw No Bet",
@@ -96,50 +154,68 @@ serve(async (req) => {
       : allMarkets;
 
     const haveFixtures = compactFixtures.length > 0;
+    const TODAY_STR = today();
 
     const systemPrompt = `You are an elite sports betting strategist AI. You build optimized bet slips (singles, doubles, parlays/accumulators) for users.
 
 ALLOWED MARKETS (ONLY use these):
 ${markets.map(m => `- ${m}`).join("\n")}
 
-RULES:
-- Construct a bet slip that approximately hits the target combined odds.
+HARD RULES:
+- TODAY IS ${TODAY_STR}. EVERY leg's matchDate MUST be ${TODAY_STR} or LATER. NEVER use a past date. NEVER use last year.
 - ${haveFixtures
-    ? `MANDATORY: Only use matches from the FIXTURES list below. Use the EXACT team names and EXACT match_date as provided. Do NOT invent matches.`
-    : `No fixture context available — generate plausible upcoming matches and use a date of today or tomorrow.`}
+    ? `MANDATORY: Only use matches from the FIXTURES list below. Use the EXACT team names and EXACT date as provided. Do NOT invent matches.`
+    : `No fixture context available — DO NOT fabricate matches. Return an empty slip with advice asking the user to retry once fixtures are loaded.`}
 - If REQUIRED NUMBER OF LEGS is given, use EXACTLY that many legs.
-- ODDS CALIBRATION: Each leg's odds MUST match real bookmakers (Bet365, Pinnacle):
+- Use INJURY CONTEXT to inform picks. If a key player is out (striker, keeper, top defender), reflect that in the reasoning AND in the market choice (e.g. star striker out → consider Under 2.5 or opposing clean sheet).
+- ODDS CALIBRATION: each leg's odds must match real bookmakers (Bet365, Pinnacle):
   • Heavy favorite ML: 1.20-1.50  • Moderate favorite: 1.55-1.90
   • Even matchup: 1.95-2.20  • Underdog: 2.30-4.50  • Big underdog: 5.00+
   • Over 2.5 goals: 1.85-2.05  • BTTS Yes: 1.70-1.95
   • Over 9.5 corners: 1.85-2.10  • Over 4.5 cards: 1.90-2.15
   • Correct score: 6.00-15.00 typical
 - Combined odds = product of leg odds (round to 2 decimals).
-- Use DIVERSE markets (don't repeat the same market across legs).
-- Each leg needs a short data-driven reason.
-- Output STRICT JSON:
+- Use DIVERSE markets across legs.
+- Each leg's reason MUST mention the specific match context (form, H2H, OR injury impact when relevant).
+
+Output STRICT JSON:
 {
   "slip": [
-    { "match": "Home Team vs Away Team", "matchDate": "YYYY-MM-DD", "matchTime": "HH:MM", "league": "Premier League", "market": "Over 9.5 Corners", "odds": 1.85, "confidence": "high", "reason": "..." }
+    {
+      "match": "Home Team vs Away Team",
+      "matchDate": "YYYY-MM-DD",
+      "matchTime": "HH:MM",
+      "league": "Premier League",
+      "market": "Over 9.5 Corners",
+      "odds": 1.85,
+      "confidence": "high",
+      "reason": "...",
+      "injuryImpact": "Optional: e.g. 'Haaland out — limits goal threat' OR null"
+    }
   ],
   "combinedOdds": 3.20,
   "riskAssessment": "...",
   "expectedValue": "...",
   "advice": "..."
-}
+}`;
 
-CRITICAL: "matchDate" (YYYY-MM-DD) is REQUIRED for every leg — used for automatic result verification. "matchTime" optional (HH:MM 24h). "league" optional but recommended.`;
+    const injuriesBlock = Object.keys(injurySummary).length > 0
+      ? `\n\nINJURY CONTEXT (key absences for involved teams):\n${Object.entries(injurySummary).map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
+      : "";
 
     const userPrompt = `Build me a bet slip.
 
+TODAY: ${TODAY_STR}
 TARGET ODDS: ${targetOdds}
 RISK LEVEL: ${riskLevel}
+${effectiveDate ? `TARGET MATCH DATE: ${effectiveDate} (use ONLY matches from this date if any exist)` : `DATE WINDOW: ${TODAY_STR} to ${addDays(7)}`}
 ${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs.` : ""}
-${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter}. If insufficient fixtures in this league, mention this in "advice".` : ""}
+${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter}.` : ""}
 
 ${haveFixtures
-  ? `FIXTURES (use ONLY these, verbatim team names, exact date):\n${JSON.stringify(compactFixtures, null, 2)}`
-  : "No fixture data available — pick reasonable upcoming top-league matches with today/tomorrow's date."}
+  ? `UPCOMING FIXTURES (use ONLY these, verbatim team names + exact date):\n${JSON.stringify(compactFixtures, null, 2)}`
+  : "NO FIXTURE DATA AVAILABLE — return slip:[] with advice asking the user to wait for fixtures to refresh."}
+${injuriesBlock}
 
 Return ONLY valid JSON.`;
 
@@ -183,6 +259,25 @@ Return ONLY valid JSON.`;
       parsed = JSON.parse(content);
     } catch {
       parsed = { raw: content };
+    }
+
+    // Server-side guard: drop any leg whose date is in the past
+    if (Array.isArray(parsed?.slip)) {
+      const before = parsed.slip.length;
+      parsed.slip = parsed.slip.filter((leg: any) => {
+        if (!leg?.matchDate) return false;
+        return String(leg.matchDate) >= TODAY_STR;
+      });
+      if (parsed.slip.length < before) {
+        parsed.advice = (parsed.advice ? parsed.advice + " " : "") +
+          `Removed ${before - parsed.slip.length} leg(s) with past dates.`;
+      }
+      // Recompute combined odds
+      if (parsed.slip.length > 0) {
+        parsed.combinedOdds = Number(
+          parsed.slip.reduce((acc: number, l: any) => acc * (Number(l.odds) || 1), 1).toFixed(2)
+        );
+      }
     }
 
     return new Response(JSON.stringify(parsed), {
