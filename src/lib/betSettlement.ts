@@ -171,40 +171,110 @@ export type SettlementResult = {
   finalResult: "win" | "loss" | "pending" | "unknown";
 };
 
-export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Promise<SettlementResult> {
-  const legResults: LegSettlement[] = [];
-  let anyPending = false;
-  let anyUnknown = false;
-  let allWin = true;
+/** Fetch live match results from API-Football for fixtures missing from our DB. */
+async function fetchLiveResults(
+  queries: { home: string; away: string; date: string }[]
+): Promise<Map<string, MatchRow>> {
+  const out = new Map<string, MatchRow>();
+  if (queries.length === 0) return out;
+  try {
+    const { data, error } = await supabase.functions.invoke("settle-bet-results", {
+      body: { queries },
+    });
+    if (error || !data?.results) return out;
+    for (const r of data.results) {
+      if (!r.found || r.ft_result == null) continue;
+      const key = `${normalizeTeamName(r.home)}__${normalizeTeamName(r.away)}__${r.date}`;
+      out.set(key, {
+        home_team: r.home,
+        away_team: r.away,
+        match_date: r.date,
+        ft_home_goals: r.ft_home_goals ?? 0,
+        ft_away_goals: r.ft_away_goals ?? 0,
+        ft_result: r.ft_result,
+        ht_home_goals: r.ht_home_goals ?? 0,
+        ht_away_goals: r.ht_away_goals ?? 0,
+        home_shots: 0, away_shots: 0,
+        home_shots_target: 0, away_shots_target: 0,
+        home_fouls: 0, away_fouls: 0,
+        home_corners: 0, away_corners: 0,
+        home_yellows: 0, away_yellows: 0,
+        home_reds: 0, away_reds: 0,
+      } as MatchRow);
+    }
+  } catch (e) {
+    console.warn("fetchLiveResults failed", e);
+  }
+  return out;
+}
 
-  for (const leg of legs) {
+export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Promise<SettlementResult> {
+  const legResults: (LegSettlement | null)[] = new Array(legs.length).fill(null);
+  const unresolvedIdx: number[] = [];
+  const unresolvedQueries: { home: string; away: string; date: string }[] = [];
+
+  // Pass 1: try local DB
+  for (let i = 0; i < legs.length; i++) {
+    const leg = legs[i];
     const teams = parseTeams(leg.match);
     if (!teams) {
-      legResults.push({ result: "unknown", reason: "Could not parse teams" });
-      anyUnknown = true;
-      allWin = false;
+      legResults[i] = { result: "unknown", reason: "Could not parse teams" };
       continue;
     }
     const row = await findMatch(teams.home, teams.away, leg.matchDate || placedDate);
-    if (!row) {
-      // Match not played yet (or not in DB)
-      legResults.push({ result: "unknown", reason: "Match not yet in results" });
-      anyPending = true;
-      allWin = false;
+    if (row && row.ft_result) {
+      legResults[i] = evalLeg(leg, row);
       continue;
     }
-    // Has the match been played? If stats are all 0 and goals 0-0 it might be a future fixture; require a result code
-    if (!row.ft_result) {
-      legResults.push({ result: "unknown", reason: "Match not finished" });
-      anyPending = true;
-      allWin = false;
-      continue;
+    // Needs live lookup — only if match date is in the past (or today)
+    const matchDate = leg.matchDate || placedDate;
+    if (matchDate) {
+      const d = new Date(matchDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      if (d.getTime() <= today.getTime()) {
+        unresolvedIdx.push(i);
+        unresolvedQueries.push({
+          home: teams.home,
+          away: teams.away,
+          date: matchDate.slice(0, 10),
+        });
+        continue;
+      }
     }
-    const settled = evalLeg(leg, row);
-    legResults.push(settled);
-    if (settled.result === "loss") allWin = false;
-    if (settled.result === "unknown") { anyUnknown = true; allWin = false; }
-    if (settled.result === "push") allWin = allWin; // push voids the leg, treat as win for accumulator purposes? we'll treat as neutral
+    legResults[i] = { result: "unknown", reason: "Match not yet played" };
+  }
+
+  // Pass 2: fetch live results in one batched request
+  if (unresolvedQueries.length > 0) {
+    const live = await fetchLiveResults(unresolvedQueries);
+    for (let k = 0; k < unresolvedIdx.length; k++) {
+      const i = unresolvedIdx[k];
+      const q = unresolvedQueries[k];
+      const key = `${normalizeTeamName(q.home)}__${normalizeTeamName(q.away)}__${q.date}`;
+      const row = live.get(key);
+      if (row) {
+        legResults[i] = evalLeg(legs[i], row);
+      } else {
+        legResults[i] = { result: "unknown", reason: "Match not yet in results" };
+      }
+    }
+  }
+
+  // Aggregate
+  let anyPending = false;
+  let anyUnknown = false;
+  let allWin = true;
+  const finalLegResults: LegSettlement[] = [];
+  for (const l of legResults) {
+    const r = l ?? { result: "unknown" as const, reason: "Unresolved" };
+    finalLegResults.push(r);
+    if (r.result === "loss") allWin = false;
+    if (r.result === "unknown") {
+      anyUnknown = true;
+      allWin = false;
+      if (r.reason?.includes("not yet") || r.reason?.includes("Unresolved")) anyPending = true;
+    }
   }
 
   let finalResult: SettlementResult["finalResult"];
