@@ -785,6 +785,29 @@ const BetBuilder = () => {
           <p className="text-[10px] text-muted-foreground">AI will pick the optimal number of legs to hit your target odds.</p>
         )}
 
+        {/* Date Picker — upcoming fixtures */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-primary" />
+            <span className="text-[10px] font-bold text-foreground">Match Date</span>
+          </div>
+          <select
+            value={targetDate}
+            onChange={e => setTargetDate(e.target.value)}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+          >
+            <option value="">Next 7 days (any)</option>
+            {upcomingDates.map(d => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+          <p className="text-[9px] text-muted-foreground">
+            {targetDate
+              ? `Bet will only use matches on ${new Date(targetDate).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`
+              : "AI picks from any upcoming fixture in the next week"}
+          </p>
+        </div>
+
         {/* League Filter */}
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
