@@ -252,17 +252,24 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
   }
 
   // Pass 2: fetch live results in one batched request
+  let quotaExhausted = false;
+  let quotaMessage: string | undefined;
   if (unresolvedQueries.length > 0) {
     const live = await fetchLiveResults(unresolvedQueries);
+    quotaExhausted = live.quotaExhausted;
+    quotaMessage = live.quotaMessage;
     for (let k = 0; k < unresolvedIdx.length; k++) {
       const i = unresolvedIdx[k];
       const q = unresolvedQueries[k];
       const key = `${normalizeTeamName(q.home)}__${normalizeTeamName(q.away)}__${q.date}`;
-      const row = live.get(key);
+      const row = live.map.get(key);
       if (row) {
         legResults[i] = evalLeg(legs[i], row);
       } else {
-        legResults[i] = { result: "unknown", reason: "Match not yet in results" };
+        legResults[i] = {
+          result: "unknown",
+          reason: quotaExhausted ? "Quota exhausted — retry tomorrow" : "Match not yet in results",
+        };
       }
     }
   }
@@ -279,7 +286,7 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
     if (r.result === "unknown") {
       anyUnknown = true;
       allWin = false;
-      if (r.reason?.includes("not yet") || r.reason?.includes("Unresolved")) anyPending = true;
+      if (r.reason?.includes("not yet") || r.reason?.includes("Unresolved") || r.reason?.includes("Quota")) anyPending = true;
     }
   }
 
@@ -290,5 +297,5 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
   else if (allWin) finalResult = "win";
   else finalResult = "unknown";
 
-  return { legResults: finalLegResults, finalResult };
+  return { legResults: finalLegResults, finalResult, quotaExhausted, quotaMessage };
 }
