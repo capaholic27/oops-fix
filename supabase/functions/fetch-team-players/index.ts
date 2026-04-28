@@ -74,7 +74,7 @@ async function findFotmobTeamId(teamName: string): Promise<number | null> {
         return b.score - a.score;
       });
 
-    return ranked[0]?.id ?? Number(opts[0]?.payload?.id) || null;
+    return ranked[0]?.id ?? (Number(opts[0]?.payload?.id) || null);
   } catch (e) {
     console.warn("Fotmob search failed", e);
     return null;
