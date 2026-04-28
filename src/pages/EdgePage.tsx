@@ -279,7 +279,7 @@ const EdgeLockedTease = () => {
 
 /* ─── Edge History ─── */
 const EDGE_HISTORY_KEY = "fe_edge_history";
-type EdgeLegStored = BetLeg & { matchDate?: string; settledAs?: "win" | "loss" | "push" | "unknown"; actual?: string };
+type EdgeLegStored = BetLeg & { matchDate?: string; matchTime?: string; league?: string; settledAs?: "win" | "loss" | "push" | "unknown"; actual?: string };
 type EdgeHistoryEntry = {
   id: string;
   date: string;
