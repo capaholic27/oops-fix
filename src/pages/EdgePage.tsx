@@ -599,6 +599,22 @@ const BET_LEAGUES = [
   { code: "ELC", name: "Championship" },
 ];
 
+/* ─── Build upcoming-date list (today + next 13 days) ─── */
+function getUpcomingDates(): { value: string; label: string }[] {
+  const out: { value: string; label: string }[] = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const value = d.toISOString().slice(0, 10);
+    let label: string;
+    if (i === 0) label = "Today";
+    else if (i === 1) label = "Tomorrow";
+    else label = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    out.push({ value, label });
+  }
+  return out;
+}
+
 /* ─── Bet Builder ─── */
 const BetBuilder = () => {
   const [odds, setOdds] = useState("");
@@ -611,6 +627,8 @@ const BetBuilder = () => {
   const [showMarkets, setShowMarkets] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState("");
   const [maxLegs, setMaxLegs] = useState<number | null>(null);
+  const [targetDate, setTargetDate] = useState<string>(""); // "" = next 7 days
+  const upcomingDates = useMemo(() => getUpcomingDates(), []);
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
@@ -659,11 +677,17 @@ const BetBuilder = () => {
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
           leagueFilter: leagueFilter || undefined,
           maxLegs: maxLegs || undefined,
+          targetDate: targetDate || undefined,
         },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const slip = data as BetSlip;
+      if (!slip.slip || slip.slip.length === 0) {
+        toast.error("No matches available for the selected date/league. Try another date.");
+        setResult(slip);
+        return;
+      }
       setResult(slip);
 
       // Save to history
