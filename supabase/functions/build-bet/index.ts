@@ -95,17 +95,38 @@ serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Load fixtures (single date, OR next 7 days). Refresh if empty.
+    // Load fixtures (single date, OR next 7 days). Auto-sync if missing/stale.
     let fixtures = await loadUpcomingFixtures(supabase, { leagueFilter, targetDate: effectiveDate });
-    if (fixtures.length === 0) {
+
+    // Auto-sync trigger: empty for selected date, OR all fixtures are stale (>6h)
+    let needsSync = fixtures.length === 0;
+    if (!needsSync && fixtures.length > 0) {
+      // Stale check: if newest fixture row was created >6h ago, refresh
+      const { data: freshness } = await supabase
+        .from("fixtures")
+        .select("created_at")
+        .gte("match_date", effectiveDate || today())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (freshness?.created_at) {
+        const ageHours = (Date.now() - new Date(freshness.created_at).getTime()) / 3600000;
+        if (ageHours > 6) needsSync = true;
+      }
+    }
+
+    if (needsSync) {
       try {
-        await supabase.functions.invoke("fetch-fixtures", { body: { force: false } });
+        // Pass targetDate so fetch-fixtures spends only 1 API call (not 7)
+        await supabase.functions.invoke("fetch-fixtures", {
+          body: effectiveDate ? { targetDate: effectiveDate } : { force: false },
+        });
         fixtures = await loadUpcomingFixtures(supabase, { leagueFilter, targetDate: effectiveDate });
       } catch (e) {
         console.warn("fetch-fixtures invoke failed", e);
       }
     }
-    // Fallback: if league filter returned nothing, drop the filter
+    // Fallback: drop league filter if it killed the result
     if (fixtures.length === 0 && leagueFilter) {
       fixtures = await loadUpcomingFixtures(supabase, { targetDate: effectiveDate });
     }
