@@ -343,6 +343,13 @@ const ExpandableHistoryEntry = ({ entry }: { entry: EdgeHistoryEntry }) => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold text-foreground truncate">{leg.match}</p>
+                    {(leg.matchDate || leg.matchTime) && (
+                      <p className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5" />
+                        {leg.matchDate && new Date(leg.matchDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                        {leg.matchTime && ` · ${leg.matchTime}`}
+                      </p>
+                    )}
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-[9px] font-semibold bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground">
                         {leg.market}
