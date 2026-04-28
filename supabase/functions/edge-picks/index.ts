@@ -28,18 +28,32 @@ serve(async (req) => {
     // Pull TODAY + tomorrow's fixtures so "Today's Edge" is current
     let { data: fxRows } = await supabase
       .from("fixtures")
-      .select("match_date, match_time, home_team, away_team, league_name")
+      .select("match_date, match_time, home_team, away_team, league_name, created_at")
       .gte("match_date", TODAY)
       .lte("match_date", TOMORROW)
       .order("match_date", { ascending: true })
       .limit(60);
 
-    // Auto-refresh fixtures if empty
-    if (!fxRows || fxRows.length === 0) {
-      try { await supabase.functions.invoke("fetch-fixtures", { body: {} }); } catch (_) {}
+    // Auto-sync trigger: empty OR stale (>6h since latest row was created)
+    let needsSync = !fxRows || fxRows.length === 0;
+    if (!needsSync && fxRows && fxRows.length > 0) {
+      const newest = fxRows
+        .map((r: any) => r.created_at ? new Date(r.created_at).getTime() : 0)
+        .reduce((a: number, b: number) => Math.max(a, b), 0);
+      if (newest > 0) {
+        const ageHours = (Date.now() - newest) / 3600000;
+        if (ageHours > 6) needsSync = true;
+      }
+    }
+
+    if (needsSync) {
+      try {
+        // Spend only 1 API call: just sync TODAY
+        await supabase.functions.invoke("fetch-fixtures", { body: { targetDate: TODAY } });
+      } catch (_) {}
       const r = await supabase
         .from("fixtures")
-        .select("match_date, match_time, home_team, away_team, league_name")
+        .select("match_date, match_time, home_team, away_team, league_name, created_at")
         .gte("match_date", TODAY)
         .lte("match_date", TOMORROW)
         .order("match_date", { ascending: true })

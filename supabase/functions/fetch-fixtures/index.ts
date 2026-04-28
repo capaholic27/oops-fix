@@ -1,13 +1,16 @@
 // Fetches upcoming fixtures.
 // Strategy:
 //  1) Pull football-data.co.uk fixtures.csv (free, no quota).
-//  2) If we have fewer than 30 *future* fixtures, top up with API-Football
-//     (1 call per day at most — guarded by api_quota table).
+//  2) If we have fewer than 30 *future* fixtures (or a specific targetDate has none),
+//     top up with API-Football. Spends only as much quota as available.
 //
-// Idempotent: deletes only "future" rows before re-inserting so we never lose
-// historical fixtures already played.
+// Body (optional): { force?: boolean, targetDate?: "YYYY-MM-DD" }
+//   - targetDate: only fetch that single date from API-Football (1 quota call).
+//   - Without targetDate: try up to 7 days ahead (7 quota calls), but degrades
+//     gracefully when quota is partially available.
+//
+// Idempotent: uses upsert so duplicate fixtures don't error.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { adminClient, reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
 
 const corsHeaders = {
@@ -31,17 +34,8 @@ const LEAGUE_NAMES: Record<string, string> = {
   SC0: "Scottish Premiership", SC1: "Scottish Championship", SC2: "Scottish League One", SC3: "Scottish League Two",
 };
 
-// API-Football top league IDs we care about for top-up
 const API_TOP_LEAGUES = [
-  39,   // Premier League
-  140,  // La Liga
-  135,  // Serie A
-  78,   // Bundesliga
-  61,   // Ligue 1
-  88,   // Eredivisie
-  94,   // Primeira Liga
-  40,   // Championship
-  253,  // MLS
+  39, 140, 135, 78, 61, 88, 94, 40, 253,
 ];
 
 function parseCSV(csv: string): Record<string, string>[] {
@@ -99,54 +93,68 @@ async function loadFromCSV(): Promise<any[]> {
   }
 }
 
-async function loadFromApiFootball(apiKey: string, supabase: any): Promise<any[]> {
-  // 1 API call per league via /fixtures?league=X&season=Y&from=&to= would be 9 calls.
-  // To save quota we use a single /fixtures?date= call per day for the next 7 days = 7 calls.
-  // Actually, we only need the cheapest path: ONE call /fixtures?date=YYYY-MM-DD covers
-  // ALL leagues but only one date — so 7 calls for a week, 14 for two weeks.
-  //
-  // Compromise: 7 calls for next-7-days. Reserve quota up front.
-  const days = 7;
-  const reservation = await reserveQuota(supabase, days);
-  if (!reservation.ok) {
-    console.warn(`Skipping API-Football top-up — quota exhausted (${reservation.used}/${DAILY_LIMIT})`);
+async function fetchApiFootballForDate(apiKey: string, date: string): Promise<any[]> {
+  try {
+    const resp = await fetch(`${API_BASE}/fixtures?date=${date}`, {
+      headers: { "x-apisports-key": apiKey, "Accept": "application/json" },
+    });
+    if (!resp.ok) return [];
+    const body = await resp.json();
+    const items: any[] = body?.response ?? [];
+    const out: any[] = [];
+    for (const f of items) {
+      const leagueId = f?.league?.id;
+      if (!API_TOP_LEAGUES.includes(leagueId)) continue;
+      const ts: string = f?.fixture?.date ?? "";
+      const matchDate = ts.slice(0, 10) || date;
+      const matchTime = ts.slice(11, 16) || null;
+      out.push({
+        league_code: `API-${leagueId}`,
+        league_name: f?.league?.name ?? "Unknown",
+        match_date: matchDate,
+        match_time: matchTime,
+        home_team: f?.teams?.home?.name ?? "",
+        away_team: f?.teams?.away?.name ?? "",
+        referee: f?.fixture?.referee || null,
+      });
+    }
+    return out.filter((f) => f.home_team && f.away_team);
+  } catch (e) {
+    console.warn("API-Football date fetch failed", date, e);
     return [];
   }
+}
 
+/**
+ * Fetch from API-Football for a list of dates. Reserves quota per-date so that
+ * partial availability still gets some fixtures (instead of all-or-nothing).
+ */
+async function loadFromApiFootball(
+  apiKey: string,
+  supabase: any,
+  dates: string[]
+): Promise<{ fixtures: any[]; spent: number; quotaExhausted: boolean }> {
   const fixtures: any[] = [];
-  let used = 0;
-  for (let i = 0; i < days; i++) {
-    const date = addDays(i);
-    try {
-      const resp = await fetch(`${API_BASE}/fixtures?date=${date}`, {
-        headers: { "x-apisports-key": apiKey, "Accept": "application/json" },
-      });
-      used++;
-      if (!resp.ok) continue;
-      const body = await resp.json();
-      const items: any[] = body?.response ?? [];
-      for (const f of items) {
-        const leagueId = f?.league?.id;
-        if (!API_TOP_LEAGUES.includes(leagueId)) continue;
-        const ts: string = f?.fixture?.date ?? "";
-        const matchDate = ts.slice(0, 10) || date;
-        const matchTime = ts.slice(11, 16) || null;
-        fixtures.push({
-          league_code: `API-${leagueId}`,
-          league_name: f?.league?.name ?? "Unknown",
-          match_date: matchDate,
-          match_time: matchTime,
-          home_team: f?.teams?.home?.name ?? "",
-          away_team: f?.teams?.away?.name ?? "",
-          referee: f?.fixture?.referee || null,
-        });
-      }
-    } catch (e) {
-      console.warn("API-Football date fetch failed", date, e);
+  let spent = 0;
+  let quotaExhausted = false;
+
+  for (const date of dates) {
+    const reservation = await reserveQuota(supabase, 1);
+    if (!reservation.ok) {
+      quotaExhausted = true;
+      console.warn(`Quota exhausted at date=${date} (${reservation.used}/${DAILY_LIMIT})`);
+      break;
     }
+    const items = await fetchApiFootballForDate(apiKey, date);
+    spent++;
+    if (items.length === 0) {
+      // Refund if API returned empty (e.g. no top-league matches that day)
+      // Keep the call counted — we did spend an API request — so do NOT refund.
+    }
+    fixtures.push(...items);
   }
-  if (used < days) await refundQuota(supabase, days - used);
-  return fixtures.filter((f) => f.home_team && f.away_team);
+
+  return { fixtures, spent, quotaExhausted };
 }
 
 Deno.serve(async (req) => {
@@ -159,27 +167,42 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { /* GET */ }
     const force = !!body?.force;
+    const targetDate: string | undefined = body?.targetDate;
 
-    // Skip refresh if we recently fetched (last 6 hours) and have plenty of future fixtures
+    // Skip refresh if we recently fetched (last 6 hours) and have plenty of future fixtures.
+    // But: when targetDate is specified, only skip if THAT date has fixtures already.
     if (!force) {
       const sixHoursAgo = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
-      const { count: futureCount } = await supabase
-        .from("fixtures")
-        .select("*", { count: "exact", head: true })
-        .gte("match_date", today())
-        .gte("created_at", sixHoursAgo);
-      if ((futureCount ?? 0) > 30) {
-        return new Response(
-          JSON.stringify({ success: true, fixtures: futureCount, cached: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (targetDate) {
+        const { count: dayCount } = await supabase
+          .from("fixtures")
+          .select("*", { count: "exact", head: true })
+          .eq("match_date", targetDate)
+          .gte("created_at", sixHoursAgo);
+        if ((dayCount ?? 0) > 0) {
+          return new Response(
+            JSON.stringify({ success: true, fixtures: dayCount, cached: true, targetDate }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      } else {
+        const { count: futureCount } = await supabase
+          .from("fixtures")
+          .select("*", { count: "exact", head: true })
+          .gte("match_date", today())
+          .gte("created_at", sixHoursAgo);
+        if ((futureCount ?? 0) > 30) {
+          return new Response(
+            JSON.stringify({ success: true, fixtures: futureCount, cached: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
     // 1) CSV (free)
     const csvFixtures = await loadFromCSV();
 
-    // Deduplicate
     const seen = new Set<string>();
     const all: any[] = [];
     for (const f of csvFixtures) {
@@ -190,16 +213,24 @@ Deno.serve(async (req) => {
     }
 
     const futureFromCsv = all.filter((f) => f.match_date >= today()).length;
-    console.log(`CSV produced ${all.length} fixtures (${futureFromCsv} future).`);
+    const csvHasTarget = targetDate ? all.some(f => f.match_date === targetDate) : true;
+    console.log(`CSV produced ${all.length} fixtures (${futureFromCsv} future). targetDate=${targetDate ?? "n/a"} csvHasTarget=${csvHasTarget}`);
 
-    // 2) API-Football top-up if sparse
-    if (futureFromCsv < 30 && apiKey) {
-      const apiFixtures = await loadFromApiFootball(apiKey, supabase);
-      console.log(`API-Football top-up: +${apiFixtures.length} fixtures`);
-      for (const f of apiFixtures) {
+    // 2) API-Football top-up
+    const needsTopup = targetDate ? !csvHasTarget : futureFromCsv < 30;
+    let quotaExhausted = false;
+    let apiSpent = 0;
+    if (needsTopup && apiKey) {
+      const dates = targetDate
+        ? [targetDate]
+        : Array.from({ length: 7 }, (_, i) => addDays(i));
+      const result = await loadFromApiFootball(apiKey, supabase, dates);
+      apiSpent = result.spent;
+      quotaExhausted = result.quotaExhausted;
+      console.log(`API-Football top-up: +${result.fixtures.length} fixtures, spent ${apiSpent} call(s)`);
+      for (const f of result.fixtures) {
         const key = `${f.league_code}|${f.match_date}|${f.home_team}|${f.away_team}`;
         if (seen.has(key)) continue;
-        // Also dedupe across sources by team+date (different code prefix)
         const altKey = `*|${f.match_date}|${f.home_team}|${f.away_team}`;
         if (seen.has(altKey)) continue;
         seen.add(key);
@@ -208,33 +239,49 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Replace future fixtures only (preserve historical entries)
+    // Upsert (idempotent — no duplicate key errors).
+    let inserted = 0;
     if (all.length > 0) {
-      await supabase.from("fixtures").delete().gte("match_date", today());
-
+      // Only refresh future rows; leave history untouched.
+      const futureRows = all.filter(f => f.match_date >= today());
       const batchSize = 100;
-      let inserted = 0;
-      for (let i = 0; i < all.length; i += batchSize) {
-        const batch = all.slice(i, i + batchSize);
-        const { error } = await supabase.from("fixtures").insert(batch);
+      for (let i = 0; i < futureRows.length; i += batchSize) {
+        const batch = futureRows.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from("fixtures")
+          .upsert(batch, { onConflict: "league_code,match_date,home_team,away_team", ignoreDuplicates: false });
         if (error) {
-          console.error("Insert error:", error);
+          console.error("Upsert error:", error);
           continue;
         }
         inserted += batch.length;
       }
-      const { count: futureCount } = await supabase
+    }
+
+    const futureCountQ = await supabase
+      .from("fixtures")
+      .select("*", { count: "exact", head: true })
+      .gte("match_date", today());
+
+    let targetCount: number | null = null;
+    if (targetDate) {
+      const r = await supabase
         .from("fixtures")
         .select("*", { count: "exact", head: true })
-        .gte("match_date", today());
-      return new Response(
-        JSON.stringify({ success: true, inserted, futureCount }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+        .eq("match_date", targetDate);
+      targetCount = r.count ?? 0;
     }
 
     return new Response(
-      JSON.stringify({ success: true, fixtures: 0, message: "no fixtures available" }),
+      JSON.stringify({
+        success: true,
+        inserted,
+        futureCount: futureCountQ.count ?? 0,
+        targetDate: targetDate ?? null,
+        targetCount,
+        apiCallsSpent: apiSpent,
+        quotaExhausted,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
