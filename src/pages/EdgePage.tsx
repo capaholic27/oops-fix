@@ -52,6 +52,8 @@ type BetLeg = {
   confidence: string;
   reason: string;
   matchDate?: string;
+  matchTime?: string;
+  league?: string;
 };
 type BetSlip = {
   slip: BetLeg[];
@@ -277,7 +279,7 @@ const EdgeLockedTease = () => {
 
 /* ─── Edge History ─── */
 const EDGE_HISTORY_KEY = "fe_edge_history";
-type EdgeLegStored = BetLeg & { matchDate?: string; settledAs?: "win" | "loss" | "push" | "unknown"; actual?: string };
+type EdgeLegStored = BetLeg & { matchDate?: string; matchTime?: string; league?: string; settledAs?: "win" | "loss" | "push" | "unknown"; actual?: string };
 type EdgeHistoryEntry = {
   id: string;
   date: string;
@@ -341,6 +343,13 @@ const ExpandableHistoryEntry = ({ entry }: { entry: EdgeHistoryEntry }) => {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold text-foreground truncate">{leg.match}</p>
+                    {(leg.matchDate || leg.matchTime) && (
+                      <p className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5" />
+                        {leg.matchDate && new Date(leg.matchDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                        {leg.matchTime && ` · ${leg.matchTime}`}
+                      </p>
+                    )}
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                       <span className="text-[9px] font-semibold bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground">
                         {leg.market}
@@ -893,28 +902,41 @@ const BetBuilder = () => {
             </div>
           </div>
           <div className="divide-y divide-border">
-            {result.slip.map((leg, i) => (
-              <div key={i} className="px-4 py-3 space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-foreground">{leg.match}</p>
-                  <span className="text-xs font-mono font-bold text-primary">{leg.odds?.toFixed(2)}</span>
+            {result.slip.map((leg, i) => {
+              const dateLabel = leg.matchDate
+                ? new Date(leg.matchDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+                : null;
+              return (
+                <div key={i} className="px-4 py-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-foreground truncate">{leg.match}</p>
+                    <span className="text-xs font-mono font-bold text-primary shrink-0">{leg.odds?.toFixed(2)}</span>
+                  </div>
+                  {(dateLabel || leg.matchTime || leg.league) && (
+                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <Calendar className="w-2.5 h-2.5" />
+                      {dateLabel && <span className="font-semibold text-foreground/80">{dateLabel}</span>}
+                      {leg.matchTime && <span>· {leg.matchTime}</span>}
+                      {leg.league && <span className="truncate">· {leg.league}</span>}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground">
+                      {leg.market}
+                    </span>
+                    <span className={cn(
+                      "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                      leg.confidence === "high" ? "bg-emerald-500/20 text-emerald-400"
+                        : leg.confidence === "medium" ? "bg-amber-500/20 text-amber-400"
+                        : "bg-red-500/20 text-red-400"
+                    )}>
+                      {leg.confidence}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{leg.reason}</p>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-semibold bg-secondary px-1.5 py-0.5 rounded text-secondary-foreground">
-                    {leg.market}
-                  </span>
-                  <span className={cn(
-                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                    leg.confidence === "high" ? "bg-emerald-500/20 text-emerald-400"
-                      : leg.confidence === "medium" ? "bg-amber-500/20 text-amber-400"
-                      : "bg-red-500/20 text-red-400"
-                  )}>
-                    {leg.confidence}
-                  </span>
-                </div>
-                <p className="text-[10px] text-muted-foreground">{leg.reason}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {(result.riskAssessment || result.advice) && (
             <div className="px-4 py-3 border-t border-border bg-muted/30 space-y-1.5">
