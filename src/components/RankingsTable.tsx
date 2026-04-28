@@ -27,10 +27,25 @@ type RankedTeam = {
 export const RankingsTable = ({ matches, leagueName }: Props) => {
   const [showAll, setShowAll] = useState(false);
 
+  // Determine the current season = the most recent season present in this league's matches.
+  const currentSeason = (() => {
+    const seasons = Array.from(new Set(matches.map(m => m.season).filter(Boolean))).sort();
+    return seasons[seasons.length - 1] ?? null;
+  })();
+
+  const seasonMatches = currentSeason
+    ? matches.filter(m => m.season === currentSeason)
+    : matches;
+
+  // Format season "2627" -> "26/27"
+  const seasonLabel = currentSeason && currentSeason.length === 4
+    ? `${currentSeason.slice(0, 2)}/${currentSeason.slice(2)}`
+    : currentSeason ?? "";
+
   // Group teams by normalized name to merge duplicates
   const teamGroups = new Map<string, string[]>();
   const allTeams = new Set<string>();
-  matches.forEach(m => { allTeams.add(m.home_team); allTeams.add(m.away_team); });
+  seasonMatches.forEach(m => { allTeams.add(m.home_team); allTeams.add(m.away_team); });
 
   allTeams.forEach(team => {
     const canonical = normalizeTeamName(team);
@@ -41,7 +56,7 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
   const ranked: RankedTeam[] = Array.from(teamGroups.entries()).map(([canonical, variants]) => {
     // Collect all match views across all name variants
     const allViews = variants.flatMap(variant =>
-      matches
+      seasonMatches
         .map(m => getTeamMatchView(m, variant))
         .filter((v): v is NonNullable<ReturnType<typeof getTeamMatchView>> => v !== null)
     );
@@ -76,7 +91,14 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
   return (
     <div className="stat-card opacity-0 animate-fade-up col-span-full" style={{ animationDelay: "650ms" }}>
       <div className="flex items-center justify-between mb-4">
-        <span className="stat-label">{leagueName || "League"} Rankings</span>
+        <div className="flex items-center gap-2">
+          <span className="stat-label">{leagueName || "League"} Rankings</span>
+          {seasonLabel && (
+            <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+              {seasonLabel}
+            </span>
+          )}
+        </div>
         {ranked.length > 6 && (
           <button
             onClick={() => setShowAll(!showAll)}

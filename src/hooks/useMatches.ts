@@ -44,7 +44,16 @@ export function useMatches(leagueCode?: string) {
         }
       }
 
-      return allMatches;
+      // Deduplicate by (date, home, away) — safety net for cross-season overlap.
+      const seen = new Set<string>();
+      const unique: Match[] = [];
+      for (const m of allMatches) {
+        const key = `${m.match_date}|${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(m);
+      }
+      return unique;
     },
   });
 }
@@ -82,7 +91,17 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
       if (awayRes.error) throw awayRes.error;
 
       const all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
-      return all.sort((a, b) => a.match_date.localeCompare(b.match_date));
+      // Deduplicate by (date, home, away) — same fixture may appear under
+      // multiple seasons/league_codes when sources overlap.
+      const seen = new Set<string>();
+      const unique: Match[] = [];
+      for (const m of all) {
+        const key = `${m.match_date}|${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(m);
+      }
+      return unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
     },
     enabled: !!teamName,
   });
