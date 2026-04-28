@@ -982,6 +982,14 @@ const BetBuilder = () => {
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground">{leg.reason}</p>
+                  {leg.injuryImpact && (
+                    <div className="flex items-start gap-1 mt-1 px-1.5 py-1 rounded bg-amber-500/10 border border-amber-500/20">
+                      <AlertTriangle className="w-2.5 h-2.5 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-amber-400 font-medium leading-snug">
+                        Squad impact: {leg.injuryImpact}
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })}
