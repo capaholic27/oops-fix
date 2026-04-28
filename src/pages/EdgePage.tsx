@@ -54,6 +54,7 @@ type BetLeg = {
   matchDate?: string;
   matchTime?: string;
   league?: string;
+  injuryImpact?: string | null;
 };
 type BetSlip = {
   slip: BetLeg[];
