@@ -215,17 +215,21 @@ const UpcomingGamesPage = () => {
                 key={day.date}
                 onClick={() => setSelectedIdx(i)}
                 className={cn(
-                  "flex-shrink-0 flex flex-col items-center px-4 py-2.5 transition-all min-w-[76px] border-b-2",
+                  "flex-shrink-0 flex flex-col items-center justify-center px-4 py-2.5 transition-all min-w-[78px] relative",
                   isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                  isToday && !isActive && "text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : isToday
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <span className={cn("text-[11px] font-semibold whitespace-nowrap")}>
+                {isToday && !isActive && (
+                  <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
+                )}
+                <span className="text-[11px] font-semibold whitespace-nowrap leading-tight">
                   {label}
                 </span>
-                <span className="text-[10px] mt-0.5 opacity-60">
+                <span className={cn("text-[10px] mt-0.5", isActive ? "opacity-90" : "opacity-60")}>
                   {matchCount} {matchCount === 1 ? "game" : "games"}
                 </span>
               </button>
