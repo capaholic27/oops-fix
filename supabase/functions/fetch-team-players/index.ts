@@ -103,7 +103,8 @@ async function fetchFotmobSquad(teamId: number): Promise<RealPlayer[]> {
       : null;
 
     for (const m of (grp?.members ?? [])) {
-      if (m?.excludeFromRanking) continue;
+      // NOTE: `excludeFromRanking` is Fotmob's flag for "not in top performers list",
+      // NOT "not on squad". We include them — they're real squad members.
       const id = m?.id;
       const fullName = m?.name ?? "";
       if (!fullName) continue;
