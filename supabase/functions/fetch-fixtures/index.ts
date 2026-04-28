@@ -281,6 +281,35 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Persist Fotmob finished results into `matches` (skip duplicates).
+    let resultsInserted = 0;
+    const fmResults: any[] = (globalThis as any).__fotmobResults ?? [];
+    if (fmResults.length > 0) {
+      const batchSize = 100;
+      for (let i = 0; i < fmResults.length; i += batchSize) {
+        const batch = fmResults.slice(i, i + batchSize);
+        const dates = [...new Set(batch.map((r) => r.match_date))];
+        const { data: existing } = await supabase
+          .from("matches")
+          .select("match_date, home_team, away_team")
+          .in("match_date", dates);
+        const existingSet = new Set(
+          (existing ?? []).map((e: any) => `${e.match_date}|${e.home_team}|${e.away_team}`)
+        );
+        const fresh = batch.filter(
+          (r) => !existingSet.has(`${r.match_date}|${r.home_team}|${r.away_team}`)
+        );
+        if (fresh.length === 0) continue;
+        const { error } = await supabase.from("matches").insert(fresh);
+        if (error) {
+          console.error("Fotmob results insert error:", error);
+          continue;
+        }
+        resultsInserted += fresh.length;
+      }
+      console.log(`Inserted ${resultsInserted} Fotmob results into matches`);
+    }
+
     const futureCountQ = await supabase
       .from("fixtures")
       .select("*", { count: "exact", head: true })
