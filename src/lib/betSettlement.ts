@@ -173,7 +173,7 @@ export type SettlementResult = {
   quotaMessage?: string;
 };
 
-/** Fetch live match results from API-Football for fixtures missing from our DB. */
+/** Fetch live match results via Fotmob (through the settle-bet-results edge function). */
 async function fetchLiveResults(
   queries: { home: string; away: string; date: string }[]
 ): Promise<{ map: Map<string, MatchRow>; quotaExhausted: boolean; quotaMessage?: string }> {
