@@ -157,6 +157,11 @@ const UpcomingGamesPage = () => {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const activeIdx = selectedIdx ?? todayIndex;
 
+  // Always default to today on mount/refresh; reset selection if route revisited.
+  useEffect(() => {
+    setSelectedIdx(null);
+  }, [todayIndex]);
+
   useEffect(() => {
     if (scrollRef.current && days.length > 0) {
       const el = scrollRef.current.children[activeIdx] as HTMLElement;
