@@ -211,7 +211,7 @@ async function fetchLiveResults(
   } catch (e) {
     console.warn("fetchLiveResults failed", e);
   }
-  return out;
+  return { map: out, quotaExhausted: false };
 }
 
 export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Promise<SettlementResult> {
