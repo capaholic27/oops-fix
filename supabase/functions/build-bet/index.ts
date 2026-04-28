@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,11 +7,40 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+type FixtureRow = {
+  match_date: string;
+  match_time: string | null;
+  home_team: string;
+  away_team: string;
+  league_name: string;
+  league_code: string;
+};
+
+async function loadUpcomingFixtures(supabase: any, leagueFilter?: string): Promise<FixtureRow[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  let q = supabase
+    .from("fixtures")
+    .select("match_date, match_time, home_team, away_team, league_name, league_code")
+    .gte("match_date", today)
+    .lte("match_date", in7)
+    .order("match_date", { ascending: true })
+    .limit(80);
+
+  if (leagueFilter) {
+    q = q.ilike("league_name", `%${leagueFilter}%`);
+  }
+
+  const { data } = await q;
+  return (data ?? []) as FixtureRow[];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, availableMatches, enabledMarkets, leagueFilter, maxLegs } = await req.json();
+    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs } = await req.json();
 
     if (!targetOdds || !riskLevel) {
       return new Response(JSON.stringify({ error: "Missing targetOdds or riskLevel" }), {
@@ -20,6 +50,34 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Load real upcoming fixtures from DB. Refresh once if empty.
+    let fixtures = await loadUpcomingFixtures(supabase, leagueFilter);
+    if (fixtures.length === 0) {
+      try {
+        await supabase.functions.invoke("fetch-fixtures", { body: {} });
+        fixtures = await loadUpcomingFixtures(supabase, leagueFilter);
+      } catch (e) {
+        console.warn("fetch-fixtures invoke failed", e);
+      }
+    }
+    // Fallback: if league filter returned nothing, use all leagues
+    if (fixtures.length === 0 && leagueFilter) {
+      fixtures = await loadUpcomingFixtures(supabase);
+    }
+
+    const compactFixtures = fixtures.slice(0, 60).map(f => ({
+      date: f.match_date,
+      time: f.match_time ?? "",
+      home: f.home_team,
+      away: f.away_team,
+      league: f.league_name,
+    }));
 
     const allMarkets = [
       "1X2 (Home Win / Draw / Away Win)", "Double Chance (1X, X2, 12)", "Draw No Bet",
@@ -37,60 +95,53 @@ serve(async (req) => {
       ? allMarkets.filter(m => enabledMarkets.some((em: string) => m.toLowerCase().includes(em.toLowerCase())))
       : allMarkets;
 
+    const haveFixtures = compactFixtures.length > 0;
+
     const systemPrompt = `You are an elite sports betting strategist AI. You build optimized bet slips (singles, doubles, parlays/accumulators) for users.
 
-ALLOWED MARKETS (ONLY use these — do NOT use any market not listed here):
+ALLOWED MARKETS (ONLY use these):
 ${markets.map(m => `- ${m}`).join("\n")}
 
 RULES:
-- User provides a TARGET combined odds and a RISK LEVEL (low, medium, high).
-- You must construct a bet slip that approximately hits the target odds.
-- If a REQUIRED NUMBER OF LEGS is specified, you MUST use EXACTLY that many legs. Do not add more or fewer.
-- ODDS CALIBRATION (CRITICAL): Each leg's odds MUST match what real bookmakers (Bet365, Pinnacle, William Hill) would offer for that market. Use realistic implied probabilities:
-  • Heavy favorite ML: 1.20-1.50
-  • Moderate favorite: 1.55-1.90
-  • Even matchup: 1.95-2.20
-  • Underdog: 2.30-4.50
-  • Big underdog: 5.00+
-  • Over 2.5 goals (avg game): 1.85-2.05
-  • BTTS Yes (avg): 1.70-1.95
-  • Over 9.5 corners: 1.85-2.10
-  • Over 4.5 cards: 1.90-2.15
+- Construct a bet slip that approximately hits the target combined odds.
+- ${haveFixtures
+    ? `MANDATORY: Only use matches from the FIXTURES list below. Use the EXACT team names and EXACT match_date as provided. Do NOT invent matches.`
+    : `No fixture context available — generate plausible upcoming matches and use a date of today or tomorrow.`}
+- If REQUIRED NUMBER OF LEGS is given, use EXACTLY that many legs.
+- ODDS CALIBRATION: Each leg's odds MUST match real bookmakers (Bet365, Pinnacle):
+  • Heavy favorite ML: 1.20-1.50  • Moderate favorite: 1.55-1.90
+  • Even matchup: 1.95-2.20  • Underdog: 2.30-4.50  • Big underdog: 5.00+
+  • Over 2.5 goals: 1.85-2.05  • BTTS Yes: 1.70-1.95
+  • Over 9.5 corners: 1.85-2.10  • Over 4.5 cards: 1.90-2.15
   • Correct score: 6.00-15.00 typical
-- Combined odds = product of all leg odds (rounded to 2 decimals). Be exact.
-- If no required legs count is given, use these defaults:
-  - Low risk: favor heavy favorites, safer markets. Max 2-3 legs.
-  - Medium risk: mix result markets with stat markets. 3-4 legs allowed.
-  - High risk: include underdogs, correct scores, combos. 4-6 legs allowed.
-- USE DIVERSE MARKETS from the allowed list — don't repeat the same market type.
-- Each leg must have a clear data-driven reason referencing team tendencies.
-- Show individual odds per leg and the combined accumulator odds.
-- If target odds are unrealistic for the risk level, say so and suggest alternatives.
-- Format output as JSON with this structure:
+- Combined odds = product of leg odds (round to 2 decimals).
+- Use DIVERSE markets (don't repeat the same market across legs).
+- Each leg needs a short data-driven reason.
+- Output STRICT JSON:
 {
   "slip": [
-    { "match": "Team A vs Team B", "matchDate": "YYYY-MM-DD", "market": "Over 9.5 Corners", "odds": 1.85, "confidence": "high", "reason": "Both teams average 5.5+ corners per game" }
+    { "match": "Home Team vs Away Team", "matchDate": "YYYY-MM-DD", "matchTime": "HH:MM", "league": "Premier League", "market": "Over 9.5 Corners", "odds": 1.85, "confidence": "high", "reason": "..." }
   ],
-  "combinedOdds": 3.2,
+  "combinedOdds": 3.20,
   "riskAssessment": "...",
   "expectedValue": "...",
   "advice": "..."
 }
 
-CRITICAL: For each leg, include "matchDate" in YYYY-MM-DD format using the upcoming match date from the AVAILABLE MATCHES context (or today/tomorrow if no context). This is required for automatic result verification.
-
-Be realistic. Calibrate odds to actual football probabilities. Never guarantee wins.`;
+CRITICAL: "matchDate" (YYYY-MM-DD) is REQUIRED for every leg — used for automatic result verification. "matchTime" optional (HH:MM 24h). "league" optional but recommended.`;
 
     const userPrompt = `Build me a bet slip.
 
 TARGET ODDS: ${targetOdds}
 RISK LEVEL: ${riskLevel}
-${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs. This is mandatory — do not use more or fewer.` : ""}
-${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter} — prioritize upcoming matches from this league. If there aren't enough matches in this league to reach the target odds, clearly state this in your "advice" field and suggest which additional leagues or matches could be added to reach the target.` : ""}
+${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs.` : ""}
+${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter}. If insufficient fixtures in this league, mention this in "advice".` : ""}
 
-${availableMatches ? `AVAILABLE MATCHES & MODEL DATA:\n${JSON.stringify(availableMatches, null, 2)}` : "Use typical Premier League / top European league matches for today. Generate realistic example matches with calibrated odds."}
+${haveFixtures
+  ? `FIXTURES (use ONLY these, verbatim team names, exact date):\n${JSON.stringify(compactFixtures, null, 2)}`
+  : "No fixture data available — pick reasonable upcoming top-league matches with today/tomorrow's date."}
 
-Return ONLY valid JSON matching the schema above.`;
+Return ONLY valid JSON.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -125,11 +176,9 @@ Return ONLY valid JSON matching the schema above.`;
 
     const data = await response.json();
     let content = data.choices?.[0]?.message?.content ?? "";
-
-    // Strip markdown code fences if present
     content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 
-    let parsed;
+    let parsed: any;
     try {
       parsed = JSON.parse(content);
     } catch {
