@@ -278,11 +278,11 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
   }
 
   let finalResult: SettlementResult["finalResult"];
-  if (anyPending) finalResult = "pending";
-  else if (legResults.some(l => l.result === "loss")) finalResult = "loss";
+  if (finalLegResults.some(l => l.result === "loss")) finalResult = "loss";
+  else if (anyPending) finalResult = "pending";
   else if (anyUnknown) finalResult = "unknown";
   else if (allWin) finalResult = "win";
   else finalResult = "unknown";
 
-  return { legResults, finalResult };
+  return { legResults: finalLegResults, finalResult };
 }
