@@ -1017,7 +1017,7 @@ const BetBuilder = () => {
 
         <button
           onClick={buildBet}
-          disabled={loading || !odds}
+          disabled={loading || (stakeMode ? !derivedOdds : !odds)}
           className={cn(
             "w-full h-11 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all",
             "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
