@@ -1040,13 +1040,29 @@ const BetBuilder = () => {
             <span className="text-xs font-bold text-emerald-400">Bet slip built successfully</span>
           </div>
 
-          <div className="px-4 py-3 border-b border-border bg-primary/5">
+          <div className="px-4 py-3 border-b border-border bg-primary/5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-foreground">Your Bet Slip</span>
               <span className="text-sm font-black text-primary font-mono">
                 {result.combinedOdds?.toFixed(2)}x
               </span>
             </div>
+            {result.stake !== undefined && result.expectedPayout !== undefined && (
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="rounded-md bg-background/40 border border-border px-2 py-1.5 text-center">
+                  <p className="text-[9px] text-muted-foreground">Stake</p>
+                  <p className="text-xs font-mono font-black text-foreground">${result.stake}</p>
+                </div>
+                <div className="rounded-md bg-background/40 border border-border px-2 py-1.5 text-center">
+                  <p className="text-[9px] text-muted-foreground">Profit</p>
+                  <p className="text-xs font-mono font-black text-emerald-400">+${result.expectedProfit}</p>
+                </div>
+                <div className="rounded-md bg-primary/10 border border-primary/30 px-2 py-1.5 text-center">
+                  <p className="text-[9px] text-primary">Payout</p>
+                  <p className="text-xs font-mono font-black text-primary">${result.expectedPayout}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="divide-y divide-border">
             {result.slip.map((leg, i) => {
