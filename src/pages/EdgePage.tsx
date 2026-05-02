@@ -23,6 +23,7 @@ type Pick = {
   market: string;
   reasoning: string;
   edge?: string;
+  matchDate?: string;
 };
 type ValueAlert = {
   match: string;
@@ -30,12 +31,14 @@ type ValueAlert = {
   modelProb: number;
   impliedProb?: number;
   reasoning: string;
+  matchDate?: string;
 };
 type UndervaluedPick = {
   match: string;
   market: string;
   modelProb: number;
   reasoning: string;
+  matchDate?: string;
 };
 type EdgeData = {
   bestPicks: Pick[];
