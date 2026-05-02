@@ -23,6 +23,7 @@ type Pick = {
   market: string;
   reasoning: string;
   edge?: string;
+  matchDate?: string;
 };
 type ValueAlert = {
   match: string;
@@ -30,12 +31,14 @@ type ValueAlert = {
   modelProb: number;
   impliedProb?: number;
   reasoning: string;
+  matchDate?: string;
 };
 type UndervaluedPick = {
   match: string;
   market: string;
   modelProb: number;
   reasoning: string;
+  matchDate?: string;
 };
 type EdgeData = {
   bestPicks: Pick[];
@@ -62,6 +65,10 @@ type BetSlip = {
   riskAssessment: string;
   expectedValue: string;
   advice: string;
+  stake?: number;
+  expectedPayout?: number;
+  expectedProfit?: number;
+  desiredWin?: number;
 };
 
 const RISK_LEVELS = [
@@ -103,13 +110,35 @@ const ConfidenceBadge = ({ value }: { value: number }) => {
   );
 };
 
+/* ─── Date pill ─── */
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const tomorrowStr = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+const DatePill = ({ date }: { date?: string }) => {
+  if (!date) return null;
+  const t = todayStr();
+  const tm = tomorrowStr();
+  let label = "";
+  let cls = "bg-muted text-muted-foreground border-border";
+  if (date === t) { label = "TODAY"; cls = "bg-primary/15 text-primary border-primary/30"; }
+  else if (date === tm) { label = "TOMORROW"; cls = "bg-amber-500/15 text-amber-400 border-amber-500/30"; }
+  else {
+    label = new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase();
+  }
+  return (
+    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1", cls)}>
+      <Calendar className="w-2.5 h-2.5" /> {label}
+    </span>
+  );
+};
+
 /* ─── Pick Card ─── */
 const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => (
   <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-3.5 space-y-2 hover:border-primary/30 transition-colors">
     <div className="flex items-start justify-between gap-2">
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-foreground truncate">{pick.match}</p>
-        <div className="flex items-center gap-1.5 mt-1">
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <DatePill date={pick.matchDate} />
           <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md", accent)}>
             {pick.market}
           </span>
@@ -137,7 +166,8 @@ const ValueAlertCard = ({ alert }: { alert: ValueAlert }) => (
       <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-foreground">{alert.match}</p>
-        <p className="text-[11px] font-semibold text-amber-400 mt-0.5">{alert.alert}</p>
+        <div className="mt-0.5"><DatePill date={alert.matchDate} /></div>
+        <p className="text-[11px] font-semibold text-amber-400 mt-1">{alert.alert}</p>
       </div>
       {alert.modelProb && (
         <div className="text-right shrink-0">
@@ -636,7 +666,17 @@ const BetBuilder = () => {
   const [leagueFilter, setLeagueFilter] = useState("");
   const [maxLegs, setMaxLegs] = useState<number | null>(null);
   const [targetDate, setTargetDate] = useState<string>(""); // "" = next 7 days
+  // Stake-mode: when both stake + desiredWin are set, target odds is auto-derived
+  const [stakeMode, setStakeMode] = useState(false);
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [desiredWin, setDesiredWin] = useState("");
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
+
+  const derivedOdds = useMemo(() => {
+    const s = parseFloat(stakeAmount), w = parseFloat(desiredWin);
+    if (!s || !w || s <= 0 || w <= 0) return null;
+    return Number((w / s + 1).toFixed(2));
+  }, [stakeAmount, desiredWin]);
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
@@ -670,22 +710,34 @@ const BetBuilder = () => {
   };
 
   const buildBet = async () => {
-    const parsed = parseFloat(odds);
-    if (!parsed || parsed < 1.1 || parsed > 1000) {
-      toast.error("Enter valid odds between 1.1 and 1000");
-      return;
+    let effectiveOdds: number | null = null;
+    if (stakeMode) {
+      if (!derivedOdds || derivedOdds < 1.1 || derivedOdds > 1000) {
+        toast.error("Enter valid stake & desired win amounts");
+        return;
+      }
+      effectiveOdds = derivedOdds;
+    } else {
+      const parsed = parseFloat(odds);
+      if (!parsed || parsed < 1.1 || parsed > 1000) {
+        toast.error("Enter valid odds between 1.1 and 1000");
+        return;
+      }
+      effectiveOdds = parsed;
     }
     setLoading(true);
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("build-bet", {
         body: {
-          targetOdds: parsed,
+          targetOdds: effectiveOdds,
           riskLevel: risk,
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
           leagueFilter: leagueFilter || undefined,
           maxLegs: maxLegs || undefined,
           targetDate: targetDate || undefined,
+          stakeAmount: stakeMode ? Number(stakeAmount) : undefined,
+          desiredWinAmount: stakeMode ? Number(desiredWin) : undefined,
         },
       });
       if (error) throw error;
@@ -703,7 +755,7 @@ const BetBuilder = () => {
         id: crypto.randomUUID(),
         date: new Date().toISOString(),
         slip: slip.slip || [],
-        combinedOdds: slip.combinedOdds || parsed,
+        combinedOdds: slip.combinedOdds || effectiveOdds,
         result: "pending",
         league: leagueFilter || undefined,
         betType: (slip.slip?.length || 0) === 1 ? "single" : (slip.slip?.length || 0) === 2 ? "double" : "accumulator",
@@ -763,22 +815,61 @@ const BetBuilder = () => {
       <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3">
         <div className="flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-foreground">Target Odds</span>
+          <span className="text-xs font-bold text-foreground">{stakeMode ? "Stake & Desired Win" : "Target Odds"}</span>
+          <button
+            type="button"
+            onClick={() => setStakeMode(m => !m)}
+            className="ml-auto text-[10px] font-bold px-2 py-1 rounded border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+          >
+            {stakeMode ? "Use odds instead" : "Use stake & win amount"}
+          </button>
         </div>
-        <input
-          type="number"
-          step="0.1"
-          min="1.1"
-          max="1000"
-          placeholder="e.g. 3.50"
-          value={odds}
-          onChange={e => {
-            setOdds(e.target.value);
-            // User-entered odds override any active template leg count
-            if (maxLegs !== null) setMaxLegs(null);
-          }}
-          className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
+
+        {stakeMode ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground">Your stake</label>
+                <input
+                  type="number" step="1" min="1" placeholder="$10"
+                  value={stakeAmount}
+                  onChange={e => setStakeAmount(e.target.value)}
+                  className="w-full h-11 mt-1 rounded-lg border border-border bg-background/60 px-3 text-base font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground">You want to win</label>
+                <input
+                  type="number" step="1" min="1" placeholder="$100"
+                  value={desiredWin}
+                  onChange={e => setDesiredWin(e.target.value)}
+                  className="w-full h-11 mt-1 rounded-lg border border-border bg-background/60 px-3 text-base font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+            {derivedOdds && (
+              <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 flex items-center justify-between">
+                <span className="text-[11px] text-foreground">Required combined odds</span>
+                <span className="text-base font-mono font-black text-primary">{derivedOdds.toFixed(2)}x</span>
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground">AI will build a slip whose combined odds hit your win goal for the chosen stake.</p>
+          </div>
+        ) : (
+          <input
+            type="number"
+            step="0.1"
+            min="1.1"
+            max="1000"
+            placeholder="e.g. 3.50"
+            value={odds}
+            onChange={e => {
+              setOdds(e.target.value);
+              if (maxLegs !== null) setMaxLegs(null);
+            }}
+            className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        )}
         {maxLegs !== null ? (
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-muted-foreground">Template lock: <span className="font-bold text-primary">{maxLegs} legs</span></span>
@@ -926,7 +1017,7 @@ const BetBuilder = () => {
 
         <button
           onClick={buildBet}
-          disabled={loading || !odds}
+          disabled={loading || (stakeMode ? !derivedOdds : !odds)}
           className={cn(
             "w-full h-11 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all",
             "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40"
@@ -949,13 +1040,29 @@ const BetBuilder = () => {
             <span className="text-xs font-bold text-emerald-400">Bet slip built successfully</span>
           </div>
 
-          <div className="px-4 py-3 border-b border-border bg-primary/5">
+          <div className="px-4 py-3 border-b border-border bg-primary/5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-foreground">Your Bet Slip</span>
               <span className="text-sm font-black text-primary font-mono">
                 {result.combinedOdds?.toFixed(2)}x
               </span>
             </div>
+            {result.stake !== undefined && result.expectedPayout !== undefined && (
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="rounded-md bg-background/40 border border-border px-2 py-1.5 text-center">
+                  <p className="text-[9px] text-muted-foreground">Stake</p>
+                  <p className="text-xs font-mono font-black text-foreground">${result.stake}</p>
+                </div>
+                <div className="rounded-md bg-background/40 border border-border px-2 py-1.5 text-center">
+                  <p className="text-[9px] text-muted-foreground">Profit</p>
+                  <p className="text-xs font-mono font-black text-emerald-400">+${result.expectedProfit}</p>
+                </div>
+                <div className="rounded-md bg-primary/10 border border-primary/30 px-2 py-1.5 text-center">
+                  <p className="text-[9px] text-primary">Payout</p>
+                  <p className="text-xs font-mono font-black text-primary">${result.expectedPayout}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="divide-y divide-border">
             {result.slip.map((leg, i) => {
@@ -1244,9 +1351,12 @@ const EdgePage = () => {
                             <p className="text-xs font-bold text-foreground">{u.match}</p>
                             <ConfidenceBadge value={u.modelProb} />
                           </div>
-                          <span className="text-[10px] font-semibold bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded-md inline-block">
-                            {u.market}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <DatePill date={u.matchDate} />
+                            <span className="text-[10px] font-semibold bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded-md inline-block">
+                              {u.market}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-muted-foreground">{u.reasoning}</p>
                         </div>
                       ))}

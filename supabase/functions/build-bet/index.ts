@@ -71,10 +71,21 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate } = await req.json();
+    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate, stakeAmount, desiredWinAmount } = await req.json();
 
-    if (!targetOdds || !riskLevel) {
-      return new Response(JSON.stringify({ error: "Missing targetOdds or riskLevel" }), {
+    // Resolve target odds: explicit, OR derived from stake + desired win.
+    // Profit = stake × (odds - 1)  → odds = profit/stake + 1
+    let resolvedTargetOdds: number | undefined = typeof targetOdds === "number" ? targetOdds : undefined;
+    if (!resolvedTargetOdds && stakeAmount && desiredWinAmount) {
+      const s = Number(stakeAmount);
+      const w = Number(desiredWinAmount);
+      if (s > 0 && w > 0) {
+        resolvedTargetOdds = Number((w / s + 1).toFixed(2));
+      }
+    }
+
+    if (!resolvedTargetOdds || !riskLevel) {
+      return new Response(JSON.stringify({ error: "Missing targetOdds (or stake+desiredWin) and riskLevel" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -227,7 +238,7 @@ Output STRICT JSON:
     const userPrompt = `Build me a bet slip.
 
 TODAY: ${TODAY_STR}
-TARGET ODDS: ${targetOdds}
+TARGET ODDS: ${resolvedTargetOdds}${stakeAmount && desiredWinAmount ? ` (derived from stake $${stakeAmount} → win $${desiredWinAmount})` : ""}
 RISK LEVEL: ${riskLevel}
 ${effectiveDate ? `TARGET MATCH DATE: ${effectiveDate} (use ONLY matches from this date if any exist)` : `DATE WINDOW: ${TODAY_STR} to ${addDays(7)}`}
 ${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs.` : ""}
@@ -282,22 +293,56 @@ Return ONLY valid JSON.`;
       parsed = { raw: content };
     }
 
-    // Server-side guard: drop any leg whose date is in the past
+    // Server-side guards: (1) drop past dates, (2) verify each leg matches a real fixture
+    // (our `fixtures` table is sourced from Fotmob — so this is the Fotmob verification step).
     if (Array.isArray(parsed?.slip)) {
+      const norm = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      // Build a fixture index: key = `${date}|${home}|${away}` (normalized)
+      const fixtureIndex = new Map<string, { home: string; away: string; date: string; time: string | null; league: string }>();
+      for (const f of fixtures) {
+        const k1 = `${f.match_date}|${norm(f.home_team)}|${norm(f.away_team)}`;
+        const k2 = `${f.match_date}|${norm(f.away_team)}|${norm(f.home_team)}`;
+        const v = { home: f.home_team, away: f.away_team, date: f.match_date, time: f.match_time, league: f.league_name };
+        fixtureIndex.set(k1, v);
+        fixtureIndex.set(k2, v);
+      }
       const before = parsed.slip.length;
+      const dropped: string[] = [];
       parsed.slip = parsed.slip.filter((leg: any) => {
-        if (!leg?.matchDate) return false;
-        return String(leg.matchDate) >= TODAY_STR;
+        if (!leg?.matchDate || String(leg.matchDate) < TODAY_STR) {
+          if (leg?.match) dropped.push(`${leg.match} (past date)`);
+          return false;
+        }
+        // Parse "Home vs Away"
+        const m = String(leg.match || "").split(/\s+vs\s+|\s+v\s+/i);
+        if (m.length !== 2) { dropped.push(leg.match || "?"); return false; }
+        const key = `${leg.matchDate}|${norm(m[0])}|${norm(m[1])}`;
+        const fx = fixtureIndex.get(key);
+        if (!fx) { dropped.push(`${leg.match} (not in Fotmob fixtures)`); return false; }
+        // Snap exact names + time + league from verified source
+        leg.match = `${fx.home} vs ${fx.away}`;
+        leg.matchTime = leg.matchTime || fx.time || "";
+        leg.league = fx.league;
+        return true;
       });
-      if (parsed.slip.length < before) {
+      if (dropped.length > 0) {
         parsed.advice = (parsed.advice ? parsed.advice + " " : "") +
-          `Removed ${before - parsed.slip.length} leg(s) with past dates.`;
+          `Removed ${dropped.length} unverified leg(s): ${dropped.slice(0, 3).join("; ")}${dropped.length > 3 ? "…" : ""}.`;
       }
       // Recompute combined odds
       if (parsed.slip.length > 0) {
         parsed.combinedOdds = Number(
           parsed.slip.reduce((acc: number, l: any) => acc * (Number(l.odds) || 1), 1).toFixed(2)
         );
+      }
+      // Add stake/payout context if user requested
+      if (stakeAmount && parsed.combinedOdds) {
+        const stake = Number(stakeAmount);
+        const payout = Number((stake * parsed.combinedOdds).toFixed(2));
+        parsed.stake = stake;
+        parsed.expectedPayout = payout;
+        parsed.expectedProfit = Number((payout - stake).toFixed(2));
+        if (desiredWinAmount) parsed.desiredWin = Number(desiredWinAmount);
       }
     }
 
