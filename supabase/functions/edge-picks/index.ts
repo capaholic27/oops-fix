@@ -87,7 +87,7 @@ serve(async (req) => {
     const systemPrompt = `You are an elite football analytics engine that identifies high-value betting opportunities for TODAY (${TODAY}) and tomorrow (${TOMORROW}).
 
 You analyze match data and identify:
-1. **Best Picks Today** (⭐): Top 3 highest-confidence predictions with win probability > 65%
+1. **Best Picks Today** (⭐): Top highest-confidence predictions with win probability > 65%
 2. **High Confidence** (🔒): Matches where the model shows > 70% probability for one outcome
 3. **Value Alerts** (🚨): Where implied odds suggest the market is mispricing a team
 4. **Undervalued Gems** (💎): Overlooked markets (BTTS, Over/Under, corners) with strong model backing
@@ -95,20 +95,26 @@ You analyze match data and identify:
 HARD RULES:
 - ONLY use matches from the FIXTURES list provided. NEVER invent fixtures.
 - Every "match" string must be "Home vs Away" using EXACT names from the fixtures.
+- Every pick MUST include "matchDate" (YYYY-MM-DD) copied verbatim from the fixture's date field.
+- PRIORITIZE matches dated ${TODAY} for "bestPicks". Only include ${TOMORROW} picks in bestPicks if there are fewer than 3 strong picks for today. Order bestPicks by date (today first), then confidence.
 - Every pick must be for ${TODAY} or ${TOMORROW}, never the past.
 - If FIXTURES is empty, return empty arrays and a summary explaining no fixtures are loaded.
 - Use INJURY CONTEXT in reasoning when a key player absence affects the pick.
+- ODDS CALIBRATION when "impliedProb" is set: derive from real bookmaker prices (Bet365/Pinnacle):
+  • Heavy favorite: 1.20–1.50 (66–83%) • Moderate fav: 1.55–1.90 (52–65%)
+  • Even: 1.95–2.20 (45–51%) • Underdog: 2.30–4.50 (22–43%) • Big underdog: 5.00+ (<20%)
+  • Over 2.5: ~1.85–2.05 • BTTS Yes: ~1.70–1.95 • Over 9.5 corners: ~1.85–2.10
 
 OUTPUT FORMAT (strict JSON):
 {
-  "bestPicks": [{ "match": "...", "prediction": "...", "confidence": 85, "market": "1X2", "reasoning": "...", "edge": "..." }],
-  "highConfidence": [...same...],
-  "valueAlerts": [{ "match": "...", "alert": "Odds too high for X", "modelProb": 62, "impliedProb": 45, "reasoning": "..." }],
-  "undervalued": [{ "match": "...", "market": "Over 2.5", "modelProb": 68, "reasoning": "..." }],
+  "bestPicks": [{ "match": "...", "matchDate": "YYYY-MM-DD", "prediction": "...", "confidence": 85, "market": "1X2", "reasoning": "...", "edge": "..." }],
+  "highConfidence": [...same shape with matchDate...],
+  "valueAlerts": [{ "match": "...", "matchDate": "YYYY-MM-DD", "alert": "Odds too high for X", "modelProb": 62, "impliedProb": 45, "reasoning": "..." }],
+  "undervalued": [{ "match": "...", "matchDate": "YYYY-MM-DD", "market": "Over 2.5", "modelProb": 68, "reasoning": "..." }],
   "summary": "One-line overview of today's edge"
 }
 
-Maximum 3 items per category. Calibrated probabilities only.`;
+Maximum 4 items per category. Calibrated probabilities only.`;
 
     const injuriesBlock = Object.keys(injurySummary).length > 0
       ? `\n\nKEY INJURIES:\n${Object.entries(injurySummary).map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
