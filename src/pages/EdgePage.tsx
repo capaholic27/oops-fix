@@ -666,7 +666,17 @@ const BetBuilder = () => {
   const [leagueFilter, setLeagueFilter] = useState("");
   const [maxLegs, setMaxLegs] = useState<number | null>(null);
   const [targetDate, setTargetDate] = useState<string>(""); // "" = next 7 days
+  // Stake-mode: when both stake + desiredWin are set, target odds is auto-derived
+  const [stakeMode, setStakeMode] = useState(false);
+  const [stakeAmount, setStakeAmount] = useState("");
+  const [desiredWin, setDesiredWin] = useState("");
   const upcomingDates = useMemo(() => getUpcomingDates(), []);
+
+  const derivedOdds = useMemo(() => {
+    const s = parseFloat(stakeAmount), w = parseFloat(desiredWin);
+    if (!s || !w || s <= 0 || w <= 0) return null;
+    return Number((w / s + 1).toFixed(2));
+  }, [stakeAmount, desiredWin]);
 
   const toggleMarket = (id: string) => {
     setEnabledMarkets(prev => {
