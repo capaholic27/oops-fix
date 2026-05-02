@@ -238,7 +238,7 @@ Output STRICT JSON:
     const userPrompt = `Build me a bet slip.
 
 TODAY: ${TODAY_STR}
-TARGET ODDS: ${targetOdds}
+TARGET ODDS: ${resolvedTargetOdds}${stakeAmount && desiredWinAmount ? ` (derived from stake $${stakeAmount} → win $${desiredWinAmount})` : ""}
 RISK LEVEL: ${riskLevel}
 ${effectiveDate ? `TARGET MATCH DATE: ${effectiveDate} (use ONLY matches from this date if any exist)` : `DATE WINDOW: ${TODAY_STR} to ${addDays(7)}`}
 ${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs.` : ""}
