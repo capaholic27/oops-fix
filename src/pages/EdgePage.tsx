@@ -106,13 +106,35 @@ const ConfidenceBadge = ({ value }: { value: number }) => {
   );
 };
 
+/* ─── Date pill ─── */
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const tomorrowStr = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+const DatePill = ({ date }: { date?: string }) => {
+  if (!date) return null;
+  const t = todayStr();
+  const tm = tomorrowStr();
+  let label = "";
+  let cls = "bg-muted text-muted-foreground border-border";
+  if (date === t) { label = "TODAY"; cls = "bg-primary/15 text-primary border-primary/30"; }
+  else if (date === tm) { label = "TOMORROW"; cls = "bg-amber-500/15 text-amber-400 border-amber-500/30"; }
+  else {
+    label = new Date(date).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase();
+  }
+  return (
+    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border inline-flex items-center gap-1", cls)}>
+      <Calendar className="w-2.5 h-2.5" /> {label}
+    </span>
+  );
+};
+
 /* ─── Pick Card ─── */
 const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => (
   <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-3.5 space-y-2 hover:border-primary/30 transition-colors">
     <div className="flex items-start justify-between gap-2">
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-foreground truncate">{pick.match}</p>
-        <div className="flex items-center gap-1.5 mt-1">
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <DatePill date={pick.matchDate} />
           <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md", accent)}>
             {pick.market}
           </span>
@@ -140,7 +162,8 @@ const ValueAlertCard = ({ alert }: { alert: ValueAlert }) => (
       <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-foreground">{alert.match}</p>
-        <p className="text-[11px] font-semibold text-amber-400 mt-0.5">{alert.alert}</p>
+        <div className="mt-0.5"><DatePill date={alert.matchDate} /></div>
+        <p className="text-[11px] font-semibold text-amber-400 mt-1">{alert.alert}</p>
       </div>
       {alert.modelProb && (
         <div className="text-right shrink-0">
