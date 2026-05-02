@@ -815,22 +815,61 @@ const BetBuilder = () => {
       <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 space-y-3">
         <div className="flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-foreground">Target Odds</span>
+          <span className="text-xs font-bold text-foreground">{stakeMode ? "Stake & Desired Win" : "Target Odds"}</span>
+          <button
+            type="button"
+            onClick={() => setStakeMode(m => !m)}
+            className="ml-auto text-[10px] font-bold px-2 py-1 rounded border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+          >
+            {stakeMode ? "Use odds instead" : "Use stake & win amount"}
+          </button>
         </div>
-        <input
-          type="number"
-          step="0.1"
-          min="1.1"
-          max="1000"
-          placeholder="e.g. 3.50"
-          value={odds}
-          onChange={e => {
-            setOdds(e.target.value);
-            // User-entered odds override any active template leg count
-            if (maxLegs !== null) setMaxLegs(null);
-          }}
-          className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
-        />
+
+        {stakeMode ? (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground">Your stake</label>
+                <input
+                  type="number" step="1" min="1" placeholder="$10"
+                  value={stakeAmount}
+                  onChange={e => setStakeAmount(e.target.value)}
+                  className="w-full h-11 mt-1 rounded-lg border border-border bg-background/60 px-3 text-base font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-muted-foreground">You want to win</label>
+                <input
+                  type="number" step="1" min="1" placeholder="$100"
+                  value={desiredWin}
+                  onChange={e => setDesiredWin(e.target.value)}
+                  className="w-full h-11 mt-1 rounded-lg border border-border bg-background/60 px-3 text-base font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+            {derivedOdds && (
+              <div className="rounded-lg bg-primary/10 border border-primary/20 px-3 py-2 flex items-center justify-between">
+                <span className="text-[11px] text-foreground">Required combined odds</span>
+                <span className="text-base font-mono font-black text-primary">{derivedOdds.toFixed(2)}x</span>
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground">AI will build a slip whose combined odds hit your win goal for the chosen stake.</p>
+          </div>
+        ) : (
+          <input
+            type="number"
+            step="0.1"
+            min="1.1"
+            max="1000"
+            placeholder="e.g. 3.50"
+            value={odds}
+            onChange={e => {
+              setOdds(e.target.value);
+              if (maxLegs !== null) setMaxLegs(null);
+            }}
+            className="w-full h-12 rounded-lg border border-border bg-background/60 px-4 text-lg font-mono font-bold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+        )}
         {maxLegs !== null ? (
           <div className="flex items-center justify-between text-[10px]">
             <span className="text-muted-foreground">Template lock: <span className="font-bold text-primary">{maxLegs} legs</span></span>
