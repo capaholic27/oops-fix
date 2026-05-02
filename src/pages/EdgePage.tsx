@@ -65,6 +65,10 @@ type BetSlip = {
   riskAssessment: string;
   expectedValue: string;
   advice: string;
+  stake?: number;
+  expectedPayout?: number;
+  expectedProfit?: number;
+  desiredWin?: number;
 };
 
 const RISK_LEVELS = [
