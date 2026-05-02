@@ -1270,9 +1270,12 @@ const EdgePage = () => {
                             <p className="text-xs font-bold text-foreground">{u.match}</p>
                             <ConfidenceBadge value={u.modelProb} />
                           </div>
-                          <span className="text-[10px] font-semibold bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded-md inline-block">
-                            {u.market}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <DatePill date={u.matchDate} />
+                            <span className="text-[10px] font-semibold bg-violet-500/15 text-violet-400 px-1.5 py-0.5 rounded-md inline-block">
+                              {u.market}
+                            </span>
+                          </div>
                           <p className="text-[10px] text-muted-foreground">{u.reasoning}</p>
                         </div>
                       ))}
