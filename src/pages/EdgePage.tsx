@@ -710,22 +710,34 @@ const BetBuilder = () => {
   };
 
   const buildBet = async () => {
-    const parsed = parseFloat(odds);
-    if (!parsed || parsed < 1.1 || parsed > 1000) {
-      toast.error("Enter valid odds between 1.1 and 1000");
-      return;
+    let effectiveOdds: number | null = null;
+    if (stakeMode) {
+      if (!derivedOdds || derivedOdds < 1.1 || derivedOdds > 1000) {
+        toast.error("Enter valid stake & desired win amounts");
+        return;
+      }
+      effectiveOdds = derivedOdds;
+    } else {
+      const parsed = parseFloat(odds);
+      if (!parsed || parsed < 1.1 || parsed > 1000) {
+        toast.error("Enter valid odds between 1.1 and 1000");
+        return;
+      }
+      effectiveOdds = parsed;
     }
     setLoading(true);
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("build-bet", {
         body: {
-          targetOdds: parsed,
+          targetOdds: effectiveOdds,
           riskLevel: risk,
           enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
           leagueFilter: leagueFilter || undefined,
           maxLegs: maxLegs || undefined,
           targetDate: targetDate || undefined,
+          stakeAmount: stakeMode ? Number(stakeAmount) : undefined,
+          desiredWinAmount: stakeMode ? Number(desiredWin) : undefined,
         },
       });
       if (error) throw error;
@@ -743,7 +755,7 @@ const BetBuilder = () => {
         id: crypto.randomUUID(),
         date: new Date().toISOString(),
         slip: slip.slip || [],
-        combinedOdds: slip.combinedOdds || parsed,
+        combinedOdds: slip.combinedOdds || effectiveOdds,
         result: "pending",
         league: leagueFilter || undefined,
         betType: (slip.slip?.length || 0) === 1 ? "single" : (slip.slip?.length || 0) === 2 ? "double" : "accumulator",
