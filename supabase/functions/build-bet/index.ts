@@ -71,10 +71,21 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate } = await req.json();
+    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate, stakeAmount, desiredWinAmount } = await req.json();
 
-    if (!targetOdds || !riskLevel) {
-      return new Response(JSON.stringify({ error: "Missing targetOdds or riskLevel" }), {
+    // Resolve target odds: explicit, OR derived from stake + desired win.
+    // Profit = stake × (odds - 1)  → odds = profit/stake + 1
+    let resolvedTargetOdds: number | undefined = typeof targetOdds === "number" ? targetOdds : undefined;
+    if (!resolvedTargetOdds && stakeAmount && desiredWinAmount) {
+      const s = Number(stakeAmount);
+      const w = Number(desiredWinAmount);
+      if (s > 0 && w > 0) {
+        resolvedTargetOdds = Number((w / s + 1).toFixed(2));
+      }
+    }
+
+    if (!resolvedTargetOdds || !riskLevel) {
+      return new Response(JSON.stringify({ error: "Missing targetOdds (or stake+desiredWin) and riskLevel" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
