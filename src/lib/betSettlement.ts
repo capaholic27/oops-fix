@@ -71,6 +71,11 @@ async function findMatch(home: string, away: string, dateHint?: string): Promise
       normalizeTeamName(row.home_team) === normH &&
       normalizeTeamName(row.away_team) === normA
     ) {
+      const totalStats = (row.home_corners ?? 0) + (row.away_corners ?? 0)
+        + (row.home_shots ?? 0) + (row.away_shots ?? 0)
+        + (row.home_yellows ?? 0) + (row.away_yellows ?? 0)
+        + (row.home_fouls ?? 0) + (row.away_fouls ?? 0);
+      (row as any).has_stats = totalStats > 0;
       return row;
     }
   }
