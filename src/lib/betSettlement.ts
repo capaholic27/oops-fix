@@ -71,6 +71,11 @@ async function findMatch(home: string, away: string, dateHint?: string): Promise
       normalizeTeamName(row.home_team) === normH &&
       normalizeTeamName(row.away_team) === normA
     ) {
+      const totalStats = (row.home_corners ?? 0) + (row.away_corners ?? 0)
+        + (row.home_shots ?? 0) + (row.away_shots ?? 0)
+        + (row.home_yellows ?? 0) + (row.away_yellows ?? 0)
+        + (row.home_fouls ?? 0) + (row.away_fouls ?? 0);
+      (row as any).has_stats = totalStats > 0;
       return row;
     }
   }
@@ -83,7 +88,7 @@ function evalOverUnder(value: number, threshold: number, isOver: boolean): "win"
   return (isOver ? value > threshold : value < threshold) ? "win" : "loss";
 }
 
-function evalLeg(leg: SettleableLeg, m: MatchRow): LegSettlement {
+function evalLeg(leg: SettleableLeg, m: MatchRow & { has_stats?: boolean }): LegSettlement {
   const market = leg.market.toLowerCase().trim();
   const totalGoals = m.ft_home_goals + m.ft_away_goals;
   const totalCorners = m.home_corners + m.away_corners;
@@ -94,12 +99,13 @@ function evalLeg(leg: SettleableLeg, m: MatchRow): LegSettlement {
   const homeWin = m.ft_result === "H";
   const awayWin = m.ft_result === "A";
   const draw = m.ft_result === "D";
+  const hasStats = (m as any).has_stats === true;
 
   // 1X2
-  if (/(home win|home$|^1$|home team)/i.test(market) && !market.includes("over") && !market.includes("under")) {
+  if (/(home win|home$|^1$|home team)/i.test(market) && !market.includes("over") && !market.includes("under") && !/corner|card|foul|shot/i.test(market)) {
     return { result: homeWin ? "win" : "loss", reason: "1X2 home", actual: `${m.ft_home_goals}-${m.ft_away_goals}` };
   }
-  if (/(away win|away$|^2$|away team)/i.test(market) && !market.includes("over") && !market.includes("under")) {
+  if (/(away win|away$|^2$|away team)/i.test(market) && !market.includes("over") && !market.includes("under") && !/corner|card|foul|shot/i.test(market)) {
     return { result: awayWin ? "win" : "loss", reason: "1X2 away", actual: `${m.ft_home_goals}-${m.ft_away_goals}` };
   }
   if (/(^draw|^x$|^the draw)/i.test(market)) {
@@ -124,18 +130,81 @@ function evalLeg(leg: SettleableLeg, m: MatchRow): LegSettlement {
     return { result: yes === wantYes ? "win" : "loss", reason: "BTTS", actual: yes ? "Yes" : "No" };
   }
 
-  // Over/Under (parse threshold and category)
+  // Team-specific stat markets — "Home X+ corners", "Away 2+ cards", etc.
+  // Pattern: "(home|away) team? <N>+ <stat>"  OR  "(home|away) over <N> <stat>"
+  const teamSide = /\bhome\b/.test(market) ? "home" : /\baway\b/.test(market) ? "away" : null;
+  const statKindOf = (s: string): { value: number; cat: string } | null => {
+    if (/corner/.test(s)) return teamSide === "home"
+      ? { value: m.home_corners, cat: "home corners" }
+      : { value: m.away_corners, cat: "away corners" };
+    if (/card|yellow|red/.test(s)) {
+      const h = m.home_yellows + m.home_reds;
+      const a = m.away_yellows + m.away_reds;
+      return teamSide === "home"
+        ? { value: h, cat: "home cards" }
+        : { value: a, cat: "away cards" };
+    }
+    if (/shots on target|sot/.test(s)) return teamSide === "home"
+      ? { value: m.home_shots_target, cat: "home SOT" }
+      : { value: m.away_shots_target, cat: "away SOT" };
+    if (/shot/.test(s)) return teamSide === "home"
+      ? { value: m.home_shots, cat: "home shots" }
+      : { value: m.away_shots, cat: "away shots" };
+    if (/foul/.test(s)) return teamSide === "home"
+      ? { value: m.home_fouls, cat: "home fouls" }
+      : { value: m.away_fouls, cat: "away fouls" };
+    if (/goal/.test(s)) return teamSide === "home"
+      ? { value: m.ft_home_goals, cat: "home goals" }
+      : { value: m.ft_away_goals, cat: "away goals" };
+    return null;
+  };
+
+  if (teamSide) {
+    // "5+ corners", "over 4.5 corners"
+    const plusMatch = market.match(/(\d+\.?\d*)\s*\+/);
+    const ouTeam = market.match(/(over|under)\s+(\d+\.?\d*)/);
+    if (plusMatch || ouTeam) {
+      const stat = statKindOf(market);
+      if (stat) {
+        const isStatMarket = /corner|card|foul|shot/.test(market);
+        if (isStatMarket && !hasStats) {
+          return { result: "unknown", reason: "Stat data unavailable for this match" };
+        }
+        if (plusMatch) {
+          const threshold = parseFloat(plusMatch[1]);
+          return {
+            result: stat.value >= threshold ? "win" : "loss",
+            reason: `${threshold}+ ${stat.cat}`,
+            actual: `${stat.value} ${stat.cat}`,
+          };
+        }
+        const isOver = ouTeam![1] === "over";
+        const threshold = parseFloat(ouTeam![2]);
+        return {
+          result: evalOverUnder(stat.value, threshold, isOver),
+          reason: `${isOver ? "Over" : "Under"} ${threshold} ${stat.cat}`,
+          actual: `${stat.value} ${stat.cat}`,
+        };
+      }
+    }
+  }
+
+  // Generic Over/Under (parse threshold and category)
   const ouMatch = market.match(/(over|under)\s+(\d+\.?\d*)/);
   if (ouMatch) {
     const isOver = ouMatch[1] === "over";
     const threshold = parseFloat(ouMatch[2]);
     let value = totalGoals;
     let cat = "goals";
-    if (market.includes("corner")) { value = totalCorners; cat = "corners"; }
-    else if (market.includes("card")) { value = totalCards; cat = "cards"; }
-    else if (market.includes("foul")) { value = totalFouls; cat = "fouls"; }
-    else if (market.includes("shots on target") || market.includes("sot")) { value = totalSOT; cat = "SOT"; }
-    else if (market.includes("shot")) { value = totalShots; cat = "shots"; }
+    let needStats = false;
+    if (market.includes("corner")) { value = totalCorners; cat = "corners"; needStats = true; }
+    else if (market.includes("card")) { value = totalCards; cat = "cards"; needStats = true; }
+    else if (market.includes("foul")) { value = totalFouls; cat = "fouls"; needStats = true; }
+    else if (market.includes("shots on target") || market.includes("sot")) { value = totalSOT; cat = "SOT"; needStats = true; }
+    else if (market.includes("shot")) { value = totalShots; cat = "shots"; needStats = true; }
+    if (needStats && !hasStats) {
+      return { result: "unknown", reason: "Stat data unavailable for this match" };
+    }
     return {
       result: evalOverUnder(value, threshold, isOver),
       reason: `${isOver ? "Over" : "Under"} ${threshold} ${cat}`,
@@ -200,13 +269,14 @@ async function fetchLiveResults(
         ft_result: r.ft_result,
         ht_home_goals: r.ht_home_goals ?? 0,
         ht_away_goals: r.ht_away_goals ?? 0,
-        home_shots: 0, away_shots: 0,
-        home_shots_target: 0, away_shots_target: 0,
-        home_fouls: 0, away_fouls: 0,
-        home_corners: 0, away_corners: 0,
-        home_yellows: 0, away_yellows: 0,
-        home_reds: 0, away_reds: 0,
-      } as MatchRow);
+        home_shots: r.home_shots ?? 0, away_shots: r.away_shots ?? 0,
+        home_shots_target: r.home_shots_target ?? 0, away_shots_target: r.away_shots_target ?? 0,
+        home_fouls: r.home_fouls ?? 0, away_fouls: r.away_fouls ?? 0,
+        home_corners: r.home_corners ?? 0, away_corners: r.away_corners ?? 0,
+        home_yellows: r.home_yellows ?? 0, away_yellows: r.away_yellows ?? 0,
+        home_reds: r.home_reds ?? 0, away_reds: r.away_reds ?? 0,
+        has_stats: !!r.has_stats,
+      } as MatchRow & { has_stats: boolean });
     }
   } catch (e) {
     console.warn("fetchLiveResults failed", e);
@@ -228,7 +298,9 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
       continue;
     }
     const row = await findMatch(teams.home, teams.away, leg.matchDate || placedDate);
-    if (row && row.ft_result) {
+    const isStatMarket = /corner|card|foul|shot|yellow|red|\d+\s*\+/i.test(leg.market);
+    const localHasStats = !!(row as any)?.has_stats;
+    if (row && row.ft_result && (!isStatMarket || localHasStats)) {
       legResults[i] = evalLeg(leg, row);
       continue;
     }

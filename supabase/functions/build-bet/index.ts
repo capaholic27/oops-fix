@@ -169,16 +169,70 @@ serve(async (req) => {
         .join("; ");
     }
 
+    // Build per-team context: last 8 matches form + simple averages.
+    const allTeams = Array.from(teamSet);
+    const teamContextById = new Map<string, string>();
+    if (allTeams.length > 0) {
+      const [{ data: rowsH = [] }, { data: rowsA = [] }] = await Promise.all([
+        supabase.from("matches")
+          .select("home_team, away_team, ft_home_goals, ft_away_goals, home_corners, away_corners, home_yellows, away_yellows, home_reds, away_reds, home_shots, away_shots, match_date")
+          .in("home_team", allTeams).order("match_date", { ascending: false }).limit(400),
+        supabase.from("matches")
+          .select("home_team, away_team, ft_home_goals, ft_away_goals, home_corners, away_corners, home_yellows, away_yellows, home_reds, away_reds, home_shots, away_shots, match_date")
+          .in("away_team", allTeams).order("match_date", { ascending: false }).limit(400),
+      ]);
+      const rows = [...(rowsH ?? []), ...(rowsA ?? [])];
+      const byTeam = new Map<string, any[]>();
+      for (const r of rows as any[]) {
+        for (const t of [r.home_team, r.away_team]) {
+          if (!allTeams.includes(t)) continue;
+          if (!byTeam.has(t)) byTeam.set(t, []);
+          if (byTeam.get(t)!.length < 8) byTeam.get(t)!.push(r);
+        }
+      }
+      for (const [team, list] of byTeam.entries()) {
+        if (list.length === 0) continue;
+        let gf = 0, ga = 0, cf = 0, ca = 0, cardsF = 0, cardsA = 0, sf = 0, sa = 0, w = 0, d = 0, l = 0;
+        const form: string[] = [];
+        for (const r of list) {
+          const isHome = r.home_team === team;
+          const ourG  = isHome ? r.ft_home_goals : r.ft_away_goals;
+          const oppG  = isHome ? r.ft_away_goals : r.ft_home_goals;
+          const ourC  = isHome ? (r.home_corners ?? 0) : (r.away_corners ?? 0);
+          const oppC  = isHome ? (r.away_corners ?? 0) : (r.home_corners ?? 0);
+          const ourCd = isHome ? (r.home_yellows ?? 0) + (r.home_reds ?? 0) : (r.away_yellows ?? 0) + (r.away_reds ?? 0);
+          const oppCd = isHome ? (r.away_yellows ?? 0) + (r.away_reds ?? 0) : (r.home_yellows ?? 0) + (r.home_reds ?? 0);
+          const ourS  = isHome ? (r.home_shots ?? 0) : (r.away_shots ?? 0);
+          const oppS  = isHome ? (r.away_shots ?? 0) : (r.home_shots ?? 0);
+          gf += ourG; ga += oppG; cf += ourC; ca += oppC;
+          cardsF += ourCd; cardsA += oppCd; sf += ourS; sa += oppS;
+          if (ourG > oppG) { w++; form.push("W"); }
+          else if (ourG < oppG) { l++; form.push("L"); }
+          else { d++; form.push("D"); }
+        }
+        const n = list.length;
+        teamContextById.set(team,
+          `Last ${n}: ${w}W-${d}D-${l}L | GF/GA ${(gf/n).toFixed(1)}/${(ga/n).toFixed(1)} | Corners ${(cf/n).toFixed(1)}f/${(ca/n).toFixed(1)}a | Cards ${(cardsF/n).toFixed(1)}f/${(cardsA/n).toFixed(1)}a | Shots ${(sf/n).toFixed(1)}f/${(sa/n).toFixed(1)}a | Form ${form.slice(0,5).join("")}`
+        );
+      }
+    }
+
     const allMarkets = [
       "1X2 (Home Win / Draw / Away Win)", "Double Chance (1X, X2, 12)", "Draw No Bet",
       "Over/Under Goals (0.5, 1.5, 2.5, 3.5, 4.5)", "Both Teams To Score (BTTS Yes/No)",
       "Correct Score (e.g. 1-0, 2-1, 0-0)", "Half-Time / Full-Time",
       "Goal in Both Halves", "Clean Sheet (Yes/No per team)", "Win to Nil",
-      "Over/Under Corners (7.5, 8.5, 9.5, 10.5, 11.5)", "Asian Handicap Corners", "Total Team Corners",
-      "Over/Under Cards (2.5, 3.5, 4.5, 5.5)", "Total Team Cards", "Player To Be Carded",
-      "Over/Under Fouls (18.5, 20.5, 22.5, 24.5)", "Total Team Fouls",
-      "Over/Under Shots (18.5, 20.5, 22.5)", "Over/Under Shots on Target (4.5, 5.5, 6.5, 7.5)",
-      "Team Shots on Target (Over/Under per team)", "Offsides (Over/Under 3.5, 4.5)",
+      "Team Total Goals (Home/Away over 0.5/1.5/2.5)",
+      "Team Corners — Home N+ / Away N+ (e.g. Home 5+ Corners)",
+      "Team Cards — Home N+ / Away N+ (e.g. Away 2+ Cards)",
+      "Team Shots — Home N+ / Away N+",
+      "Team Fouls — Home N+ / Away N+",
+      "Total Corners Over/Under (8.5, 9.5, 10.5, 11.5)",
+      "Total Cards Over/Under (2.5, 3.5, 4.5, 5.5)",
+      "Total Fouls Over/Under (18.5, 20.5, 22.5)",
+      "Total Shots Over/Under (18.5, 20.5, 22.5)",
+      "Total Shots on Target Over/Under (4.5, 5.5, 6.5, 7.5)",
+      "Offsides Over/Under (3.5, 4.5)",
     ];
 
     const markets = enabledMarkets?.length
@@ -199,16 +253,19 @@ HARD RULES:
     ? `MANDATORY: Only use matches from the FIXTURES list below. Use the EXACT team names and EXACT date as provided. Do NOT invent matches.`
     : `No fixture context available — DO NOT fabricate matches. Return an empty slip with advice asking the user to retry once fixtures are loaded.`}
 - If REQUIRED NUMBER OF LEGS is given, use EXACTLY that many legs.
-- Use INJURY CONTEXT to inform picks. If a key player is out (striker, keeper, top defender), reflect that in the reasoning AND in the market choice (e.g. star striker out → consider Under 2.5 or opposing clean sheet).
-- ODDS CALIBRATION: each leg's odds must match real bookmakers (Bet365, Pinnacle):
+- Use TEAM CONTEXT (last-8 form, goals, corners, cards, shots) and INJURY CONTEXT to drive every pick. Quote the relevant number in the reason (e.g. "Liverpool 6.4 corners/g at home, Brighton 4.1 conceded → Home 6+ Corners").
+- DO NOT default to "Over 9.5 Corners" or any single market across multiple legs. The slip MUST be DIVERSE: cover at least 3 different market families when slip has 3+ legs (e.g. one Result, one Goals/BTTS, one Team-stat). Same market may repeat at most once per slip.
+- For team-stat markets, prefer side-specific lines tuned to the team average (e.g. team averages 5.8 corners → Home 5+ Corners; averages 1.9 cards → Away 2+ Cards).  Set thresholds 0.5–1 below the average so the line is realistic.
+- ODDS CALIBRATION (must match real bookmakers — Bet365, Pinnacle):
   • Heavy favorite ML: 1.20-1.50  • Moderate favorite: 1.55-1.90
   • Even matchup: 1.95-2.20  • Underdog: 2.30-4.50  • Big underdog: 5.00+
   • Over 2.5 goals: 1.85-2.05  • BTTS Yes: 1.70-1.95
   • Over 9.5 corners: 1.85-2.10  • Over 4.5 cards: 1.90-2.15
+  • Team N+ corners (just below avg): 1.50-1.85
+  • Team N+ cards (just below avg): 1.55-1.95
   • Correct score: 6.00-15.00 typical
 - Combined odds = product of leg odds (round to 2 decimals).
-- Use DIVERSE markets across legs.
-- Each leg's reason MUST mention the specific match context (form, H2H, OR injury impact when relevant).
+- Each leg's reason MUST cite specific numbers from TEAM CONTEXT or INJURY CONTEXT — not generic "good form".
 
 Output STRICT JSON:
 {
@@ -235,6 +292,10 @@ Output STRICT JSON:
       ? `\n\nINJURY CONTEXT (key absences for involved teams):\n${Object.entries(injurySummary).map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
       : "";
 
+    const teamCtxBlock = teamContextById.size > 0
+      ? `\n\nTEAM CONTEXT (last-8 averages — cite these numbers in every "reason"):\n${[...teamContextById.entries()].map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
+      : "";
+
     const userPrompt = `Build me a bet slip.
 
 TODAY: ${TODAY_STR}
@@ -247,7 +308,7 @@ ${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter}.` : ""}
 ${haveFixtures
   ? `UPCOMING FIXTURES (use ONLY these, verbatim team names + exact date):\n${JSON.stringify(compactFixtures, null, 2)}`
   : "NO FIXTURE DATA AVAILABLE — return slip:[] with advice asking the user to wait for fixtures to refresh."}
-${injuriesBlock}
+${injuriesBlock}${teamCtxBlock}
 
 Return ONLY valid JSON.`;
 

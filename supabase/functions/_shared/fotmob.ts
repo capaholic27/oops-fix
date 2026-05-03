@@ -54,6 +54,23 @@ export type RawResult = {
   ft_home_goals: number;
   ft_away_goals: number;
   ft_result: "H" | "A" | "D";
+  match_id?: number | string;
+};
+
+export type FotmobMatchStats = {
+  home_corners: number;
+  away_corners: number;
+  home_yellows: number;
+  away_yellows: number;
+  home_reds: number;
+  away_reds: number;
+  home_fouls: number;
+  away_fouls: number;
+  home_shots: number;
+  away_shots: number;
+  home_shots_target: number;
+  away_shots_target: number;
+  has_stats: boolean;
 };
 
 const UA = "Mozilla/5.0 (compatible; FootballEdgeBot/1.0; +https://lovable.dev)";
@@ -118,7 +135,6 @@ export async function fetchFotmobAll(
         const ag = Number(parts[1]);
         if (!Number.isFinite(hg) || !Number.isFinite(ag)) continue;
         const yr = d.getUTCFullYear();
-        // Crude season string: matches the format used elsewhere in the project.
         const season = `${String(yr % 100).padStart(2, "0")}${String((yr + 1) % 100).padStart(2, "0")}`;
         results.push({
           league_code: lg.code,
@@ -130,10 +146,68 @@ export async function fetchFotmobAll(
           ft_home_goals: hg,
           ft_away_goals: ag,
           ft_result: hg > ag ? "H" : hg < ag ? "A" : "D",
+          match_id: m?.id,
         });
       }
     }
   }
 
   return { fixtures, results };
+}
+
+/**
+ * Pull per-match stats (corners, cards, shots, fouls) from Fotmob match details endpoint.
+ * Returns null if stats are unavailable or the endpoint fails.
+ */
+export async function fetchFotmobMatchStats(matchId: number | string): Promise<FotmobMatchStats | null> {
+  try {
+    const res = await fetch(`${FOTMOB_BASE}/matchDetails?matchId=${matchId}`, {
+      headers: { "User-Agent": UA, "Accept": "application/json" },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    // The "content.stats.stats" array contains grouped stat blocks. Each item has
+    // { title, stats: [{ title, stats: [home, away], type? }] }
+    const blocks: any[] = json?.content?.stats?.stats ?? [];
+    const flat: any[] = [];
+    for (const b of blocks) {
+      if (Array.isArray(b?.stats)) flat.push(...b.stats);
+    }
+    const grab = (re: RegExp): [number, number] | null => {
+      const row = flat.find((s: any) => typeof s?.title === "string" && re.test(s.title));
+      if (!row || !Array.isArray(row.stats)) return null;
+      const h = Number(row.stats[0]);
+      const a = Number(row.stats[1]);
+      if (!Number.isFinite(h) || !Number.isFinite(a)) return null;
+      return [h, a];
+    };
+
+    const corners = grab(/corner/i);
+    const yellow  = grab(/yellow/i);
+    const red     = grab(/red/i);
+    const fouls   = grab(/foul/i);
+    const shotsT  = grab(/^total shots$|^shots$/i);
+    const sot     = grab(/shots on target|on target/i);
+
+    if (!corners && !yellow && !shotsT && !fouls) return null;
+
+    return {
+      home_corners: corners?.[0] ?? 0,
+      away_corners: corners?.[1] ?? 0,
+      home_yellows: yellow?.[0] ?? 0,
+      away_yellows: yellow?.[1] ?? 0,
+      home_reds: red?.[0] ?? 0,
+      away_reds: red?.[1] ?? 0,
+      home_fouls: fouls?.[0] ?? 0,
+      away_fouls: fouls?.[1] ?? 0,
+      home_shots: shotsT?.[0] ?? 0,
+      away_shots: shotsT?.[1] ?? 0,
+      home_shots_target: sot?.[0] ?? 0,
+      away_shots_target: sot?.[1] ?? 0,
+      has_stats: true,
+    };
+  } catch (e) {
+    console.warn(`fetchFotmobMatchStats(${matchId}) failed`, e);
+    return null;
+  }
 }
