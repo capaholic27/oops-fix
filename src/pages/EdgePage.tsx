@@ -88,15 +88,20 @@ const ALL_MARKETS = [
   { id: "goal_both_halves", label: "Goal Both Halves", category: "Goals" },
   { id: "clean_sheet", label: "Clean Sheet", category: "Goals" },
   { id: "win_to_nil", label: "Win to Nil", category: "Goals" },
-  { id: "corners", label: "Corners", category: "Stats" },
-  { id: "cards", label: "Cards", category: "Stats" },
-  { id: "fouls", label: "Fouls", category: "Stats" },
-  { id: "shots", label: "Shots", category: "Stats" },
+  { id: "team_goals", label: "Team Total Goals", category: "Team" },
+  { id: "team_corners", label: "Team Corners (Home/Away N+)", category: "Team" },
+  { id: "team_cards", label: "Team Cards (Home/Away N+)", category: "Team" },
+  { id: "team_shots", label: "Team Shots (Home/Away N+)", category: "Team" },
+  { id: "team_fouls", label: "Team Fouls (Home/Away N+)", category: "Team" },
+  { id: "corners", label: "Total Corners O/U", category: "Stats" },
+  { id: "cards", label: "Total Cards O/U", category: "Stats" },
+  { id: "fouls", label: "Total Fouls O/U", category: "Stats" },
+  { id: "shots", label: "Total Shots O/U", category: "Stats" },
   { id: "shots_on_target", label: "Shots on Target", category: "Stats" },
   { id: "offsides", label: "Offsides", category: "Stats" },
 ] as const;
 
-const MARKET_CATEGORIES = ["Result", "Goals", "Stats"] as const;
+const MARKET_CATEGORIES = ["Result", "Goals", "Team", "Stats"] as const;
 
 /* ─── Confidence badge ─── */
 const ConfidenceBadge = ({ value }: { value: number }) => {
