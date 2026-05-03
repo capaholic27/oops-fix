@@ -253,16 +253,19 @@ HARD RULES:
     ? `MANDATORY: Only use matches from the FIXTURES list below. Use the EXACT team names and EXACT date as provided. Do NOT invent matches.`
     : `No fixture context available — DO NOT fabricate matches. Return an empty slip with advice asking the user to retry once fixtures are loaded.`}
 - If REQUIRED NUMBER OF LEGS is given, use EXACTLY that many legs.
-- Use INJURY CONTEXT to inform picks. If a key player is out (striker, keeper, top defender), reflect that in the reasoning AND in the market choice (e.g. star striker out → consider Under 2.5 or opposing clean sheet).
-- ODDS CALIBRATION: each leg's odds must match real bookmakers (Bet365, Pinnacle):
+- Use TEAM CONTEXT (last-8 form, goals, corners, cards, shots) and INJURY CONTEXT to drive every pick. Quote the relevant number in the reason (e.g. "Liverpool 6.4 corners/g at home, Brighton 4.1 conceded → Home 6+ Corners").
+- DO NOT default to "Over 9.5 Corners" or any single market across multiple legs. The slip MUST be DIVERSE: cover at least 3 different market families when slip has 3+ legs (e.g. one Result, one Goals/BTTS, one Team-stat). Same market may repeat at most once per slip.
+- For team-stat markets, prefer side-specific lines tuned to the team average (e.g. team averages 5.8 corners → Home 5+ Corners; averages 1.9 cards → Away 2+ Cards).  Set thresholds 0.5–1 below the average so the line is realistic.
+- ODDS CALIBRATION (must match real bookmakers — Bet365, Pinnacle):
   • Heavy favorite ML: 1.20-1.50  • Moderate favorite: 1.55-1.90
   • Even matchup: 1.95-2.20  • Underdog: 2.30-4.50  • Big underdog: 5.00+
   • Over 2.5 goals: 1.85-2.05  • BTTS Yes: 1.70-1.95
   • Over 9.5 corners: 1.85-2.10  • Over 4.5 cards: 1.90-2.15
+  • Team N+ corners (just below avg): 1.50-1.85
+  • Team N+ cards (just below avg): 1.55-1.95
   • Correct score: 6.00-15.00 typical
 - Combined odds = product of leg odds (round to 2 decimals).
-- Use DIVERSE markets across legs.
-- Each leg's reason MUST mention the specific match context (form, H2H, OR injury impact when relevant).
+- Each leg's reason MUST cite specific numbers from TEAM CONTEXT or INJURY CONTEXT — not generic "good form".
 
 Output STRICT JSON:
 {
