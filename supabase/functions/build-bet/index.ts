@@ -308,7 +308,7 @@ ${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter}.` : ""}
 ${haveFixtures
   ? `UPCOMING FIXTURES (use ONLY these, verbatim team names + exact date):\n${JSON.stringify(compactFixtures, null, 2)}`
   : "NO FIXTURE DATA AVAILABLE — return slip:[] with advice asking the user to wait for fixtures to refresh."}
-${injuriesBlock}
+${injuriesBlock}${teamCtxBlock}
 
 Return ONLY valid JSON.`;
 
