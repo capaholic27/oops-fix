@@ -292,6 +292,10 @@ Output STRICT JSON:
       ? `\n\nINJURY CONTEXT (key absences for involved teams):\n${Object.entries(injurySummary).map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
       : "";
 
+    const teamCtxBlock = teamContextById.size > 0
+      ? `\n\nTEAM CONTEXT (last-8 averages — cite these numbers in every "reason"):\n${[...teamContextById.entries()].map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
+      : "";
+
     const userPrompt = `Build me a bet slip.
 
 TODAY: ${TODAY_STR}
