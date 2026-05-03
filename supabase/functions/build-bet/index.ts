@@ -173,15 +173,17 @@ serve(async (req) => {
     const allTeams = Array.from(teamSet);
     const teamContextById = new Map<string, string>();
     if (allTeams.length > 0) {
-      const { data: rows } = await supabase
-        .from("matches")
-        .select("home_team, away_team, ft_home_goals, ft_away_goals, home_corners, away_corners, home_yellows, away_yellows, home_reds, away_reds, home_shots, away_shots, match_date")
-        .or(allTeams.map(t => `home_team.eq.${t.replace(/,/g, "")}`).join(",") + "," +
-            allTeams.map(t => `away_team.eq.${t.replace(/,/g, "")}`).join(","))
-        .order("match_date", { ascending: false })
-        .limit(800);
+      const [{ data: rowsH = [] }, { data: rowsA = [] }] = await Promise.all([
+        supabase.from("matches")
+          .select("home_team, away_team, ft_home_goals, ft_away_goals, home_corners, away_corners, home_yellows, away_yellows, home_reds, away_reds, home_shots, away_shots, match_date")
+          .in("home_team", allTeams).order("match_date", { ascending: false }).limit(400),
+        supabase.from("matches")
+          .select("home_team, away_team, ft_home_goals, ft_away_goals, home_corners, away_corners, home_yellows, away_yellows, home_reds, away_reds, home_shots, away_shots, match_date")
+          .in("away_team", allTeams).order("match_date", { ascending: false }).limit(400),
+      ]);
+      const rows = [...(rowsH ?? []), ...(rowsA ?? [])];
       const byTeam = new Map<string, any[]>();
-      for (const r of (rows ?? []) as any[]) {
+      for (const r of rows as any[]) {
         for (const t of [r.home_team, r.away_team]) {
           if (!allTeams.includes(t)) continue;
           if (!byTeam.has(t)) byTeam.set(t, []);
