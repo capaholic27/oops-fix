@@ -298,7 +298,9 @@ export async function settleSlip(legs: SettleableLeg[], placedDate?: string): Pr
       continue;
     }
     const row = await findMatch(teams.home, teams.away, leg.matchDate || placedDate);
-    if (row && row.ft_result) {
+    const isStatMarket = /corner|card|foul|shot|yellow|red|\d+\s*\+/i.test(leg.market);
+    const localHasStats = !!(row as any)?.has_stats;
+    if (row && row.ft_result && (!isStatMarket || localHasStats)) {
       legResults[i] = evalLeg(leg, row);
       continue;
     }
