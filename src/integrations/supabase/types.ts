@@ -236,6 +236,39 @@ export type Database = {
         }
         Relationships: []
       }
+      standings: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          id: string
+          league_code: string
+          league_name: string
+          rows: Json
+          season: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          league_code: string
+          league_name: string
+          rows?: Json
+          season?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          league_code?: string
+          league_name?: string
+          rows?: Json
+          season?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_injuries: {
         Row: {
           created_at: string
@@ -267,6 +300,36 @@ export type Database = {
           league_code?: string | null
           season?: number | null
           source?: string
+          team_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_logos: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          fotmob_id: number | null
+          id: string
+          logo_url: string | null
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          fotmob_id?: number | null
+          id?: string
+          logo_url?: string | null
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          fotmob_id?: number | null
+          id?: string
+          logo_url?: string | null
           team_name?: string
           updated_at?: string
         }
@@ -313,7 +376,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      canon_team: { Args: { name: string }; Returns: string }
       increment_api_quota: { Args: { _count?: number }; Returns: number }
+      norm_team: { Args: { name: string }; Returns: string }
     }
     Enums: {
       vote_choice: "home" | "draw" | "away"

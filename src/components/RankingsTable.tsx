@@ -1,17 +1,15 @@
-import { useState } from "react";
-import type { Match } from "@/lib/matchStats";
-import { getTeamMatchView, aggregateStats } from "@/lib/matchStats";
-import { normalizeTeamName } from "@/lib/teamNormalize";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TeamLogo } from "@/components/TeamLogo";
 
-type Props = {
-  matches: Match[];
-  leagueName: string;
-};
-
-type RankedTeam = {
+type StandingRow = {
+  position: number;
+  team_id: number;
   name: string;
+  short_name: string;
+  logo: string;
   played: number;
   wins: number;
   draws: number;
@@ -20,73 +18,80 @@ type RankedTeam = {
   ga: number;
   gd: number;
   points: number;
-  avgShots: number;
-  avgSOT: number;
+  qual_color: string | null;
+  form: string[];
 };
 
-export const RankingsTable = ({ matches, leagueName }: Props) => {
-  const [showAll, setShowAll] = useState(false);
+type Props = {
+  /** Internal league_code (e.g. "E0", "SP1"). */
+  leagueCode?: string;
+  leagueName: string;
+};
 
-  // Determine the current season = the most recent season present in this league's matches.
-  const currentSeason = (() => {
-    const seasons = Array.from(new Set(matches.map(m => m.season).filter(Boolean))).sort();
-    return seasons[seasons.length - 1] ?? null;
+export const RankingsTable = ({ leagueCode, leagueName }: Props) => {
+  const [showAll, setShowAll] = useState(false);
+  const [rows, setRows] = useState<StandingRow[]>([]);
+  const [season, setSeason] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!leagueCode) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+
+    (async () => {
+      const { data } = await supabase
+        .from("standings")
+        .select("rows, season, fetched_at")
+        .eq("league_code", leagueCode)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      const stale = !data || (Date.now() - new Date(data.fetched_at).getTime()) > 6 * 3600 * 1000;
+      if (data?.rows) {
+        setRows(data.rows as unknown as StandingRow[]);
+        setSeason(data.season ?? null);
+        setLoading(false);
+      }
+
+      // Refresh in background if stale or empty.
+      if (stale) {
+        try {
+          await supabase.functions.invoke("fetch-standings", {
+            body: { league: leagueCode, force: true },
+          });
+          const { data: fresh } = await supabase
+            .from("standings")
+            .select("rows, season")
+            .eq("league_code", leagueCode)
+            .maybeSingle();
+          if (!cancelled && fresh?.rows) {
+            setRows(fresh.rows as unknown as StandingRow[]);
+            setSeason(fresh.season ?? null);
+          }
+        } catch (e) {
+          console.warn("standings refresh failed", e);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [leagueCode]);
+
+  const seasonLabel = (() => {
+    if (!season) return "";
+    // Fotmob seasons look like "2025/2026" — keep as-is, but compact to "25/26".
+    const m = season.match(/(\d{2})\d{2}\D+(\d{2})\d{2}/);
+    if (m) return `${m[1]}/${m[2]}`;
+    return season;
   })();
 
-  const seasonMatches = currentSeason
-    ? matches.filter(m => m.season === currentSeason)
-    : matches;
+  const displayed = showAll ? rows : rows.slice(0, 6);
 
-  // Format season "2627" -> "26/27"
-  const seasonLabel = currentSeason && currentSeason.length === 4
-    ? `${currentSeason.slice(0, 2)}/${currentSeason.slice(2)}`
-    : currentSeason ?? "";
-
-  // Group teams by normalized name to merge duplicates
-  const teamGroups = new Map<string, string[]>();
-  const allTeams = new Set<string>();
-  seasonMatches.forEach(m => { allTeams.add(m.home_team); allTeams.add(m.away_team); });
-
-  allTeams.forEach(team => {
-    const canonical = normalizeTeamName(team);
-    if (!teamGroups.has(canonical)) teamGroups.set(canonical, []);
-    if (!teamGroups.get(canonical)!.includes(team)) teamGroups.get(canonical)!.push(team);
-  });
-
-  const ranked: RankedTeam[] = Array.from(teamGroups.entries()).map(([canonical, variants]) => {
-    // Collect all match views across all name variants
-    const allViews = variants.flatMap(variant =>
-      seasonMatches
-        .map(m => getTeamMatchView(m, variant))
-        .filter((v): v is NonNullable<ReturnType<typeof getTeamMatchView>> => v !== null)
-    );
-
-    // Deduplicate by match id
-    const seen = new Set<string>();
-    const uniqueViews = allViews.filter(v => {
-      if (seen.has(v.match.id)) return false;
-      seen.add(v.match.id);
-      return true;
-    });
-
-    const stats = aggregateStats(uniqueViews);
-
-    return {
-      name: canonical,
-      played: stats.matchesPlayed,
-      wins: stats.wins,
-      draws: stats.draws,
-      losses: stats.losses,
-      gf: stats.goalsFor,
-      ga: stats.goalsAgainst,
-      gd: stats.goalsFor - stats.goalsAgainst,
-      points: stats.wins * 3 + stats.draws,
-      avgShots: stats.avgShotsFor,
-      avgSOT: stats.avgShotsOnTargetFor,
-    };
-  }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-
-  const displayed = showAll ? ranked : ranked.slice(0, 6);
+  if (!loading && rows.length === 0) return null;
 
   return (
     <div className="stat-card opacity-0 animate-fade-up col-span-full" style={{ animationDelay: "650ms" }}>
@@ -98,8 +103,11 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
               {seasonLabel}
             </span>
           )}
+          <span className="text-[8px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+            Live
+          </span>
         </div>
-        {ranked.length > 6 && (
+        {rows.length > 6 && (
           <button
             onClick={() => setShowAll(!showAll)}
             className={cn(
@@ -108,7 +116,7 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
             )}
           >
             {showAll ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            {showAll ? "Show Less" : `Show All (${ranked.length})`}
+            {showAll ? "Show Less" : `Show All (${rows.length})`}
           </button>
         )}
       </div>
@@ -123,15 +131,29 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
               <th className="text-right font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">D</th>
               <th className="text-right font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">L</th>
               <th className="text-right font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">GD</th>
-              <th className="text-right font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">Avg Shots</th>
               <th className="text-right font-medium text-muted-foreground px-5 pb-3 text-xs uppercase tracking-wider font-semibold">Pts</th>
             </tr>
           </thead>
           <tbody>
-            {displayed.map((t, i) => (
-              <tr key={t.name} className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors">
-                <td className="px-5 py-2.5 font-mono text-xs text-muted-foreground">{i + 1}</td>
-                <td className="px-3 py-2.5 font-medium">{t.name}</td>
+            {loading && rows.length === 0 && (
+              <tr><td colSpan={8} className="px-5 py-6 text-center text-xs text-muted-foreground">Loading standings…</td></tr>
+            )}
+            {displayed.map((t) => (
+              <tr key={`${t.team_id}-${t.position}`} className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors">
+                <td className="px-5 py-2.5 font-mono text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    {t.qual_color && (
+                      <span className="w-1 h-3 rounded-sm" style={{ background: t.qual_color }} />
+                    )}
+                    {t.position}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 font-medium">
+                  <div className="flex items-center gap-2">
+                    <TeamLogo teamName={t.name} fotmobId={t.team_id} size="xs" />
+                    <span className="truncate">{t.name}</span>
+                  </div>
+                </td>
                 <td className="px-3 py-2.5 text-right font-mono text-sm">{t.played}</td>
                 <td className="px-3 py-2.5 text-right font-mono text-sm">{t.wins}</td>
                 <td className="px-3 py-2.5 text-right font-mono text-sm">{t.draws}</td>
@@ -141,7 +163,6 @@ export const RankingsTable = ({ matches, leagueName }: Props) => {
                     {t.gd > 0 ? "+" : ""}{t.gd}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-right font-mono text-sm">{t.avgShots.toFixed(1)}</td>
                 <td className="px-5 py-2.5 text-right font-mono text-sm font-bold">{t.points}</td>
               </tr>
             ))}

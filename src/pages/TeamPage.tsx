@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useSyncApiFootball } from "@/hooks/useMatches";
+import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures } from "@/hooks/useMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getTeamMatchView,
@@ -883,8 +883,8 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       <MomentumChart views={teamViews} teamName={selectedTeam} />
       <RecentResults views={teamViews} />
 
-      {leagueCode && leagueMatches.length > 0 && (
-        <RankingsTable matches={leagueMatches} leagueName={currentLeagueName} />
+      {leagueCode && (
+        <RankingsTable leagueCode={leagueCode} leagueName={currentLeagueName} />
       )}
 
       {openStat && (
@@ -1253,7 +1253,6 @@ const TeamPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const syncData = useSyncData();
   const syncFixtures = useSyncFixtures();
-  const syncApiFootball = useSyncApiFootball();
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
 
@@ -1284,30 +1283,15 @@ const TeamPage = () => {
   };
 
   const handleSync = () => {
-    toast.info("Syncing from API-Football…");
-    syncApiFootball.mutate(
-      { mode: "both" },
-      {
-        onSuccess: (data) => {
-          toast.success(`Synced ${data.fixtures ?? 0} fixtures & ${data.results ?? 0} results from ${data.leaguesFetched ?? 0} leagues`);
-        },
-        onError: (err) => {
-          toast.error(`API-Football sync failed: ${err.message}`);
-          toast.info("Falling back to football-data.co.uk…");
-          syncData.mutate({ season: "2526" }, {
-            onSuccess: (data) => {
-              const total = data.results?.reduce((s: number, r: { inserted: number }) => s + r.inserted, 0) ?? 0;
-              toast.success(`Synced ${total} matches (fallback)`);
-            },
-            onError: (e) => toast.error(`Fallback sync failed: ${e.message}`),
-          });
-          syncFixtures.mutate(undefined, {
-            onSuccess: (data) => toast.success(`Synced ${data.fixtures ?? 0} fixtures (fallback)`),
-            onError: (e) => toast.error(`Fallback fixtures failed: ${e.message}`),
-          });
-        },
-      }
-    );
+    toast.info("Syncing fixtures & results from Fotmob…");
+    syncFixtures.mutate(undefined, {
+      onSuccess: (data) => {
+        const fx = data.fotmobFixtures ?? data.inserted ?? 0;
+        const res = data.resultsInserted ?? 0;
+        toast.success(`Synced ${fx} fixtures & ${res} results`);
+      },
+      onError: (e) => toast.error(`Sync failed: ${e.message}`),
+    });
   };
 
   if (isLoading) {
