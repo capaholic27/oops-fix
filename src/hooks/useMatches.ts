@@ -184,33 +184,5 @@ export function useSyncFixtures() {
   });
 }
 
-export function useSyncApiFootball() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (params?: { mode?: string }) => {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/fetch-api-football`;
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ mode: params?.mode || "both" }),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Sync failed: ${res.status} - ${text}`);
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["matches"] });
-      queryClient.invalidateQueries({ queryKey: ["team-matches"] });
-      queryClient.invalidateQueries({ queryKey: ["fixtures"] });
-    },
-  });
-}
+// useSyncApiFootball removed — Fotmob is the sole data source.
+// Use useSyncFixtures() instead, which already handles results + fixtures.
