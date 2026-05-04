@@ -1,131 +1,86 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { normalizeTeamName } from "@/lib/teamNormalize";
 
+const TEAM_LOGO = (id: number | string) =>
+  `https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png`;
+
 /**
- * Static CDN badge map for popular teams – loads instantly, no API call needed.
- * Uses TheSportsDB CDN which is reliable and fast.
+ * In-memory cache (URL by team name). Survives component re-mounts during a
+ * single page session so logos render instantly the second time around.
  */
-const STATIC_BADGES: Record<string, string> = {
-  // Premier League
-  "Arsenal": "https://r2.thesportsdb.com/images/media/team/badge/uyhbfe1612467038.png",
-  "Aston Villa": "https://r2.thesportsdb.com/images/media/team/badge/wsyuvp1448813371.png",
-  "AFC Bournemouth": "https://r2.thesportsdb.com/images/media/team/badge/y9ocfx1548011888.png",
-  "Bournemouth": "https://r2.thesportsdb.com/images/media/team/badge/y9ocfx1548011888.png",
-  "Brentford": "https://r2.thesportsdb.com/images/media/team/badge/qqqwrq1421393789.png",
-  "Brighton": "https://r2.thesportsdb.com/images/media/team/badge/5ythxr1698854925.png",
-  "Brighton & Hove Albion": "https://r2.thesportsdb.com/images/media/team/badge/5ythxr1698854925.png",
-  "Chelsea": "https://r2.thesportsdb.com/images/media/team/badge/yvwvtu1448813215.png",
-  "Crystal Palace": "https://r2.thesportsdb.com/images/media/team/badge/xqwpup1448813405.png",
-  "Everton": "https://r2.thesportsdb.com/images/media/team/badge/yqptws1448813306.png",
-  "Fulham": "https://r2.thesportsdb.com/images/media/team/badge/xwwvyt1448813399.png",
-  "Ipswich": "https://r2.thesportsdb.com/images/media/team/badge/tkuxqt1421591248.png",
-  "Ipswich Town": "https://r2.thesportsdb.com/images/media/team/badge/tkuxqt1421591248.png",
-  "Leicester": "https://r2.thesportsdb.com/images/media/team/badge/lbfnuw1613661682.png",
-  "Leicester City": "https://r2.thesportsdb.com/images/media/team/badge/lbfnuw1613661682.png",
-  "Liverpool": "https://r2.thesportsdb.com/images/media/team/badge/uvxuqq1448813372.png",
-  "Manchester City": "https://r2.thesportsdb.com/images/media/team/badge/vwpvry1467462651.png",
-  "Man City": "https://r2.thesportsdb.com/images/media/team/badge/vwpvry1467462651.png",
-  "Manchester United": "https://r2.thesportsdb.com/images/media/team/badge/xzqdr11517660252.png",
-  "Man United": "https://r2.thesportsdb.com/images/media/team/badge/xzqdr11517660252.png",
-  "Newcastle": "https://r2.thesportsdb.com/images/media/team/badge/2psi711534010940.png",
-  "Newcastle United": "https://r2.thesportsdb.com/images/media/team/badge/2psi711534010940.png",
-  "Nottingham Forest": "https://r2.thesportsdb.com/images/media/team/badge/yrxrqp1448813383.png",
-  "Nott'm Forest": "https://r2.thesportsdb.com/images/media/team/badge/yrxrqp1448813383.png",
-  "Southampton": "https://r2.thesportsdb.com/images/media/team/badge/quvxsq1421747949.png",
-  "Tottenham": "https://r2.thesportsdb.com/images/media/team/badge/5yryqr1448813356.png",
-  "Tottenham Hotspur": "https://r2.thesportsdb.com/images/media/team/badge/5yryqr1448813356.png",
-  "West Ham": "https://r2.thesportsdb.com/images/media/team/badge/dxyrxw1448813352.png",
-  "West Ham United": "https://r2.thesportsdb.com/images/media/team/badge/dxyrxw1448813352.png",
-  "Wolverhampton Wanderers": "https://r2.thesportsdb.com/images/media/team/badge/yqptyy1448813358.png",
-  "Wolves": "https://r2.thesportsdb.com/images/media/team/badge/yqptyy1448813358.png",
-  // La Liga
-  "Real Madrid": "https://r2.thesportsdb.com/images/media/team/badge/vrespq1448813426.png",
-  "Barcelona": "https://r2.thesportsdb.com/images/media/team/badge/xqwpup1448813390.png",
-  "Atletico Madrid": "https://r2.thesportsdb.com/images/media/team/badge/xx3bri1704627291.png",
-  "Sevilla": "https://r2.thesportsdb.com/images/media/team/badge/tqwtpx1448813432.png",
-  "Real Sociedad": "https://r2.thesportsdb.com/images/media/team/badge/svwyxw1448813426.png",
-  "Villarreal": "https://r2.thesportsdb.com/images/media/team/badge/wrtsxr1448813424.png",
-  "Real Betis": "https://r2.thesportsdb.com/images/media/team/badge/uwvxvs1448813428.png",
-  "Athletic Bilbao": "https://r2.thesportsdb.com/images/media/team/badge/xvwurs1448813419.png",
-  // Serie A
-  "Inter Milan": "https://r2.thesportsdb.com/images/media/team/badge/yy87ac1635070130.png",
-  "AC Milan": "https://r2.thesportsdb.com/images/media/team/badge/uqypqx1467462041.png",
-  "Juventus": "https://r2.thesportsdb.com/images/media/team/badge/pvskqz1611757482.png",
-  "Napoli": "https://r2.thesportsdb.com/images/media/team/badge/yysusw1420811842.png",
-  "AS Roma": "https://r2.thesportsdb.com/images/media/team/badge/shqroe1611757757.png",
-  "Roma": "https://r2.thesportsdb.com/images/media/team/badge/shqroe1611757757.png",
-  "Lazio": "https://r2.thesportsdb.com/images/media/team/badge/yrxrqp1448813388.png",
-  "Atalanta": "https://r2.thesportsdb.com/images/media/team/badge/xss5xr1421764227.png",
-  "Fiorentina": "https://r2.thesportsdb.com/images/media/team/badge/txsuxy1421762498.png",
-  // Bundesliga
-  "Bayern Munich": "https://r2.thesportsdb.com/images/media/team/badge/wuppsx1448813404.png",
-  "Borussia Dortmund": "https://r2.thesportsdb.com/images/media/team/badge/vwvpvr1448813410.png",
-  "RB Leipzig": "https://r2.thesportsdb.com/images/media/team/badge/yyu5t71550207722.png",
-  "Bayer Leverkusen": "https://r2.thesportsdb.com/images/media/team/badge/sstptr1448813413.png",
-  // Ligue 1
-  "Paris Saint-Germain": "https://r2.thesportsdb.com/images/media/team/badge/rwqrrq1467462374.png",
-  "PSG": "https://r2.thesportsdb.com/images/media/team/badge/rwqrrq1467462374.png",
-  "Marseille": "https://r2.thesportsdb.com/images/media/team/badge/xwusxq1421757886.png",
-  "Monaco": "https://r2.thesportsdb.com/images/media/team/badge/xvwxvs1421758032.png",
-  "Lyon": "https://r2.thesportsdb.com/images/media/team/badge/yvpvqr1448813435.png",
-  // Other
-  "Ajax": "https://r2.thesportsdb.com/images/media/team/badge/yywpxs1448813422.png",
-  "PSV Eindhoven": "https://r2.thesportsdb.com/images/media/team/badge/tyuxwq1448813414.png",
-  "Feyenoord": "https://r2.thesportsdb.com/images/media/team/badge/xuqwqs1421768726.png",
-  "Benfica": "https://r2.thesportsdb.com/images/media/team/badge/yrxrqp1448813378.png",
-  "Porto": "https://r2.thesportsdb.com/images/media/team/badge/tpxwut1448813428.png",
-  "Sporting CP": "https://r2.thesportsdb.com/images/media/team/badge/xsqpqr1448813430.png",
-  "Celtic": "https://r2.thesportsdb.com/images/media/team/badge/ywqprr1448813318.png",
-  "Rangers": "https://r2.thesportsdb.com/images/media/team/badge/upxrxp1448813362.png",
-  "Galatasaray": "https://r2.thesportsdb.com/images/media/team/badge/rqqtyy1448813424.png",
-  "Fenerbahce": "https://r2.thesportsdb.com/images/media/team/badge/upwwvs1448813410.png",
-  "Besiktas": "https://r2.thesportsdb.com/images/media/team/badge/yxvswy1448813396.png",
-};
-
-const logoCache = new Map<string, string | null>();
-const pendingRequests = new Map<string, Promise<string | null>>();
+const memCache = new Map<string, string | null>();
 const loadedUrls = new Set<string>();
+const inflight = new Map<string, Promise<string | null>>();
 
-function lookupStatic(teamName: string): string | undefined {
-  if (STATIC_BADGES[teamName]) return STATIC_BADGES[teamName];
-  const norm = normalizeTeamName(teamName);
-  if (STATIC_BADGES[norm]) return STATIC_BADGES[norm];
-  return undefined;
+/**
+ * Read the entire team_logos table once on first mount and prime the in-memory
+ * cache. This means after the first paint, EVERY known team's logo is already
+ * available locally, so subsequent renders pop in instantly.
+ */
+let primedPromise: Promise<void> | null = null;
+function primeFromDb(): Promise<void> {
+  if (primedPromise) return primedPromise;
+  primedPromise = (async () => {
+    try {
+      const { data } = await supabase
+        .from("team_logos")
+        .select("team_name, logo_url")
+        .limit(2000);
+      for (const row of data ?? []) {
+        if (row.logo_url) memCache.set(row.team_name, row.logo_url);
+      }
+    } catch (e) {
+      console.warn("team_logos prime failed", e);
+    }
+  })();
+  return primedPromise;
 }
 
-async function fetchTeamBadge(teamName: string): Promise<string | null> {
-  const staticUrl = lookupStatic(teamName);
-  if (staticUrl) {
-    logoCache.set(teamName, staticUrl);
-    return staticUrl;
-  }
-  if (logoCache.has(teamName)) return logoCache.get(teamName)!;
-  if (pendingRequests.has(teamName)) return pendingRequests.get(teamName)!;
+async function fetchTeamLogo(teamName: string): Promise<string | null> {
+  if (memCache.has(teamName)) return memCache.get(teamName)!;
+  const norm = normalizeTeamName(teamName);
+  if (memCache.has(norm)) return memCache.get(norm)!;
 
-  const promise = (async () => {
+  const key = teamName;
+  if (inflight.has(key)) return inflight.get(key)!;
+
+  const p = (async () => {
+    // Try DB direct (covers any name variant)
     try {
-      const res = await fetch(
-        `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      if (!res.ok) {
-        logoCache.set(teamName, null);
-        return null;
+      const { data } = await supabase
+        .from("team_logos")
+        .select("team_name, logo_url, fotmob_id")
+        .or(`team_name.eq.${teamName.replace(/,/g, " ")},team_name.eq.${norm.replace(/,/g, " ")}`)
+        .limit(1)
+        .maybeSingle();
+      if (data?.logo_url) {
+        memCache.set(teamName, data.logo_url);
+        memCache.set(norm, data.logo_url);
+        return data.logo_url;
       }
-      const data = await res.json();
-      const badge = data?.teams?.[0]?.strBadge ?? null;
-      logoCache.set(teamName, badge);
-      return badge;
+    } catch { /* ignore */ }
+
+    // Fall back to the resolver edge function
+    try {
+      const { data } = await supabase.functions.invoke("resolve-team-logo", {
+        body: { team: teamName },
+      });
+      const url = (data?.logo_url as string | null) ?? null;
+      memCache.set(teamName, url);
+      memCache.set(norm, url);
+      return url;
     } catch {
+      memCache.set(teamName, null);
       return null;
     } finally {
-      pendingRequests.delete(teamName);
+      inflight.delete(key);
     }
   })();
 
-  pendingRequests.set(teamName, promise);
-  return promise;
+  inflight.set(key, p);
+  return p;
 }
 
 function getInitials(name: string) {
@@ -139,6 +94,8 @@ function getInitials(name: string) {
 
 type Props = {
   teamName: string;
+  /** Pass when you already know the Fotmob team id (e.g. from standings rows). */
+  fotmobId?: number | null;
   size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 };
@@ -150,37 +107,56 @@ const sizes = {
   lg: "w-12 h-12 text-xs",
 };
 
-export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
-  const initialUrl = lookupStatic(teamName) ?? logoCache.get(teamName) ?? null;
-  const [badge, setBadge] = useState<string | null>(initialUrl);
-  const [loaded, setLoaded] = useState<boolean>(() => !!initialUrl && loadedUrls.has(initialUrl));
+export const TeamLogo = ({ teamName, fotmobId, size = "sm", className }: Props) => {
+  const fromId = fotmobId ? TEAM_LOGO(fotmobId) : null;
+  const initial =
+    fromId ??
+    memCache.get(teamName) ??
+    memCache.get(normalizeTeamName(teamName)) ??
+    null;
+
+  const [badge, setBadge] = useState<string | null>(initial);
+  const [loaded, setLoaded] = useState<boolean>(() => !!initial && loadedUrls.has(initial));
   const [errored, setErrored] = useState(false);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    let cancelled = false;
+    mounted.current = true;
     setErrored(false);
 
-    const staticUrl = lookupStatic(teamName);
-    if (staticUrl) {
-      setBadge(staticUrl);
-      setLoaded(loadedUrls.has(staticUrl));
-      return;
+    if (fromId) {
+      setBadge(fromId);
+      setLoaded(loadedUrls.has(fromId));
+      return () => { mounted.current = false; };
     }
 
-    if (logoCache.has(teamName)) {
-      const cached = logoCache.get(teamName) ?? null;
+    const cached =
+      memCache.get(teamName) ?? memCache.get(normalizeTeamName(teamName));
+    if (cached !== undefined) {
       setBadge(cached);
       setLoaded(!!cached && loadedUrls.has(cached));
     } else {
       setLoaded(false);
-      fetchTeamBadge(teamName).then((url) => {
-        if (cancelled) return;
-        setBadge(url);
-        if (url && loadedUrls.has(url)) setLoaded(true);
+      // Prime once per session, then resolve.
+      primeFromDb().then(() => {
+        if (!mounted.current) return;
+        const primed =
+          memCache.get(teamName) ?? memCache.get(normalizeTeamName(teamName));
+        if (primed !== undefined) {
+          setBadge(primed);
+          if (primed && loadedUrls.has(primed)) setLoaded(true);
+          if (primed) return;
+        }
+        // Still nothing — go fetch.
+        fetchTeamLogo(teamName).then((url) => {
+          if (!mounted.current) return;
+          setBadge(url);
+          if (url && loadedUrls.has(url)) setLoaded(true);
+        });
       });
     }
-    return () => { cancelled = true; };
-  }, [teamName]);
+    return () => { mounted.current = false; };
+  }, [teamName, fromId]);
 
   const sizeClass = sizes[size];
 
@@ -188,7 +164,10 @@ export const TeamLogo = ({ teamName, size = "sm", className }: Props) => {
     return (
       <div className={cn("flex-shrink-0 relative", sizeClass, className)}>
         {!loaded && (
-          <div className={cn("absolute inset-0 rounded-full flex items-center justify-center font-bold font-mono bg-muted text-muted-foreground border border-border text-[inherit]", sizeClass)}>
+          <div className={cn(
+            "absolute inset-0 rounded-full flex items-center justify-center font-bold font-mono bg-muted text-muted-foreground border border-border text-[inherit]",
+            sizeClass
+          )}>
             {getInitials(teamName)}
           </div>
         )}
