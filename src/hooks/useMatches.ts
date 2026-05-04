@@ -105,12 +105,15 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
       if (awayRes.error) throw awayRes.error;
 
       const all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
-      // Deduplicate by (date, home, away) — same fixture may appear under
-      // multiple seasons/league_codes when sources overlap.
+      // Deduplicate by (date, normalized home, normalized away) — collapses
+      // alias variants (e.g. "Brighton" / "Brighton & Hove Albion").
       const seen = new Set<string>();
       const unique: Match[] = [];
-      for (const m of all) {
-        const key = `${m.match_date}|${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
+      const sorted = [...all].sort((a, b) =>
+        (b.home_team.length + b.away_team.length) - (a.home_team.length + a.away_team.length)
+      );
+      for (const m of sorted) {
+        const key = matchKey(m);
         if (seen.has(key)) continue;
         seen.add(key);
         unique.push(m);
