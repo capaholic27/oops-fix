@@ -376,6 +376,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      canon_team: { Args: { name: string }; Returns: string }
       increment_api_quota: { Args: { _count?: number }; Returns: number }
       norm_team: { Args: { name: string }; Returns: string }
     }
