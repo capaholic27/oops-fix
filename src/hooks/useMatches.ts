@@ -1,7 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
-import { getTeamAliases } from "@/lib/teamNormalize";
+import { getTeamAliases, normalizeTeamName } from "@/lib/teamNormalize";
+
+/**
+ * Build a stable dedup key for a match. Uses normalized team names so that
+ * "Brighton" vs "Brighton & Hove Albion" collapse into the same fixture.
+ */
+function matchKey(m: { match_date: string; home_team: string; away_team: string }) {
+  return `${m.match_date}|${normalizeTeamName(m.home_team).toLowerCase()}|${normalizeTeamName(m.away_team).toLowerCase()}`;
+}
 
 export type Fixture = {
   id: string;
@@ -44,15 +52,21 @@ export function useMatches(leagueCode?: string) {
         }
       }
 
-      // Deduplicate by (date, home, away) — safety net for cross-season overlap.
+      // Deduplicate by (date, normalized home, normalized away).
       const seen = new Set<string>();
       const unique: Match[] = [];
-      for (const m of allMatches) {
-        const key = `${m.match_date}|${m.home_team.toLowerCase()}|${m.away_team.toLowerCase()}`;
+      // Prefer rows with the LONGER name (Fotmob form) when there's a clash.
+      const sorted = [...allMatches].sort((a, b) =>
+        (b.home_team.length + b.away_team.length) - (a.home_team.length + a.away_team.length)
+      );
+      for (const m of sorted) {
+        const key = matchKey(m);
         if (seen.has(key)) continue;
         seen.add(key);
         unique.push(m);
       }
+      // Re-sort by match_date ascending for consumers that expect that order.
+      unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
       return unique;
     },
   });
