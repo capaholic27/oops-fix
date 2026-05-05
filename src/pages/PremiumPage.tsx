@@ -8,6 +8,16 @@ import {
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ResponsiveContainer as RechartsResponsiveContainer,
+  ComposedChart as RechartsComposedChart,
+  CartesianGrid as RechartsCartesianGrid,
+  XAxis as RechartsXAxis,
+  YAxis as RechartsYAxis,
+  Tooltip as RechartsTooltip,
+  Area as RechartsArea,
+  Line as RechartsLine,
+} from "recharts";
 import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
 import {
   getTeamMatchView, aggregateStats, getUniqueTeams, getUniqueLeagues,
