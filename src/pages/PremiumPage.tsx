@@ -3,8 +3,21 @@ import {
   Crown, Lock, Unlock, Target, Flag, AlertTriangle, Shield, TrendingUp,
   Crosshair, Sparkles, ChevronLeft, Search, Star, Loader2, Brain,
   BarChart3, Eye, Zap, X, ChevronRight, Trophy, Users, Activity, Percent,
-  CheckCircle2, ArrowUpRight, ArrowDownRight, Minus,
+  CheckCircle2, ArrowUpRight, ArrowDownRight, Minus, Info, Home, Plane,
+  Swords, LineChart as LineChartIcon, Gauge,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ResponsiveContainer as RechartsResponsiveContainer,
+  ComposedChart as RechartsComposedChart,
+  CartesianGrid as RechartsCartesianGrid,
+  XAxis as RechartsXAxis,
+  YAxis as RechartsYAxis,
+  Tooltip as RechartsTooltip,
+  Area as RechartsArea,
+  Line as RechartsLine,
+} from "recharts";
 import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
 import {
   getTeamMatchView, aggregateStats, getUniqueTeams, getUniqueLeagues,
@@ -450,7 +463,165 @@ const ProDashboard = ({
     );
   }
 
+  // ─── Predictive Analytics ───
+  const homeViews = allTeamViews.filter(v => v.isHome).slice(-pastN);
+  const awayViews = allTeamViews.filter(v => !v.isHome).slice(-pastN);
+  const homeStats = aggregateStats(homeViews);
+  const awayStats = aggregateStats(awayViews);
+
+  // xG proxy: blend goals + SOT conversion (≈0.31 league-wide)
+  const xgFor = (0.6 * gfPerGame) + (0.4 * stats.avgShotsOnTargetFor * 0.31);
+  const xgAgainst = (0.6 * gaPerGame) + (0.4 * stats.avgShotsOnTargetAgainst * 0.31);
+  const xgDiff = xgFor - xgAgainst;
+
+  // Form Index: weighted last 5 (most recent weighted heaviest)
+  const last5 = teamViews.slice(-5);
+  let weightedPts = 0, weightSum = 0;
+  last5.forEach((v, i) => {
+    const w = i + 1;
+    const pts = v.result === "W" ? 3 : v.result === "D" ? 1 : 0;
+    weightedPts += pts * w;
+    weightSum += 3 * w;
+  });
+  const formIndex = weightSum > 0 ? Math.round((weightedPts / weightSum) * 100) : 0;
+
+  // Attack & Defense ratings (0-100)
+  const attackRating = Math.min(100, Math.round(
+    (gfPerGame / 3) * 50 +
+    (stats.avgShotsOnTargetFor / 7) * 30 +
+    (xgFor / 2.5) * 20
+  ));
+  const defenseRating = Math.min(100, Math.round(
+    Math.max(0, (1 - gaPerGame / 2.5)) * 50 +
+    (stats.cleanSheets / Math.max(1, stats.matchesPlayed)) * 30 +
+    Math.max(0, (1 - xgAgainst / 2.5)) * 20
+  ));
+
+  // Confidence (0-100)
+  const sampleScore = Math.min(40, stats.matchesPlayed * 2);
+  const consistencyScore = Math.min(30, Math.abs(parseFloat(winRate) - 50) * 0.6);
+  const qualityScore = Math.min(30, Math.abs(xgDiff) * 30);
+  const confidence = Math.round(sampleScore + consistencyScore + qualityScore);
+
+  // Match prediction (Dixon-Coles) when an opponent exists
+  let prediction: PredictionResult | null = null;
+  if (opponentStats && nextOpponentName) {
+    const leagueAvg = computeLeagueAvgGoals(allMatches as any);
+    const homeIsTeam = nextFixture ? nextFixture.home_team === teamName : true;
+    const teamInput: TeamInput = {
+      goalsScored: stats.goalsFor,
+      goalsConceded: stats.goalsAgainst,
+      matchesPlayed: stats.matchesPlayed,
+      recentGoalsScored: last5.reduce((s, v) => s + v.goalsFor, 0),
+      recentGoalsConceded: last5.reduce((s, v) => s + v.goalsAgainst, 0),
+      recentMatches: last5.length,
+    };
+    const oppInput: TeamInput = {
+      goalsScored: opponentStats.goalsFor,
+      goalsConceded: opponentStats.goalsAgainst,
+      matchesPlayed: opponentStats.matchesPlayed,
+    };
+    prediction = homeIsTeam
+      ? predictMatch(teamInput, oppInput, leagueAvg)
+      : predictMatch(oppInput, teamInput, leagueAvg);
+  }
+  const teamWinPct = prediction
+    ? (nextFixture && nextFixture.home_team === teamName ? prediction.homeWin : prediction.awayWin)
+    : null;
+  const oppWinPct = prediction
+    ? (nextFixture && nextFixture.home_team === teamName ? prediction.awayWin : prediction.homeWin)
+    : null;
+  const drawPct = prediction?.draw ?? null;
+
+  // Performance vs Top vs Bottom teams (using opponent winrate)
+  const opponentStrength = new Map<string, { wins: number; played: number }>();
+  for (const m of allMatches as any[]) {
+    const h = normalizeTeamName(m.home_team);
+    const a = normalizeTeamName(m.away_team);
+    const hr = m.ft_home_goals > m.ft_away_goals ? "h" : m.ft_home_goals < m.ft_away_goals ? "a" : "d";
+    const upd = (k: string, w: boolean) => {
+      const cur = opponentStrength.get(k) ?? { wins: 0, played: 0 };
+      cur.played++;
+      if (w) cur.wins++;
+      opponentStrength.set(k, cur);
+    };
+    upd(h, hr === "h");
+    upd(a, hr === "a");
+  }
+  const topOpps: TeamMatchView[] = [];
+  const botOpps: TeamMatchView[] = [];
+  for (const v of teamViews) {
+    const opp = opponentStrength.get(normalizeTeamName(v.opponent));
+    const wr = opp && opp.played > 0 ? opp.wins / opp.played : 0.4;
+    (wr >= 0.55 ? topOpps : botOpps).push(v);
+  }
+  const splitTop = aggregateStats(topOpps);
+  const splitBot = aggregateStats(botOpps);
+
+  // H2H last meetings
+  const h2hViews = nextOpponentName
+    ? allTeamViews.filter(v => normalizeTeamName(v.opponent) === normalizeTeamName(nextOpponentName)).slice(-6).reverse()
+    : [];
+
+  // Trend data
+  const trendData = teamViews.map((v, i) => {
+    const sotXG = v.shotsOnTargetFor * 0.31;
+    const xg = 0.6 * v.goalsFor + 0.4 * sotXG;
+    return { idx: i + 1, goals: v.goalsFor, conceded: v.goalsAgainst, xg: Number(xg.toFixed(2)), result: v.result };
+  });
+
+  // Trend direction
+  let trendDir: "up" | "down" | "stable" = "stable";
+  let trendDelta = 0;
+  if (teamViews.length >= 6) {
+    const mid = Math.floor(teamViews.length / 2);
+    const ptsAvg = (arr: TeamMatchView[]) => arr.reduce((s, v) => s + (v.result === "W" ? 3 : v.result === "D" ? 1 : 0), 0) / Math.max(1, arr.length);
+    trendDelta = ptsAvg(teamViews.slice(mid)) - ptsAvg(teamViews.slice(0, mid));
+    trendDir = trendDelta > 0.3 ? "up" : trendDelta < -0.3 ? "down" : "stable";
+  }
+
+  // Smart Insights
+  const smartInsights: { tone: "pos" | "neg" | "info"; text: string }[] = [];
+  if (xgDiff > 0.6) smartInsights.push({ tone: "pos", text: `Outperforming opponents by ${xgDiff.toFixed(2)} xG/match — sustained quality, not luck.` });
+  else if (xgDiff < -0.4) smartInsights.push({ tone: "neg", text: `Underwater by ${Math.abs(xgDiff).toFixed(2)} xG/match — chance creation lags concession.` });
+  if (formIndex >= 70) smartInsights.push({ tone: "pos", text: `Form Index ${formIndex}/100 — peak rhythm in recent matches.` });
+  else if (formIndex <= 30) smartInsights.push({ tone: "neg", text: `Form Index ${formIndex}/100 — recent results trending poorly.` });
+  if (homeStats.matchesPlayed >= 3 && awayStats.matchesPlayed >= 3) {
+    const hpts = (homeStats.wins * 3 + homeStats.draws) / homeStats.matchesPlayed;
+    const apts = (awayStats.wins * 3 + awayStats.draws) / awayStats.matchesPlayed;
+    if (hpts - apts > 0.7) smartInsights.push({ tone: "info", text: `Strong home bias: ${hpts.toFixed(1)} pts/home vs ${apts.toFixed(1)} pts/away.` });
+    else if (apts - hpts > 0.5) smartInsights.push({ tone: "info", text: `Travels well: ${apts.toFixed(1)} pts/away vs ${hpts.toFixed(1)} pts/home.` });
+  }
+  if (splitTop.matchesPlayed >= 3 && splitBot.matchesPlayed >= 3) {
+    if (splitTop.winProbability > 50) smartInsights.push({ tone: "pos", text: `Beats top sides ${splitTop.winProbability.toFixed(0)}% — credible vs quality opposition.` });
+    else if (splitBot.winProbability < 40) smartInsights.push({ tone: "neg", text: `Only ${splitBot.winProbability.toFixed(0)}% win rate vs lower teams — drops easy points.` });
+  }
+  if (trendDir === "up") smartInsights.push({ tone: "pos", text: `Trending up: +${trendDelta.toFixed(2)} pts/match in the second half of sample.` });
+  if (trendDir === "down") smartInsights.push({ tone: "neg", text: `Trending down: ${trendDelta.toFixed(2)} pts/match drop in recent matches.` });
+  if (prediction && teamWinPct != null && oppWinPct != null) {
+    const head = teamWinPct >= 50 ? `Model favors ${teamName} (${teamWinPct.toFixed(0)}%)` : `Model favors ${nextOpponentName} (${oppWinPct.toFixed(0)}%)`;
+    smartInsights.push({ tone: "info", text: `${head} for the next match. Confidence ${confidence}/100.` });
+  }
+
+  // Key prediction factors
+  const predictionFactors: { label: string; value: string; tone: "pos" | "neg" | "info"; weight: number }[] = [
+    { label: "Recent Form", value: `${formIndex}/100`, tone: formIndex >= 60 ? "pos" : formIndex <= 35 ? "neg" : "info", weight: formIndex },
+    { label: "Attack Strength", value: `${attackRating}/100`, tone: attackRating >= 65 ? "pos" : attackRating <= 35 ? "neg" : "info", weight: attackRating },
+    { label: "Defense Strength", value: `${defenseRating}/100`, tone: defenseRating >= 65 ? "pos" : defenseRating <= 35 ? "neg" : "info", weight: defenseRating },
+    { label: "xG Differential", value: `${xgDiff >= 0 ? "+" : ""}${xgDiff.toFixed(2)}`, tone: xgDiff > 0.3 ? "pos" : xgDiff < -0.3 ? "neg" : "info", weight: Math.min(100, Math.max(0, 50 + xgDiff * 30)) },
+  ];
+  if (opponentStats) {
+    const matchupQuality = xgFor - (opponentStats.goalsAgainst / opponentStats.matchesPlayed);
+    predictionFactors.push({
+      label: "Opp. Defense Weakness",
+      value: matchupQuality > 0.3 ? "Exploitable" : matchupQuality < -0.2 ? "Solid" : "Average",
+      tone: matchupQuality > 0.3 ? "pos" : matchupQuality < -0.2 ? "neg" : "info",
+      weight: Math.min(100, Math.max(0, 50 + matchupQuality * 40)),
+    });
+  }
+
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="p-3 space-y-4 pb-24 max-w-lg mx-auto">
       {/* Back + Filter */}
       <div className="flex items-center justify-between gap-2">
@@ -474,7 +645,7 @@ const ProDashboard = ({
         </div>
       </div>
 
-      {/* ─── Hero Banner ─── */}
+      {/* Hero */}
       <section className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/[0.06] p-4 shadow-lg relative overflow-hidden">
         <div className="flex items-start gap-3">
           <TeamLogo teamName={teamName} size="lg" />
@@ -512,167 +683,253 @@ const ProDashboard = ({
         </div>
       </section>
 
-      {/* ─── Fan Vote on next fixture ─── */}
-      {nextFixture && (
-        <MatchVote
-          homeTeam={nextFixture.home_team}
-          awayTeam={nextFixture.away_team}
-          matchDate={nextFixture.match_date}
-        />
-      )}
+      {/* Tabbed Predictive Dashboard */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full grid grid-cols-4 h-9 bg-muted/60 rounded-xl">
+          <TabsTrigger value="overview" className="text-[11px] font-semibold rounded-lg">Overview</TabsTrigger>
+          <TabsTrigger value="advanced" className="text-[11px] font-semibold rounded-lg">Advanced</TabsTrigger>
+          <TabsTrigger value="trends" className="text-[11px] font-semibold rounded-lg">Trends</TabsTrigger>
+          <TabsTrigger value="matchup" className="text-[11px] font-semibold rounded-lg">Matchup</TabsTrigger>
+        </TabsList>
 
-      {/* ─── Record + Mentality ─── */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-2xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "100ms" }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Record</span>
-            <TrendingUp className="w-3.5 h-3.5 text-stat-positive" />
-          </div>
-          <div className="font-mono text-2xl font-bold text-stat-positive leading-none tracking-tight">
-            {stats.wins}<span className="text-muted-foreground mx-1 font-normal">·</span>{stats.draws}<span className="text-muted-foreground mx-1 font-normal">·</span>{stats.losses}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-            {stats.goalsFor} GF · {stats.goalsAgainst} GA · {stats.wins * 3 + stats.draws} pts
-          </p>
-        </div>
+        {/* OVERVIEW */}
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          <MatchPredictionCard
+            teamName={teamName}
+            opponentName={nextOpponentName}
+            teamWinPct={teamWinPct}
+            drawPct={drawPct}
+            oppWinPct={oppWinPct}
+            confidence={confidence}
+            factors={predictionFactors}
+            isHomeNext={nextFixture ? nextFixture.home_team === teamName : null}
+          />
 
-        <div className="rounded-2xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "150ms" }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
-            <span className="text-base leading-none">{mentality.emoji}</span>
+          <SmartInsightsCard insights={smartInsights} />
+
+          <div className="grid grid-cols-3 gap-2">
+            <RatingCard label="Form Index" value={formIndex} icon={<Activity className="w-3.5 h-3.5" />} tooltip="Weighted points in last 5 matches (0–100). More recent results count more." />
+            <RatingCard label="Attack" value={attackRating} icon={<Target className="w-3.5 h-3.5" />} tooltip="Composite of goals/match, shots on target, and xG (0–100)." />
+            <RatingCard label="Defense" value={defenseRating} icon={<Shield className="w-3.5 h-3.5" />} tooltip="Composite of goals conceded, clean sheet rate, and xG against (0–100)." />
           </div>
-          <div className="font-mono text-sm font-bold text-foreground leading-tight">{mentality.label}</div>
-          <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${mentality.intensity}%`,
-                background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
-              }}
+
+          <div className="rounded-2xl border border-border bg-card p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
+              <span className="text-base leading-none">{mentality.emoji}</span>
+            </div>
+            <div className="font-mono text-sm font-bold text-foreground leading-tight">{mentality.label}</div>
+            <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${mentality.intensity}%`,
+                  background: mentality.intensity > 75 ? 'hsl(var(--stat-negative))' : mentality.intensity > 50 ? 'hsl(var(--stat-warn))' : 'hsl(var(--primary))',
+                }}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{mentality.description}</p>
+          </div>
+
+          {nextFixture && (
+            <MatchVote
+              homeTeam={nextFixture.home_team}
+              awayTeam={nextFixture.away_team}
+              matchDate={nextFixture.match_date}
             />
+          )}
+        </TabsContent>
+
+        {/* ADVANCED */}
+        <TabsContent value="advanced" className="space-y-4 mt-4">
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md">
+            <div className="flex items-center gap-2 mb-3">
+              <Gauge className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Expected Goals (xG)</span>
+              <MetricTooltip text="Expected Goals: data-driven proxy for chance quality based on shots on target conversion blended with actual goals." />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <XgTile label="xG For" value={xgFor.toFixed(2)} sub="per match" tone="pos" />
+              <XgTile label="xG Against" value={xgAgainst.toFixed(2)} sub="per match" tone="neg" />
+              <XgTile label="xG Diff" value={`${xgDiff >= 0 ? "+" : ""}${xgDiff.toFixed(2)}`} sub={xgDiff >= 0 ? "outperforming" : "underwater"} tone={xgDiff >= 0 ? "pos" : "neg"} />
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              <XgTile label="Goals / Match" value={gfPerGame.toFixed(2)} sub="actual" tone="info" small />
+              <XgTile label="Goals vs xG" value={`${(gfPerGame - xgFor) >= 0 ? "+" : ""}${(gfPerGame - xgFor).toFixed(2)}`} sub={(gfPerGame - xgFor) >= 0 ? "clinical" : "wasteful"} tone={(gfPerGame - xgFor) >= 0 ? "pos" : "neg"} small />
+            </div>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug line-clamp-2">{mentality.description}</p>
-        </div>
-      </div>
 
-      {/* ─── Pro Stats Grid ─── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Crown className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} onClick={() => setOpenStat("over25")} />
-          <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} onClick={() => setOpenStat("corners")} />
-          <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} onClick={() => setOpenStat("shots")} />
-          <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} onClick={() => setOpenStat("cards")} />
-          <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} onClick={() => setOpenStat("fouls")} />
-          <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
-          <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} onClick={() => setOpenStat("over25")} />
-          <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={550} onClick={() => setOpenStat("record")} />
-        </div>
-      </div>
-
-      {/* ─── Bet Markets Probability ─── */}
-      <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 opacity-0 animate-fade-up shadow-md" style={{ animationDelay: "600ms" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <Percent className="w-4 h-4 text-primary" />
-          <span className="text-xs font-bold text-primary uppercase tracking-wider">Bet Markets Probability</span>
-        </div>
-        <div className="space-y-3">
           <div>
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Target className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Goals</span>
+            <div className="flex items-center gap-2 mb-3">
+              <Crown className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <ProbabilityRow label="Over 1.5" pct={stats.over15Percentage} />
-              <ProbabilityRow label="Over 2.5" pct={stats.over25Percentage} />
-              <ProbabilityRow label="Over 3.5" pct={over35Pct} />
-              <ProbabilityRow label="Over 4.5" pct={over45Pct} />
-              <ProbabilityRow label="BTTS" pct={stats.bttsPercentage} />
-              <ProbabilityRow label="Team Scores" pct={scoredPct} />
-            </div>
-          </div>
-          <div className="pt-1">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Flag className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Corners (avg {totalCornersAvg.toFixed(1)})</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <ProbabilityRow label="Over 8.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 8.5) * 50))} compact />
-              <ProbabilityRow label="Over 9.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 9.5) * 50))} compact />
-              <ProbabilityRow label="Over 10.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 10.5) * 50))} compact />
+            <div className="grid grid-cols-2 gap-3">
+              <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} onClick={() => setOpenStat("over25")} />
+              <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} onClick={() => setOpenStat("corners")} />
+              <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} onClick={() => setOpenStat("shots")} />
+              <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} onClick={() => setOpenStat("cards")} />
+              <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} onClick={() => setOpenStat("fouls")} />
+              <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
+              <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} onClick={() => setOpenStat("over25")} />
+              <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={550} onClick={() => setOpenStat("record")} />
             </div>
           </div>
-          <div className="pt-1">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Crosshair className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Shots on Target (avg {totalSotAvg.toFixed(1)})</span>
+
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md">
+            <div className="flex items-center gap-2 mb-3">
+              <Percent className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Bet Markets Probability</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <ProbabilityRow label="Over 7.5 SOT" pct={Math.min(95, Math.max(5, (totalSotAvg / 7.5) * 50))} />
-              <ProbabilityRow label="Over 9.5 SOT" pct={Math.min(95, Math.max(5, (totalSotAvg / 9.5) * 50))} />
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Target className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Goals</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ProbabilityRow label="Over 1.5" pct={stats.over15Percentage} />
+                  <ProbabilityRow label="Over 2.5" pct={stats.over25Percentage} />
+                  <ProbabilityRow label="Over 3.5" pct={over35Pct} />
+                  <ProbabilityRow label="Over 4.5" pct={over45Pct} />
+                  <ProbabilityRow label="BTTS" pct={stats.bttsPercentage} />
+                  <ProbabilityRow label="Team Scores" pct={scoredPct} />
+                </div>
+              </div>
+              <div className="pt-1">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Flag className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Corners (avg {totalCornersAvg.toFixed(1)})</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <ProbabilityRow label="Over 8.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 8.5) * 50))} compact />
+                  <ProbabilityRow label="Over 9.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 9.5) * 50))} compact />
+                  <ProbabilityRow label="Over 10.5" pct={Math.min(95, Math.max(5, (totalCornersAvg / 10.5) * 50))} compact />
+                </div>
+              </div>
+              <div className="pt-1">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Crosshair className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Shots on Target (avg {totalSotAvg.toFixed(1)})</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ProbabilityRow label="Over 7.5 SOT" pct={Math.min(95, Math.max(5, (totalSotAvg / 7.5) * 50))} />
+                  <ProbabilityRow label="Over 9.5 SOT" pct={Math.min(95, Math.max(5, (totalSotAvg / 9.5) * 50))} />
+                </div>
+              </div>
+              <div className="pt-1">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <AlertTriangle className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cards (avg {totalCardsAvg.toFixed(1)})</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ProbabilityRow label="Over 3.5 Cards" pct={Math.min(95, Math.max(5, (totalCardsAvg / 3.5) * 50))} />
+                  <ProbabilityRow label="Over 4.5 Cards" pct={Math.min(95, Math.max(5, (totalCardsAvg / 4.5) * 50))} />
+                </div>
+              </div>
+              <div className="pt-1">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Shield className="w-3 h-3 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Defensive</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ProbabilityRow label="Clean Sheet" pct={(stats.cleanSheets / stats.matchesPlayed) * 100} />
+                  <ProbabilityRow label="Concedes" pct={concededPct} />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="pt-1">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <AlertTriangle className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Cards (avg {totalCardsAvg.toFixed(1)})</span>
+
+          <PlayerInsights teamViews={teamViews} teamName={teamName} />
+          <PlayerHighlights teamName={teamName} />
+        </TabsContent>
+
+        {/* TRENDS */}
+        <TabsContent value="trends" className="space-y-4 mt-4">
+          <TrendDirectionCard direction={trendDir} delta={trendDelta} formIndex={formIndex} />
+          <TrendChart data={trendData} title="Goals & xG over time" />
+          <MomentumChart views={teamViews} teamName={teamName} />
+          <PredictedTacticalProfile
+            stats={stats}
+            teamName={teamName}
+            views={teamViews}
+            opponentStats={opponentStats}
+            opponentName={nextOpponentName}
+            allFixtures={[]}
+            allMatches={allMatches}
+            onFixtureChange={() => {}}
+            onOpponentSelect={() => {}}
+          />
+        </TabsContent>
+
+        {/* MATCHUP */}
+        <TabsContent value="matchup" className="space-y-4 mt-4">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Home className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">Home vs Away</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <ProbabilityRow label="Over 3.5 Cards" pct={Math.min(95, Math.max(5, (totalCardsAvg / 3.5) * 50))} />
-              <ProbabilityRow label="Over 4.5 Cards" pct={Math.min(95, Math.max(5, (totalCardsAvg / 4.5) * 50))} />
+            <div className="grid grid-cols-2 gap-3">
+              <SplitTile label="Home" icon={<Home className="w-3.5 h-3.5" />} stats={homeStats} />
+              <SplitTile label="Away" icon={<Plane className="w-3.5 h-3.5" />} stats={awayStats} />
             </div>
           </div>
-          <div className="pt-1">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Shield className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Defensive</span>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Trophy className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-foreground uppercase tracking-wider">Performance vs Strength</span>
+              <MetricTooltip text="Opponents split by their league win-rate. ≥55% = top, <55% = lower." />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <ProbabilityRow label="Clean Sheet" pct={(stats.cleanSheets / stats.matchesPlayed) * 100} />
-              <ProbabilityRow label="Concedes" pct={concededPct} />
+            <div className="grid grid-cols-2 gap-3">
+              <SplitTile label="vs Top Teams" icon={<ArrowUpRight className="w-3.5 h-3.5" />} stats={splitTop} />
+              <SplitTile label="vs Lower Teams" icon={<ArrowDownRight className="w-3.5 h-3.5" />} stats={splitBot} />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ─── Key Insights ─── */}
-      <div className="rounded-2xl border border-border bg-card p-4 opacity-0 animate-fade-up" style={{ animationDelay: "650ms" }}>
-        <div className="flex items-center gap-2 mb-3">
-          <Sparkles className="w-4 h-4 text-primary" />
-          <span className="text-sm font-bold text-foreground">Key Insights</span>
-        </div>
-        <div className="space-y-2.5 text-xs leading-relaxed">
-          <Insight icon={<CheckCircle2 className="w-3.5 h-3.5 text-stat-positive" />} text={<>{teamName} has scored in <span className="font-bold text-primary">{scoredPct.toFixed(0)}%</span> of matches ({scoredCount}/{stats.matchesPlayed})</>} />
-          <Insight icon={<CheckCircle2 className="w-3.5 h-3.5 text-stat-positive" />} text={<>Scored 2+ goals in <span className="font-bold text-primary">{twoOrMorePct.toFixed(0)}%</span> of matches ({twoOrMoreCount}/{stats.matchesPlayed})</>} />
-          <Insight icon={<Activity className="w-3.5 h-3.5 text-stat-warn" />} text={<>Conceded in <span className="font-bold text-stat-warn">{concededPct.toFixed(0)}%</span> of matches</>} />
-          <Insight icon={<Flag className="w-3.5 h-3.5 text-primary" />} text={<>Average <span className="font-bold text-primary">{totalCornersAvg.toFixed(1)}</span> total corners per match</>} />
-          <Insight icon={<AlertTriangle className="w-3.5 h-3.5 text-stat-warn" />} text={<>Avg <span className="font-bold text-stat-warn">{stats.avgYellowCards.toFixed(1)}</span> yellows + <span className="font-bold">{stats.avgFoulsCommitted.toFixed(1)}</span> fouls per game</>} />
-          <Insight icon={<Trophy className="w-3.5 h-3.5 text-primary" />} text={<>Mentality: <span className="font-bold">{mentality.label}</span> · {mentality.intensity}/100 intensity</>} />
-        </div>
-      </div>
+          {nextOpponentName && (
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Swords className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Head-to-Head · vs {nextOpponentName}</span>
+              </div>
+              {h2hViews.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No recent meetings on record.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {h2hViews.map((v, i) => {
+                    const dateStr = new Date(v.match.match_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
+                    return (
+                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-2 text-[11px]">
+                        <FormBadge result={v.result} />
+                        <span className="font-mono text-muted-foreground w-16">{dateStr}</span>
+                        <span className="flex-1 text-muted-foreground truncate">
+                          <span className="text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
+                          {v.opponent}
+                        </span>
+                        <span className="font-mono font-bold">{v.goalsFor}-{v.goalsAgainst}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
-      {/* ─── Squad Insights ─── */}
-      <PlayerInsights teamViews={teamViews} teamName={teamName} />
-
-      {/* ─── Player Leaderboard (Top 5) ─── */}
-      <PlayerHighlights teamName={teamName} />
-
-      <MomentumChart views={teamViews} teamName={teamName} />
-
-      <PredictedTacticalProfile
-        stats={stats}
-        teamName={teamName}
-        views={teamViews}
-        opponentStats={opponentStats}
-        opponentName={nextOpponentName}
-        allFixtures={[]}
-        allMatches={allMatches}
-        onFixtureChange={() => {}}
-        onOpponentSelect={() => {}}
-      />
+          {opponentStats && nextOpponentName && (
+            <MatchupComparison
+              teamName={teamName}
+              oppName={nextOpponentName}
+              teamStats={stats}
+              oppStats={opponentStats}
+              teamXg={xgFor}
+              teamXga={xgAgainst}
+              teamAttack={attackRating}
+              teamDefense={defenseRating}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       <AdBanner variant="inline" />
 
@@ -685,6 +942,355 @@ const ProDashboard = ({
       {openStat && (
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
+    </div>
+    </TooltipProvider>
+  );
+};
+
+/* ─── Predictive analytics sub-components ─── */
+
+const MetricTooltip = ({ text }: { text: string }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <button type="button" className="text-muted-foreground/70 hover:text-primary transition-colors">
+        <Info className="w-3 h-3" />
+      </button>
+    </TooltipTrigger>
+    <TooltipContent side="top" className="max-w-[220px] text-[11px] leading-snug">{text}</TooltipContent>
+  </Tooltip>
+);
+
+const MatchPredictionCard = ({
+  teamName, opponentName, teamWinPct, drawPct, oppWinPct, confidence, factors, isHomeNext,
+}: {
+  teamName: string;
+  opponentName?: string;
+  teamWinPct: number | null;
+  drawPct: number | null;
+  oppWinPct: number | null;
+  confidence: number;
+  factors: { label: string; value: string; tone: "pos" | "neg" | "info"; weight: number }[];
+  isHomeNext: boolean | null;
+}) => {
+  if (teamWinPct == null || oppWinPct == null || drawPct == null || !opponentName) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Brain className="w-4 h-4 text-primary" />
+          <span className="text-xs font-bold text-primary uppercase tracking-wider">Match Prediction</span>
+        </div>
+        <p className="text-xs text-muted-foreground">No upcoming fixture detected — prediction will appear once the next match is scheduled.</p>
+      </div>
+    );
+  }
+  const total = teamWinPct + drawPct + oppWinPct;
+  const tw = (teamWinPct / total) * 100;
+  const dw = (drawPct / total) * 100;
+  const aw = (oppWinPct / total) * 100;
+  const confTone = confidence >= 70 ? "text-stat-positive" : confidence >= 45 ? "text-primary" : "text-stat-warn";
+
+  return (
+    <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-card to-primary/[0.05] p-4 shadow-md">
+      <div className="flex items-center gap-2 mb-3">
+        <Brain className="w-4 h-4 text-primary" />
+        <span className="text-xs font-bold text-primary uppercase tracking-wider">Match Prediction</span>
+        <span className="ml-auto text-[10px] font-mono font-bold text-muted-foreground">
+          {isHomeNext ? "HOME" : "AWAY"} vs {opponentName}
+        </span>
+      </div>
+
+      <div className="mb-1 flex h-7 rounded-lg overflow-hidden border border-border">
+        <div className="bg-stat-positive flex items-center justify-center text-[10px] font-bold text-background" style={{ width: `${tw}%` }}>
+          {tw >= 12 ? `${teamWinPct.toFixed(0)}%` : ""}
+        </div>
+        <div className="bg-muted-foreground/40 flex items-center justify-center text-[10px] font-bold text-background" style={{ width: `${dw}%` }}>
+          {dw >= 12 ? `${drawPct.toFixed(0)}%` : ""}
+        </div>
+        <div className="bg-stat-negative flex items-center justify-center text-[10px] font-bold text-background" style={{ width: `${aw}%` }}>
+          {aw >= 12 ? `${oppWinPct.toFixed(0)}%` : ""}
+        </div>
+      </div>
+      <div className="flex justify-between text-[10px] font-semibold text-muted-foreground mb-3">
+        <span className="truncate max-w-[35%]">{teamName} Win</span>
+        <span>Draw</span>
+        <span className="truncate max-w-[35%] text-right">{opponentName} Win</span>
+      </div>
+
+      <div className="rounded-xl border border-border bg-background/50 p-2.5 mb-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <Gauge className="w-3 h-3 text-muted-foreground" />
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Confidence</span>
+            <MetricTooltip text="Confidence (0–100): blends sample size, recent form consistency, and the strength of the xG signal." />
+          </div>
+          <span className={cn("font-mono text-sm font-bold", confTone)}>{confidence}/100</span>
+        </div>
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+          <div className={cn("h-full rounded-full transition-all duration-700", confidence >= 70 ? "bg-stat-positive" : confidence >= 45 ? "bg-primary" : "bg-stat-warn")} style={{ width: `${confidence}%` }} />
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-1.5 mb-2">
+          <Sparkles className="w-3 h-3 text-primary" />
+          <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Key Factors</span>
+        </div>
+        <div className="space-y-1.5">
+          {factors.map((f) => (
+            <div key={f.label} className="flex items-center gap-2 text-[11px]">
+              <span className="w-32 text-muted-foreground truncate">{f.label}</span>
+              <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                <div className={cn("h-full rounded-full",
+                  f.tone === "pos" ? "bg-stat-positive" : f.tone === "neg" ? "bg-stat-negative" : "bg-primary"
+                )} style={{ width: `${Math.max(8, Math.min(100, f.weight))}%` }} />
+              </div>
+              <span className={cn("font-mono font-bold w-16 text-right",
+                f.tone === "pos" ? "text-stat-positive" : f.tone === "neg" ? "text-stat-negative" : "text-foreground"
+              )}>{f.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SmartInsightsCard = ({ insights }: { insights: { tone: "pos" | "neg" | "info"; text: string }[] }) => {
+  if (insights.length === 0) return null;
+  const iconFor = (t: "pos" | "neg" | "info") =>
+    t === "pos" ? <CheckCircle2 className="w-3.5 h-3.5 text-stat-positive" />
+    : t === "neg" ? <AlertTriangle className="w-3.5 h-3.5 text-stat-negative" />
+    : <Activity className="w-3.5 h-3.5 text-primary" />;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className="w-4 h-4 text-primary" />
+        <span className="text-sm font-bold text-foreground">Smart Insights</span>
+        <span className="ml-auto text-[9px] font-mono uppercase tracking-wider text-muted-foreground">Auto-generated</span>
+      </div>
+      <div className="space-y-2 text-xs leading-relaxed">
+        {insights.map((it, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <span className="flex-shrink-0 mt-0.5">{iconFor(it.tone)}</span>
+            <span className="text-foreground">{it.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const RatingCard = ({ label, value, icon, tooltip }: { label: string; value: number; icon: React.ReactNode; tooltip: string }) => {
+  const tone = value >= 65 ? "text-stat-positive" : value >= 40 ? "text-primary" : "text-stat-warn";
+  const bar = value >= 65 ? "bg-stat-positive" : value >= 40 ? "bg-primary" : "bg-stat-warn";
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1 text-muted-foreground">
+          {icon}
+          <span className="text-[9px] font-semibold uppercase tracking-wider">{label}</span>
+        </div>
+        <MetricTooltip text={tooltip} />
+      </div>
+      <div className={cn("font-mono text-xl font-bold leading-none", tone)}>{value}</div>
+      <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
+        <div className={cn("h-full rounded-full transition-all duration-700", bar)} style={{ width: `${Math.min(100, value)}%` }} />
+      </div>
+    </div>
+  );
+};
+
+const XgTile = ({ label, value, sub, tone, small }: { label: string; value: string; sub: string; tone: "pos" | "neg" | "info"; small?: boolean }) => {
+  const c = tone === "pos" ? "text-stat-positive" : tone === "neg" ? "text-stat-negative" : "text-primary";
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-2.5">
+      <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+      <p className={cn("font-mono font-bold leading-none mt-1", small ? "text-base" : "text-lg", c)}>{value}</p>
+      <p className="text-[9px] text-muted-foreground mt-1">{sub}</p>
+    </div>
+  );
+};
+
+const SplitTile = ({ label, icon, stats }: { label: string; icon: React.ReactNode; stats: AggregatedStats }) => {
+  const wr = stats.matchesPlayed > 0 ? stats.winProbability : 0;
+  const ppg = stats.matchesPlayed > 0 ? (stats.wins * 3 + stats.draws) / stats.matchesPlayed : 0;
+  return (
+    <div className="rounded-xl border border-border bg-background/50 p-3">
+      <div className="flex items-center gap-1.5 mb-2 text-muted-foreground">
+        {icon}
+        <span className="text-[10px] font-semibold uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="font-mono text-base font-bold text-foreground leading-none">
+        {stats.wins}-{stats.draws}-{stats.losses}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-1">{stats.matchesPlayed} matches</p>
+      <div className="mt-2 grid grid-cols-2 gap-1 text-[10px]">
+        <div>
+          <p className="text-muted-foreground">Win %</p>
+          <p className="font-mono font-bold text-primary">{wr.toFixed(0)}%</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">PPG</p>
+          <p className="font-mono font-bold text-foreground">{ppg.toFixed(2)}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TrendDirectionCard = ({ direction, delta, formIndex }: { direction: "up" | "down" | "stable"; delta: number; formIndex: number }) => {
+  const cfg = direction === "up"
+    ? { icon: <ArrowUpRight className="w-4 h-4" />, label: "Improving", c: "text-stat-positive", bg: "bg-stat-positive/10 border-stat-positive/30" }
+    : direction === "down"
+    ? { icon: <ArrowDownRight className="w-4 h-4" />, label: "Declining", c: "text-stat-negative", bg: "bg-stat-negative/10 border-stat-negative/30" }
+    : { icon: <Minus className="w-4 h-4" />, label: "Stable", c: "text-primary", bg: "bg-primary/10 border-primary/30" };
+  return (
+    <div className={cn("rounded-2xl border p-4 flex items-center gap-3", cfg.bg)}>
+      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", cfg.c)}>{cfg.icon}</div>
+      <div className="flex-1">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Performance Trend</p>
+        <p className={cn("text-base font-bold", cfg.c)}>{cfg.label}</p>
+        <p className="text-[10px] text-muted-foreground">Δ {delta > 0 ? "+" : ""}{delta.toFixed(2)} pts/match · Form Index {formIndex}/100</p>
+      </div>
+    </div>
+  );
+};
+
+const TrendChart = ({ data, title }: { data: { idx: number; goals: number; conceded: number; xg: number; result: string }[]; title: string }) => {
+  if (data.length === 0) return null;
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <LineChartIcon className="w-4 h-4 text-primary" />
+        <span className="text-sm font-bold text-foreground">{title}</span>
+        <MetricTooltip text="Goals scored vs conceded vs xG per match (oldest → newest)." />
+      </div>
+      <div className="h-44">
+        <RechartsResponsiveContainer width="100%" height="100%">
+          <RechartsComposedChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <defs>
+              <linearGradient id="goalsGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--stat-positive))" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="hsl(var(--stat-positive))" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="concGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(var(--stat-negative))" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="hsl(var(--stat-negative))" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <RechartsCartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+            <RechartsXAxis dataKey="idx" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+            <RechartsYAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
+            <RechartsTooltip
+              contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }}
+              labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+            />
+            <RechartsArea type="monotone" dataKey="goals" stroke="hsl(var(--stat-positive))" fill="url(#goalsGrad)" strokeWidth={2} name="Goals" />
+            <RechartsArea type="monotone" dataKey="conceded" stroke="hsl(var(--stat-negative))" fill="url(#concGrad)" strokeWidth={2} name="Conceded" />
+            <RechartsLine type="monotone" dataKey="xg" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} strokeDasharray="4 2" name="xG" />
+          </RechartsComposedChart>
+        </RechartsResponsiveContainer>
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-2">
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-stat-positive" />Goals</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-stat-negative" />Conceded</span>
+        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" />xG</span>
+      </div>
+    </div>
+  );
+};
+
+const MatchupComparison = ({
+  teamName, oppName, teamStats, oppStats, teamXg, teamXga, teamAttack, teamDefense,
+}: {
+  teamName: string; oppName: string;
+  teamStats: AggregatedStats; oppStats: AggregatedStats;
+  teamXg: number; teamXga: number;
+  teamAttack: number; teamDefense: number;
+}) => {
+  const oppGfPg = oppStats.goalsFor / Math.max(1, oppStats.matchesPlayed);
+  const oppGaPg = oppStats.goalsAgainst / Math.max(1, oppStats.matchesPlayed);
+  const oppXg = (0.6 * oppGfPg) + (0.4 * oppStats.avgShotsOnTargetFor * 0.31);
+  const oppXga = (0.6 * oppGaPg) + (0.4 * oppStats.avgShotsOnTargetAgainst * 0.31);
+  const oppAttack = Math.min(100, Math.round(
+    (oppGfPg / 3) * 50 + (oppStats.avgShotsOnTargetFor / 7) * 30 + (oppXg / 2.5) * 20
+  ));
+  const oppDefense = Math.min(100, Math.round(
+    Math.max(0, (1 - oppGaPg / 2.5)) * 50 + (oppStats.cleanSheets / Math.max(1, oppStats.matchesPlayed)) * 30 + Math.max(0, (1 - oppXga / 2.5)) * 20
+  ));
+
+  const rows: { label: string; a: number; b: number; fmt?: (n: number) => string; higherBetter?: boolean }[] = [
+    { label: "Win %", a: teamStats.winProbability, b: oppStats.winProbability, fmt: (n) => `${n.toFixed(0)}%`, higherBetter: true },
+    { label: "Goals/Match", a: teamStats.goalsFor / teamStats.matchesPlayed, b: oppGfPg, fmt: (n) => n.toFixed(2), higherBetter: true },
+    { label: "Conceded/Match", a: teamStats.goalsAgainst / teamStats.matchesPlayed, b: oppGaPg, fmt: (n) => n.toFixed(2), higherBetter: false },
+    { label: "xG", a: teamXg, b: oppXg, fmt: (n) => n.toFixed(2), higherBetter: true },
+    { label: "xG Against", a: teamXga, b: oppXga, fmt: (n) => n.toFixed(2), higherBetter: false },
+    { label: "Attack Rating", a: teamAttack, b: oppAttack, fmt: (n) => `${n}`, higherBetter: true },
+    { label: "Defense Rating", a: teamDefense, b: oppDefense, fmt: (n) => `${n}`, higherBetter: true },
+    { label: "Avg Shots", a: teamStats.avgShotsFor, b: oppStats.avgShotsFor, fmt: (n) => n.toFixed(1), higherBetter: true },
+    { label: "Avg Corners", a: teamStats.avgCornersFor, b: oppStats.avgCornersFor, fmt: (n) => n.toFixed(1), higherBetter: true },
+    { label: "Clean Sheet %", a: (teamStats.cleanSheets / Math.max(1, teamStats.matchesPlayed)) * 100, b: (oppStats.cleanSheets / Math.max(1, oppStats.matchesPlayed)) * 100, fmt: (n) => `${n.toFixed(0)}%`, higherBetter: true },
+  ];
+
+  const mismatches = rows
+    .map((r) => {
+      const gap = Math.abs(r.a - r.b);
+      const ref = Math.max(Math.abs(r.a), Math.abs(r.b), 1);
+      const winner = r.higherBetter ? (r.a > r.b ? teamName : oppName) : (r.a < r.b ? teamName : oppName);
+      return { label: r.label, gap, normGap: gap / ref, winner };
+    })
+    .sort((x, y) => y.normGap - x.normGap)
+    .slice(0, 3);
+
+  return (
+    <div className="rounded-2xl border border-primary/25 bg-gradient-to-br from-card to-primary/[0.04] p-4 shadow-md">
+      <div className="flex items-center gap-2 mb-3">
+        <Swords className="w-4 h-4 text-primary" />
+        <span className="text-xs font-bold text-primary uppercase tracking-wider">Matchup Comparison</span>
+      </div>
+
+      <div className="flex items-center gap-2 pb-2 mb-2 border-b border-border">
+        <div className="flex-1 flex items-center gap-2">
+          <TeamLogo teamName={teamName} size="sm" />
+          <span className="text-[11px] font-bold truncate">{teamName}</span>
+        </div>
+        <span className="text-[9px] font-mono text-muted-foreground">VS</span>
+        <div className="flex-1 flex items-center gap-2 justify-end">
+          <span className="text-[11px] font-bold truncate text-right">{oppName}</span>
+          <TeamLogo teamName={oppName} size="sm" />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        {rows.map((r) => {
+          const fmt = r.fmt ?? ((n: number) => n.toFixed(2));
+          const aBetter = r.higherBetter ? r.a > r.b : r.a < r.b;
+          const bBetter = r.higherBetter ? r.b > r.a : r.b < r.a;
+          return (
+            <div key={r.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <span className={cn("font-mono text-[11px] text-right tabular-nums", aBetter ? "font-bold text-stat-positive" : "text-foreground")}>{fmt(r.a)}</span>
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider whitespace-nowrap">{r.label}</span>
+              <span className={cn("font-mono text-[11px] tabular-nums", bBetter ? "font-bold text-stat-positive" : "text-foreground")}>{fmt(r.b)}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-border">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Zap className="w-3 h-3 text-stat-warn" />
+          <span className="text-[10px] font-bold text-stat-warn uppercase tracking-wider">Key Mismatches</span>
+        </div>
+        <div className="space-y-1.5">
+          {mismatches.map((m) => (
+            <div key={m.label} className="flex items-center gap-2 text-[11px]">
+              <span className="flex-1 text-muted-foreground truncate">{m.label}</span>
+              <span className="font-bold text-primary">{m.winner}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">+{(m.normGap * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
