@@ -3,8 +3,11 @@ import {
   Crown, Lock, Unlock, Target, Flag, AlertTriangle, Shield, TrendingUp,
   Crosshair, Sparkles, ChevronLeft, Search, Star, Loader2, Brain,
   BarChart3, Eye, Zap, X, ChevronRight, Trophy, Users, Activity, Percent,
-  CheckCircle2, ArrowUpRight, ArrowDownRight, Minus,
+  CheckCircle2, ArrowUpRight, ArrowDownRight, Minus, Info, Home, Plane,
+  Swords, LineChart as LineChartIcon, Gauge,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
 import {
   getTeamMatchView, aggregateStats, getUniqueTeams, getUniqueLeagues,
