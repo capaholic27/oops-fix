@@ -401,6 +401,7 @@ const ProDashboard = ({
   const [pastN, setPastN] = useState(15);
   const [showPredict, setShowPredict] = useState(false);
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
+  const [openMetric, setOpenMetric] = useState<MetricInfoKey | null>(null);
 
   const { data: teamMatches = [] } = useTeamMatches(teamName);
   const { data: fixtures = [] } = useFixtures(teamName);
