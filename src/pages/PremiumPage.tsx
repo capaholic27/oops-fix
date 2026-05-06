@@ -1028,6 +1028,15 @@ const ProDashboard = ({
       {openStat && (
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
+      {openMetric && (
+        <MetricInfoSheet
+          open={!!openMetric}
+          title={METRIC_INFO[openMetric].title}
+          description={METRIC_INFO[openMetric].description}
+          tip={METRIC_INFO[openMetric].tip}
+          onClose={() => setOpenMetric(null)}
+        />
+      )}
     </div>
     </TooltipProvider>
   );
