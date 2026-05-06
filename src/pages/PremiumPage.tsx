@@ -33,6 +33,7 @@ import { PlayerHighlights, PredictionDialog } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { MatchVote } from "@/components/MatchVote";
 import { StatCardDetail } from "@/components/StatCardDetail";
+import { MetricInfoSheet } from "@/components/MetricInfoSheet";
 import { AdBanner } from "@/components/AdBanner";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -46,6 +47,69 @@ import { useTeamInjuries, classifyInjury, type TeamInjury } from "@/hooks/useTea
 
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
+
+type MetricInfoKey =
+  | "formIndex" | "attack" | "defense" | "mentality"
+  | "xgFor" | "xgAgainst" | "xgDiff" | "goalsVsXg"
+  | "betMarkets" | "homeAway" | "vsStrength";
+
+const METRIC_INFO: Record<MetricInfoKey, { title: string; description: string; tip: string }> = {
+  formIndex: {
+    title: "Form Index",
+    description: "A 0–100 score that summarizes the team's last 5 results. Recent matches carry more weight than older ones, so a strong win this weekend matters more than a draw a month ago.",
+    tip: "Above 70 = hot streak, below 35 = cold spell. Pair with the trend arrow on the Trends tab to see if form is climbing or fading.",
+  },
+  attack: {
+    title: "Attack Rating",
+    description: "A 0–100 composite of goals per match, shots on target and expected goals (xG). It captures how dangerous the team is going forward.",
+    tip: "Compare to the opponent's Defense Rating. A 20-point edge is a meaningful mismatch worth backing.",
+  },
+  defense: {
+    title: "Defense Rating",
+    description: "A 0–100 composite of goals conceded, clean sheet rate and xG against. Higher means a more solid defense.",
+    tip: "Teams with Defense ≥ 65 are strong clean-sheet candidates, especially at home or vs. lower-ranked sides.",
+  },
+  mentality: {
+    title: "Mentality",
+    description: "Reads the team's psychological profile from recent results. Confidence, fragility and consistency are all factored in.",
+    tip: "A confident team is a great backing pick; a fragile one is a strong fade in tight matches.",
+  },
+  xgFor: {
+    title: "Expected Goals (xG) For",
+    description: "Average chance quality the team creates per match. xG converts every shot into a probability of scoring (e.g. a tap-in ~0.7, a long shot ~0.04).",
+    tip: "Above 1.6 per match = elite attack. Below 1.0 = chance creation issue.",
+  },
+  xgAgainst: {
+    title: "Expected Goals (xG) Against",
+    description: "Average chance quality conceded per match. Lower is better — it means opponents rarely get good looks.",
+    tip: "Below 1.0 is excellent defending; above 1.6 means the back line is leaking high-quality chances.",
+  },
+  xgDiff: {
+    title: "xG Differential",
+    description: "xG For minus xG Against. Positive numbers mean the team creates better chances than it concedes.",
+    tip: "Sustained positive xG diff is the single best long-term predictor of league position.",
+  },
+  goalsVsXg: {
+    title: "Goals vs xG",
+    description: "Difference between actual goals scored and expected goals. Positive = clinical finishing; negative = wasteful.",
+    tip: "Big swings in either direction tend to regress to the mean — fade overperformers, back underperformers.",
+  },
+  betMarkets: {
+    title: "Bet Markets Probability",
+    description: "Empirical hit rates for popular markets, derived from how often each outcome occurred in the team's recent matches.",
+    tip: "Treat anything above 60% as a solid base for a bet builder leg, but always cross-check with the opponent's own profile.",
+  },
+  homeAway: {
+    title: "Home vs Away Splits",
+    description: "Performance broken down by venue. Some teams are fortresses at home but struggle on the road (or vice versa).",
+    tip: "If home/away splits differ by 25%+, weight your prediction toward the venue of the next fixture.",
+  },
+  vsStrength: {
+    title: "Performance vs Strength",
+    description: "Results split by opponent quality. Top-tier opponents (≥55% league win rate) vs lower-tier opponents.",
+    tip: "Watch for 'flat-track bullies' — teams that crush weak sides but disappear vs the top half.",
+  },
+};
 
 const STAT_CATEGORIES: { id: StatPredictionCategory; label: string; icon: React.ReactNode; emoji: string }[] = [
   { id: "corners", label: "Corners", icon: <Flag className="w-4 h-4" />, emoji: "🚩" },
@@ -400,6 +464,7 @@ const ProDashboard = ({
   const [pastN, setPastN] = useState(15);
   const [showPredict, setShowPredict] = useState(false);
   const [openStat, setOpenStat] = useState<StatKey | null>(null);
+  const [openMetric, setOpenMetric] = useState<MetricInfoKey | null>(null);
 
   const { data: teamMatches = [] } = useTeamMatches(teamName);
   const { data: fixtures = [] } = useFixtures(teamName);
@@ -708,12 +773,16 @@ const ProDashboard = ({
           <SmartInsightsCard insights={smartInsights} />
 
           <div className="grid grid-cols-3 gap-2">
-            <RatingCard label="Form Index" value={formIndex} icon={<Activity className="w-3.5 h-3.5" />} tooltip="Weighted points in last 5 matches (0–100). More recent results count more." />
-            <RatingCard label="Attack" value={attackRating} icon={<Target className="w-3.5 h-3.5" />} tooltip="Composite of goals/match, shots on target, and xG (0–100)." />
-            <RatingCard label="Defense" value={defenseRating} icon={<Shield className="w-3.5 h-3.5" />} tooltip="Composite of goals conceded, clean sheet rate, and xG against (0–100)." />
+            <RatingCard label="Form Index" value={formIndex} icon={<Activity className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("formIndex")} />
+            <RatingCard label="Attack" value={attackRating} icon={<Target className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("attack")} />
+            <RatingCard label="Defense" value={defenseRating} icon={<Shield className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("defense")} />
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-3">
+          <button
+            type="button"
+            onClick={() => setOpenMetric("mentality")}
+            className="text-left rounded-2xl border border-border bg-card p-3 w-full transition-all hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
+          >
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
               <span className="text-base leading-none">{mentality.emoji}</span>
@@ -729,6 +798,20 @@ const ProDashboard = ({
               />
             </div>
             <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{mentality.description}</p>
+          </button>
+
+          {/* Quick-glance fundamentals */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Season Snapshot</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={100} onClick={() => setOpenStat("record")} />
+              <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={150} onClick={() => setOpenStat("over25")} />
+              <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={200} onClick={() => setOpenStat("cleanSheets")} />
+              <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={250} onClick={() => setOpenStat("over25")} />
+            </div>
           </div>
 
           {nextFixture && (
@@ -746,33 +829,36 @@ const ProDashboard = ({
             <div className="flex items-center gap-2 mb-3">
               <Gauge className="w-4 h-4 text-primary" />
               <span className="text-xs font-bold text-primary uppercase tracking-wider">Expected Goals (xG)</span>
-              <MetricTooltip text="Expected Goals: data-driven proxy for chance quality based on shots on target conversion blended with actual goals." />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <XgTile label="xG For" value={xgFor.toFixed(2)} sub="per match" tone="pos" />
-              <XgTile label="xG Against" value={xgAgainst.toFixed(2)} sub="per match" tone="neg" />
-              <XgTile label="xG Diff" value={`${xgDiff >= 0 ? "+" : ""}${xgDiff.toFixed(2)}`} sub={xgDiff >= 0 ? "outperforming" : "underwater"} tone={xgDiff >= 0 ? "pos" : "neg"} />
+              <button type="button" onClick={() => setOpenMetric("xgFor")} className="text-left">
+                <XgTile label="xG For" value={xgFor.toFixed(2)} sub="per match" tone="pos" />
+              </button>
+              <button type="button" onClick={() => setOpenMetric("xgAgainst")} className="text-left">
+                <XgTile label="xG Against" value={xgAgainst.toFixed(2)} sub="per match" tone="neg" />
+              </button>
+              <button type="button" onClick={() => setOpenMetric("xgDiff")} className="text-left">
+                <XgTile label="xG Diff" value={`${xgDiff >= 0 ? "+" : ""}${xgDiff.toFixed(2)}`} sub={xgDiff >= 0 ? "outperforming" : "underwater"} tone={xgDiff >= 0 ? "pos" : "neg"} />
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <XgTile label="Goals / Match" value={gfPerGame.toFixed(2)} sub="actual" tone="info" small />
-              <XgTile label="Goals vs xG" value={`${(gfPerGame - xgFor) >= 0 ? "+" : ""}${(gfPerGame - xgFor).toFixed(2)}`} sub={(gfPerGame - xgFor) >= 0 ? "clinical" : "wasteful"} tone={(gfPerGame - xgFor) >= 0 ? "pos" : "neg"} small />
+              <button type="button" onClick={() => setOpenMetric("goalsVsXg")} className="text-left">
+                <XgTile label="Goals vs xG" value={`${(gfPerGame - xgFor) >= 0 ? "+" : ""}${(gfPerGame - xgFor).toFixed(2)}`} sub={(gfPerGame - xgFor) >= 0 ? "clinical" : "wasteful"} tone={(gfPerGame - xgFor) >= 0 ? "pos" : "neg"} small />
+              </button>
             </div>
           </div>
 
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Crown className="w-4 h-4 text-primary" />
-              <span className="text-xs font-bold text-primary uppercase tracking-wider">Pro Stats</span>
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Advanced Stats</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={200} onClick={() => setOpenStat("over25")} />
               <ProStatCard label="Corners" value={stats.avgCornersFor.toFixed(1)} icon={<Flag className="w-4 h-4" />} trend="neutral" subtitle={`vs ${stats.avgCornersAgainst.toFixed(1)} · Σ ${totalCornersAvg.toFixed(1)}`} delay={250} onClick={() => setOpenStat("corners")} />
               <ProStatCard label="Shots" value={stats.avgShotsFor.toFixed(1)} icon={<Crosshair className="w-4 h-4" />} trend="positive" subtitle={`SOT ${stats.avgShotsOnTargetFor.toFixed(1)} · vs ${stats.avgShotsAgainst.toFixed(1)}`} delay={300} onClick={() => setOpenStat("shots")} />
               <ProStatCard label="Cards" value={stats.avgYellowCards.toFixed(1)} icon={<AlertTriangle className="w-4 h-4" />} trend="warn" subtitle={`🟡 + ${stats.avgRedCards.toFixed(2)} 🔴`} delay={350} onClick={() => setOpenStat("cards")} />
               <ProStatCard label="Fouls" value={stats.avgFoulsCommitted.toFixed(1)} icon={<Shield className="w-4 h-4" />} trend="negative" subtitle={`Drawn ${stats.avgFoulsDrawn.toFixed(1)}`} delay={400} onClick={() => setOpenStat("fouls")} />
-              <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
-              <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={500} onClick={() => setOpenStat("over25")} />
-              <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={550} onClick={() => setOpenStat("record")} />
             </div>
           </div>
 
@@ -942,6 +1028,15 @@ const ProDashboard = ({
       {openStat && (
         <StatCardDetail statKey={openStat} views={teamViews} onClose={() => setOpenStat(null)} />
       )}
+      {openMetric && (
+        <MetricInfoSheet
+          open={!!openMetric}
+          title={METRIC_INFO[openMetric].title}
+          description={METRIC_INFO[openMetric].description}
+          tip={METRIC_INFO[openMetric].tip}
+          onClose={() => setOpenMetric(null)}
+        />
+      )}
     </div>
     </TooltipProvider>
   );
@@ -1080,23 +1175,30 @@ const SmartInsightsCard = ({ insights }: { insights: { tone: "pos" | "neg" | "in
   );
 };
 
-const RatingCard = ({ label, value, icon, tooltip }: { label: string; value: number; icon: React.ReactNode; tooltip: string }) => {
+const RatingCard = ({ label, value, icon, onClick }: { label: string; value: number; icon: React.ReactNode; onClick?: () => void }) => {
   const tone = value >= 65 ? "text-stat-positive" : value >= 40 ? "text-primary" : "text-stat-warn";
   const bar = value >= 65 ? "bg-stat-positive" : value >= 40 ? "bg-primary" : "bg-stat-warn";
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "text-left rounded-xl border border-border bg-card p-3 transition-all w-full",
+        onClick && "hover:border-primary/40 hover:shadow-md active:scale-[0.98] cursor-pointer"
+      )}
+    >
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1 text-muted-foreground">
           {icon}
           <span className="text-[9px] font-semibold uppercase tracking-wider">{label}</span>
         </div>
-        <MetricTooltip text={tooltip} />
       </div>
       <div className={cn("font-mono text-xl font-bold leading-none", tone)}>{value}</div>
       <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
         <div className={cn("h-full rounded-full transition-all duration-700", bar)} style={{ width: `${Math.min(100, value)}%` }} />
       </div>
-    </div>
+    </button>
   );
 };
 

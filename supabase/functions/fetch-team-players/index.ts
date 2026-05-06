@@ -93,6 +93,33 @@ async function fetchFotmobSquad(teamId: number): Promise<RealPlayer[]> {
   const groups: any[] = json?.squad?.squad ?? [];
   const out: RealPlayer[] = [];
 
+  // Build player-by-id index for stat enrichment from team-level top-performer lists.
+  // Fotmob exposes per-team top-3 across categories like "Shots per 90", "Fouls
+  // committed per 90", "Big chances missed" (proxy for foulsDrawn-ish), etc.
+  const statBuckets: any[] = json?.stats?.players ?? [];
+  const statMap = new Map<number, { shots?: number; fouls?: number; yellow?: number; foulsDrawn?: number; rating?: number }>();
+  const bumpStat = (id: number, key: "shots" | "fouls" | "yellow" | "foulsDrawn" | "rating", val: number) => {
+    if (!Number.isFinite(val)) return;
+    const cur = statMap.get(id) ?? {};
+    cur[key] = val;
+    statMap.set(id, cur);
+  };
+  for (const bucket of statBuckets) {
+    const header: string = String(bucket?.header ?? "");
+    let key: "shots" | "fouls" | "yellow" | "foulsDrawn" | "rating" | null = null;
+    if (/shots per 90|^shots$|shots on target per 90/i.test(header)) key = "shots";
+    else if (/fouls committed/i.test(header)) key = "fouls";
+    else if (/^yellow cards$/i.test(header)) key = "yellow";
+    else if (/penalties won|big chances missed|successful dribbles/i.test(header)) key = "foulsDrawn";
+    else if (/fotmob rating/i.test(header)) key = "rating";
+    if (!key) continue;
+    for (const t of (bucket?.topThree ?? [])) {
+      const id = Number(t?.id);
+      const v = Number(t?.stat?.value ?? t?.value);
+      if (Number.isFinite(id) && Number.isFinite(v)) bumpStat(id, key, v);
+    }
+  }
+
   for (const grp of groups) {
     if (grp?.title === "coach") continue;
     const positionDefault =
@@ -103,11 +130,10 @@ async function fetchFotmobSquad(teamId: number): Promise<RealPlayer[]> {
       : null;
 
     for (const m of (grp?.members ?? [])) {
-      // NOTE: `excludeFromRanking` is Fotmob's flag for "not in top performers list",
-      // NOT "not on squad". We include them — they're real squad members.
       const id = m?.id;
       const fullName = m?.name ?? "";
       if (!fullName) continue;
+      const enriched = (id && statMap.get(Number(id))) || {};
       out.push({
         name: shortName(fullName),
         fullName,
@@ -116,16 +142,14 @@ async function fetchFotmobSquad(teamId: number): Promise<RealPlayer[]> {
         position: m?.positionIdsDesc ?? positionDefault,
         goals: Number(m?.goals ?? 0) || 0,
         assists: Number(m?.assists ?? 0) || 0,
-        // Fotmob squad payload doesn't expose shots/fouls — leave at 0.
-        // Match-level shots/fouls live in the per-fixture stats API.
-        shots: 0,
+        shots: Number(enriched.shots ?? 0) || 0,
         shotsOnTarget: 0,
-        fouls: 0,
-        foulsDrawn: 0,
-        yellow: Number(m?.ycards ?? 0) || 0,
+        fouls: Number(enriched.fouls ?? 0) || 0,
+        foulsDrawn: Number(enriched.foulsDrawn ?? 0) || 0,
+        yellow: Number(enriched.yellow ?? m?.ycards ?? 0) || 0,
         red: Number(m?.rcards ?? 0) || 0,
         appearances: 0,
-        rating: m?.rating != null ? Number(m.rating) : null,
+        rating: enriched.rating ?? (m?.rating != null ? Number(m.rating) : null),
       });
     }
   }

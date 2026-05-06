@@ -562,25 +562,29 @@ export const PlayerHighlights = ({ teamName }: { teamName: string }) => {
   const { data: realPlayers = [] } = useTeamPlayers(teamName);
 
   // Build leaderboard from REAL data when available; else mock; else synthetic.
+  // For categories with no real data (Fotmob only exposes top performers per
+  // category), fall back to the mock per-category so users always see something.
   const leaderboard = useMemo<Record<PlayerHighlightCategory, RankedPlayer[]>>(() => {
-    if (realPlayers.length > 0) {
-      const top = (key: (p: typeof realPlayers[number]) => number): RankedPlayer[] =>
-        [...realPlayers]
-          .filter((p) => key(p) > 0)
-          .sort((a, b) => key(b) - key(a))
-          .slice(0, 5)
-          .map((p) => ({ name: p.name, value: key(p), number: p.number, photoUrl: p.photo }));
-      const cardsTotal = (p: typeof realPlayers[number]) => (p.yellow ?? 0) + (p.red ?? 0);
-      return {
-        scorer: top((p) => p.goals ?? 0),
-        assists: top((p) => p.assists ?? 0),
-        shots: top((p) => p.shots ?? 0),
-        fouls: top((p) => p.fouls ?? 0),
-        foulsDrawn: top((p) => p.foulsDrawn ?? 0),
-        cards: top(cardsTotal),
-      };
-    }
-    return PLAYER_LEADERBOARD[teamName] ?? generateFallbackLeaderboard(teamName);
+    const fallback = PLAYER_LEADERBOARD[teamName] ?? generateFallbackLeaderboard(teamName);
+    if (realPlayers.length === 0) return fallback;
+
+    const top = (key: (p: typeof realPlayers[number]) => number): RankedPlayer[] =>
+      [...realPlayers]
+        .filter((p) => key(p) > 0)
+        .sort((a, b) => key(b) - key(a))
+        .slice(0, 5)
+        .map((p) => ({ name: p.name, value: key(p), number: p.number, photoUrl: p.photo }));
+    const cardsTotal = (p: typeof realPlayers[number]) => (p.yellow ?? 0) + (p.red ?? 0);
+    const pick = (cat: PlayerHighlightCategory, real: RankedPlayer[]) =>
+      real.length > 0 ? real : fallback[cat];
+    return {
+      scorer:     pick("scorer",     top((p) => p.goals ?? 0)),
+      assists:    pick("assists",    top((p) => p.assists ?? 0)),
+      shots:      pick("shots",      top((p) => p.shots ?? 0)),
+      fouls:      pick("fouls",      top((p) => p.fouls ?? 0)),
+      foulsDrawn: pick("foulsDrawn", top((p) => p.foulsDrawn ?? 0)),
+      cards:      pick("cards",      top(cardsTotal)),
+    };
   }, [realPlayers, teamName]);
 
   const categories: { id: PlayerHighlightCategory; label: string; icon: React.ReactNode; unit: string }[] = [
