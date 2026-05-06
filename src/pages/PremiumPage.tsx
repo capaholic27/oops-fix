@@ -829,16 +829,23 @@ const ProDashboard = ({
             <div className="flex items-center gap-2 mb-3">
               <Gauge className="w-4 h-4 text-primary" />
               <span className="text-xs font-bold text-primary uppercase tracking-wider">Expected Goals (xG)</span>
-              <MetricTooltip text="Expected Goals: data-driven proxy for chance quality based on shots on target conversion blended with actual goals." />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <XgTile label="xG For" value={xgFor.toFixed(2)} sub="per match" tone="pos" />
-              <XgTile label="xG Against" value={xgAgainst.toFixed(2)} sub="per match" tone="neg" />
-              <XgTile label="xG Diff" value={`${xgDiff >= 0 ? "+" : ""}${xgDiff.toFixed(2)}`} sub={xgDiff >= 0 ? "outperforming" : "underwater"} tone={xgDiff >= 0 ? "pos" : "neg"} />
+              <button type="button" onClick={() => setOpenMetric("xgFor")} className="text-left">
+                <XgTile label="xG For" value={xgFor.toFixed(2)} sub="per match" tone="pos" />
+              </button>
+              <button type="button" onClick={() => setOpenMetric("xgAgainst")} className="text-left">
+                <XgTile label="xG Against" value={xgAgainst.toFixed(2)} sub="per match" tone="neg" />
+              </button>
+              <button type="button" onClick={() => setOpenMetric("xgDiff")} className="text-left">
+                <XgTile label="xG Diff" value={`${xgDiff >= 0 ? "+" : ""}${xgDiff.toFixed(2)}`} sub={xgDiff >= 0 ? "outperforming" : "underwater"} tone={xgDiff >= 0 ? "pos" : "neg"} />
+              </button>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-3">
               <XgTile label="Goals / Match" value={gfPerGame.toFixed(2)} sub="actual" tone="info" small />
-              <XgTile label="Goals vs xG" value={`${(gfPerGame - xgFor) >= 0 ? "+" : ""}${(gfPerGame - xgFor).toFixed(2)}`} sub={(gfPerGame - xgFor) >= 0 ? "clinical" : "wasteful"} tone={(gfPerGame - xgFor) >= 0 ? "pos" : "neg"} small />
+              <button type="button" onClick={() => setOpenMetric("goalsVsXg")} className="text-left">
+                <XgTile label="Goals vs xG" value={`${(gfPerGame - xgFor) >= 0 ? "+" : ""}${(gfPerGame - xgFor).toFixed(2)}`} sub={(gfPerGame - xgFor) >= 0 ? "clinical" : "wasteful"} tone={(gfPerGame - xgFor) >= 0 ? "pos" : "neg"} small />
+              </button>
             </div>
           </div>
 
