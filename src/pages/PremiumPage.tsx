@@ -773,9 +773,9 @@ const ProDashboard = ({
           <SmartInsightsCard insights={smartInsights} />
 
           <div className="grid grid-cols-3 gap-2">
-            <RatingCard label="Form Index" value={formIndex} icon={<Activity className="w-3.5 h-3.5" />} tooltip="Weighted points in last 5 matches (0–100). More recent results count more." />
-            <RatingCard label="Attack" value={attackRating} icon={<Target className="w-3.5 h-3.5" />} tooltip="Composite of goals/match, shots on target, and xG (0–100)." />
-            <RatingCard label="Defense" value={defenseRating} icon={<Shield className="w-3.5 h-3.5" />} tooltip="Composite of goals conceded, clean sheet rate, and xG against (0–100)." />
+            <RatingCard label="Form Index" value={formIndex} icon={<Activity className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("formIndex")} />
+            <RatingCard label="Attack" value={attackRating} icon={<Target className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("attack")} />
+            <RatingCard label="Defense" value={defenseRating} icon={<Shield className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("defense")} />
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-3">
