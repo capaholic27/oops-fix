@@ -48,6 +48,69 @@ import { useTeamInjuries, classifyInjury, type TeamInjury } from "@/hooks/useTea
 type StatPredictionCategory = "corners" | "fouls" | "shots" | "cards" | "goals" | "cleanSheets" | "btts";
 type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "cleanSheets";
 
+type MetricInfoKey =
+  | "formIndex" | "attack" | "defense" | "mentality"
+  | "xgFor" | "xgAgainst" | "xgDiff" | "goalsVsXg"
+  | "betMarkets" | "homeAway" | "vsStrength";
+
+const METRIC_INFO: Record<MetricInfoKey, { title: string; description: string; tip: string }> = {
+  formIndex: {
+    title: "Form Index",
+    description: "A 0–100 score that summarizes the team's last 5 results. Recent matches carry more weight than older ones, so a strong win this weekend matters more than a draw a month ago.",
+    tip: "Above 70 = hot streak, below 35 = cold spell. Pair with the trend arrow on the Trends tab to see if form is climbing or fading.",
+  },
+  attack: {
+    title: "Attack Rating",
+    description: "A 0–100 composite of goals per match, shots on target and expected goals (xG). It captures how dangerous the team is going forward.",
+    tip: "Compare to the opponent's Defense Rating. A 20-point edge is a meaningful mismatch worth backing.",
+  },
+  defense: {
+    title: "Defense Rating",
+    description: "A 0–100 composite of goals conceded, clean sheet rate and xG against. Higher means a more solid defense.",
+    tip: "Teams with Defense ≥ 65 are strong clean-sheet candidates, especially at home or vs. lower-ranked sides.",
+  },
+  mentality: {
+    title: "Mentality",
+    description: "Reads the team's psychological profile from recent results. Confidence, fragility and consistency are all factored in.",
+    tip: "A confident team is a great backing pick; a fragile one is a strong fade in tight matches.",
+  },
+  xgFor: {
+    title: "Expected Goals (xG) For",
+    description: "Average chance quality the team creates per match. xG converts every shot into a probability of scoring (e.g. a tap-in ~0.7, a long shot ~0.04).",
+    tip: "Above 1.6 per match = elite attack. Below 1.0 = chance creation issue.",
+  },
+  xgAgainst: {
+    title: "Expected Goals (xG) Against",
+    description: "Average chance quality conceded per match. Lower is better — it means opponents rarely get good looks.",
+    tip: "Below 1.0 is excellent defending; above 1.6 means the back line is leaking high-quality chances.",
+  },
+  xgDiff: {
+    title: "xG Differential",
+    description: "xG For minus xG Against. Positive numbers mean the team creates better chances than it concedes.",
+    tip: "Sustained positive xG diff is the single best long-term predictor of league position.",
+  },
+  goalsVsXg: {
+    title: "Goals vs xG",
+    description: "Difference between actual goals scored and expected goals. Positive = clinical finishing; negative = wasteful.",
+    tip: "Big swings in either direction tend to regress to the mean — fade overperformers, back underperformers.",
+  },
+  betMarkets: {
+    title: "Bet Markets Probability",
+    description: "Empirical hit rates for popular markets, derived from how often each outcome occurred in the team's recent matches.",
+    tip: "Treat anything above 60% as a solid base for a bet builder leg, but always cross-check with the opponent's own profile.",
+  },
+  homeAway: {
+    title: "Home vs Away Splits",
+    description: "Performance broken down by venue. Some teams are fortresses at home but struggle on the road (or vice versa).",
+    tip: "If home/away splits differ by 25%+, weight your prediction toward the venue of the next fixture.",
+  },
+  vsStrength: {
+    title: "Performance vs Strength",
+    description: "Results split by opponent quality. Top-tier opponents (≥55% league win rate) vs lower-tier opponents.",
+    tip: "Watch for 'flat-track bullies' — teams that crush weak sides but disappear vs the top half.",
+  },
+};
+
 const STAT_CATEGORIES: { id: StatPredictionCategory; label: string; icon: React.ReactNode; emoji: string }[] = [
   { id: "corners", label: "Corners", icon: <Flag className="w-4 h-4" />, emoji: "🚩" },
   { id: "shots", label: "Shots", icon: <Crosshair className="w-4 h-4" />, emoji: "🎯" },
