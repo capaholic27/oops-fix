@@ -130,11 +130,10 @@ async function fetchFotmobSquad(teamId: number): Promise<RealPlayer[]> {
       : null;
 
     for (const m of (grp?.members ?? [])) {
-      // NOTE: `excludeFromRanking` is Fotmob's flag for "not in top performers list",
-      // NOT "not on squad". We include them — they're real squad members.
       const id = m?.id;
       const fullName = m?.name ?? "";
       if (!fullName) continue;
+      const enriched = (id && statMap.get(Number(id))) || {};
       out.push({
         name: shortName(fullName),
         fullName,
@@ -143,16 +142,14 @@ async function fetchFotmobSquad(teamId: number): Promise<RealPlayer[]> {
         position: m?.positionIdsDesc ?? positionDefault,
         goals: Number(m?.goals ?? 0) || 0,
         assists: Number(m?.assists ?? 0) || 0,
-        // Fotmob squad payload doesn't expose shots/fouls — leave at 0.
-        // Match-level shots/fouls live in the per-fixture stats API.
-        shots: 0,
+        shots: Number(enriched.shots ?? 0) || 0,
         shotsOnTarget: 0,
-        fouls: 0,
-        foulsDrawn: 0,
-        yellow: Number(m?.ycards ?? 0) || 0,
+        fouls: Number(enriched.fouls ?? 0) || 0,
+        foulsDrawn: Number(enriched.foulsDrawn ?? 0) || 0,
+        yellow: Number(enriched.yellow ?? m?.ycards ?? 0) || 0,
         red: Number(m?.rcards ?? 0) || 0,
         appearances: 0,
-        rating: m?.rating != null ? Number(m.rating) : null,
+        rating: enriched.rating ?? (m?.rating != null ? Number(m.rating) : null),
       });
     }
   }
