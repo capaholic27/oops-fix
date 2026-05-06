@@ -778,7 +778,11 @@ const ProDashboard = ({
             <RatingCard label="Defense" value={defenseRating} icon={<Shield className="w-3.5 h-3.5" />} onClick={() => setOpenMetric("defense")} />
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-3">
+          <button
+            type="button"
+            onClick={() => setOpenMetric("mentality")}
+            className="text-left rounded-2xl border border-border bg-card p-3 w-full transition-all hover:border-primary/40 hover:shadow-md active:scale-[0.99]"
+          >
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Mentality</span>
               <span className="text-base leading-none">{mentality.emoji}</span>
@@ -794,6 +798,20 @@ const ProDashboard = ({
               />
             </div>
             <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">{mentality.description}</p>
+          </button>
+
+          {/* Quick-glance fundamentals */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Season Snapshot</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ProStatCard label="Record" value={`${stats.wins}-${stats.draws}-${stats.losses}`} icon={<TrendingUp className="w-4 h-4" />} trend="positive" subtitle={`${stats.goalsFor} GF · ${stats.goalsAgainst} GA`} delay={100} onClick={() => setOpenStat("record")} />
+              <ProStatCard label="Goals" value={`${gfPerGame.toFixed(2)}`} icon={<Target className="w-4 h-4" />} trend={gfPerGame > 1.5 ? "positive" : "neutral"} subtitle={`${gaPerGame.toFixed(2)} GA · O2.5 ${stats.over25Percentage.toFixed(0)}%`} delay={150} onClick={() => setOpenStat("over25")} />
+              <ProStatCard label="Clean Sheets" value={`${stats.cleanSheets}/${stats.matchesPlayed}`} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${((stats.cleanSheets / stats.matchesPlayed) * 100).toFixed(0)}% rate`} delay={200} onClick={() => setOpenStat("cleanSheets")} />
+              <ProStatCard label="BTTS" value={`${stats.bttsPercentage.toFixed(0)}%`} icon={<BarChart3 className="w-4 h-4" />} trend={stats.bttsPercentage > 60 ? "warn" : "neutral"} subtitle={`O1.5 ${stats.over15Percentage.toFixed(0)}%`} delay={250} onClick={() => setOpenStat("over25")} />
+            </div>
           </div>
 
           {nextFixture && (
