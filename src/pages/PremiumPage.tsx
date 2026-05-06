@@ -1145,23 +1145,30 @@ const SmartInsightsCard = ({ insights }: { insights: { tone: "pos" | "neg" | "in
   );
 };
 
-const RatingCard = ({ label, value, icon, tooltip }: { label: string; value: number; icon: React.ReactNode; tooltip: string }) => {
+const RatingCard = ({ label, value, icon, onClick }: { label: string; value: number; icon: React.ReactNode; onClick?: () => void }) => {
   const tone = value >= 65 ? "text-stat-positive" : value >= 40 ? "text-primary" : "text-stat-warn";
   const bar = value >= 65 ? "bg-stat-positive" : value >= 40 ? "bg-primary" : "bg-stat-warn";
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn(
+        "text-left rounded-xl border border-border bg-card p-3 transition-all w-full",
+        onClick && "hover:border-primary/40 hover:shadow-md active:scale-[0.98] cursor-pointer"
+      )}
+    >
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1 text-muted-foreground">
           {icon}
           <span className="text-[9px] font-semibold uppercase tracking-wider">{label}</span>
         </div>
-        <MetricTooltip text={tooltip} />
       </div>
       <div className={cn("font-mono text-xl font-bold leading-none", tone)}>{value}</div>
       <div className="mt-2 h-1 rounded-full bg-muted overflow-hidden">
         <div className={cn("h-full rounded-full transition-all duration-700", bar)} style={{ width: `${Math.min(100, value)}%` }} />
       </div>
-    </div>
+    </button>
   );
 };
 
