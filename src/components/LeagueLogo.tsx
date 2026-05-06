@@ -1,34 +1,69 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const LEAGUE_LOGOS: Record<string, string> = {
-  "Premier League": "https://r2.thesportsdb.com/images/media/league/badge/gasy9d1737743125.png",
-  "La Liga": "https://r2.thesportsdb.com/images/media/league/badge/ja4it51687628717.png",
-  "Serie A": "https://r2.thesportsdb.com/images/media/league/badge/67q3q21679951383.png",
-  "Bundesliga": "https://r2.thesportsdb.com/images/media/league/badge/teqh1b1679952008.png",
-  "Ligue 1": "https://r2.thesportsdb.com/images/media/league/badge/9f7z9d1742983155.png",
-  "Championship": "https://r2.thesportsdb.com/images/media/league/badge/ty5a681688770169.png",
-  "Champions League": "https://r2.thesportsdb.com/images/media/league/badge/facv1u1742998896.png",
-  "Europa League": "https://r2.thesportsdb.com/images/media/league/badge/mlsr7d1718774547.png",
-  "Eredivisie": "https://r2.thesportsdb.com/images/media/league/badge/5cdsu21725984946.png",
-  "Primeira Liga": "https://r2.thesportsdb.com/images/media/league/badge/lkfko71751917970.png",
-  "Super Lig": "https://r2.thesportsdb.com/images/media/league/badge/h7xx231601671132.png",
-  "Super League Greece": "https://r2.thesportsdb.com/images/media/league/badge/jm7ky01602788843.png",
-  "Scottish Premiership": "https://r2.thesportsdb.com/images/media/league/badge/72d3zc1688333496.png",
-  "Scottish Championship": "https://r2.thesportsdb.com/images/media/league/badge/i57nok1721301867.png",
-  "League One": "https://r2.thesportsdb.com/images/media/league/badge/afedb31688770443.png",
-  "League Two": "https://r2.thesportsdb.com/images/media/league/badge/jmb3ms1688770451.png",
-  "La Liga 2": "https://r2.thesportsdb.com/images/media/league/badge/r7u6821688425700.png",
-  "Bundesliga 2": "https://r2.thesportsdb.com/images/media/league/badge/hl40981534764789.png",
-  "Allsvenskan": "https://r2.thesportsdb.com/images/media/league/badge/denok11707459183.png",
-  "Scottish League One": "https://r2.thesportsdb.com/images/media/league/badge/i57nok1721301867.png",
-  "Major League Soccer": "https://r2.thesportsdb.com/images/media/league/badge/dqo6r91688770265.png",
-  "Conference League": "https://r2.thesportsdb.com/images/media/league/badge/e5j0kd1718774650.png",
-  "World Cup": "https://r2.thesportsdb.com/images/media/league/badge/z0kkx41679951498.png",
-  "Euros": "https://r2.thesportsdb.com/images/media/league/badge/u0igkn1687622466.png",
-  "AFCON": "https://r2.thesportsdb.com/images/media/league/badge/2ozyuh1547275239.png",
-  "FIFA Club World Cup": "https://r2.thesportsdb.com/images/media/league/badge/rsyyrq1471617835.png",
-  "Copa America": "https://r2.thesportsdb.com/images/media/league/badge/bwp1bj1625084862.png",
+/**
+ * Fotmob serves crisp, lightweight league badges via a deterministic CDN URL.
+ * Using these (instead of TheSportsDB) means logos render instantly without
+ * an extra resolver call, and we get coverage for leagues TheSportsDB missed
+ * (MLS, Serie B, A-League, etc.).
+ *
+ * URL format: https://images.fotmob.com/image_resources/logo/leaguelogo/{id}.png
+ */
+const FOTMOB_LEAGUE = (id: number) =>
+  `https://images.fotmob.com/image_resources/logo/leaguelogo/${id}.png`;
+
+const LEAGUE_FOTMOB_ID: Record<string, number> = {
+  // Top 5
+  "Premier League": 47,
+  "La Liga": 87,
+  "Serie A": 55,
+  "Bundesliga": 54,
+  "Ligue 1": 53,
+  // Domestic 2nd tiers
+  "Championship": 48,
+  "La Liga 2": 140,
+  "Bundesliga 2": 146,
+  "Serie B": 86,
+  "Ligue 2": 110,
+  // Other top European leagues
+  "Eredivisie": 57,
+  "Primeira Liga": 61,
+  "Super Lig": 71,
+  "Süper Lig": 71,
+  "Super League Greece": 67,
+  "Scottish Premiership": 64,
+  "Scottish Championship": 65,
+  "Allsvenskan": 67,
+  "Eliteserien": 59,
+  // English lower
+  "League One": 108,
+  "League Two": 109,
+  // UEFA / FIFA
+  "Champions League": 42,
+  "UEFA Champions League": 42,
+  "Europa League": 73,
+  "UEFA Europa League": 73,
+  "Conference League": 10216,
+  "UEFA Conference League": 10216,
+  // Americas
+  "Major League Soccer": 130,
+  "MLS": 130,
+  "Liga MX": 230,
+  "Brasileirao": 268,
+  "Serie A Brazil": 268,
+  // Asia / Oceania
+  "A-League": 113,
+  "A-League Men": 113,
+  "J1 League": 168,
+  "K League 1": 175,
+  "Saudi Pro League": 536,
+  // Internationals
+  "World Cup": 77,
+  "Euros": 50,
+  "AFCON": 6427,
+  "Copa America": 44,
+  "FIFA Club World Cup": 78,
+  "Nations League": 10204,
 };
 
 const LEAGUE_SHORT: Record<string, string> = {
@@ -42,7 +77,9 @@ const LEAGUE_SHORT: Record<string, string> = {
   "Primeira Liga": "PT",
   "Champions League": "CL",
   "Europa League": "EL",
+  "Conference League": "EC",
   "Super Lig": "TR",
+  "Süper Lig": "TR",
   "Super League Greece": "GR",
   "Scottish Premiership": "SP",
   "Scottish Championship": "SC",
@@ -50,9 +87,12 @@ const LEAGUE_SHORT: Record<string, string> = {
   "League Two": "L2",
   "La Liga 2": "L2",
   "Bundesliga 2": "B2",
+  "Serie B": "SB",
   "Allsvenskan": "AS",
   "Major League Soccer": "ML",
-  "Conference League": "CL",
+  "MLS": "ML",
+  "A-League": "AL",
+  "A-League Men": "AL",
   "World Cup": "WC",
   "Euros": "EU",
   "AFCON": "AF",
@@ -73,17 +113,19 @@ const sizes = {
 };
 
 export const LeagueLogo = ({ leagueName, size = "sm", className }: Props) => {
-  const url = LEAGUE_LOGOS[leagueName];
+  const id = LEAGUE_FOTMOB_ID[leagueName];
   const sizeClass = sizes[size];
   const [errored, setErrored] = useState(false);
 
-  if (url && !errored) {
+  if (id && !errored) {
     return (
       <img
-        src={url}
+        src={FOTMOB_LEAGUE(id)}
         alt={leagueName}
         className={cn("flex-shrink-0 object-contain", sizeClass, className)}
-        loading="lazy"
+        loading="eager"
+        decoding="async"
+        referrerPolicy="no-referrer"
         onError={() => setErrored(true)}
       />
     );
