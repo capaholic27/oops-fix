@@ -33,6 +33,7 @@ import { PlayerHighlights, PredictionDialog } from "@/pages/TeamPage";
 import { PredictedTacticalProfile } from "@/components/PredictedTacticalProfile";
 import { MatchVote } from "@/components/MatchVote";
 import { StatCardDetail } from "@/components/StatCardDetail";
+import { MetricInfoSheet } from "@/components/MetricInfoSheet";
 import { AdBanner } from "@/components/AdBanner";
 import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
