@@ -169,13 +169,13 @@ const UpcomingGamesPage = () => {
     setSelectedIdx(null);
   }, [todayIndex]);
 
-  useEffect(() => {
-    if (scrollRef.current && days.length > 0) {
-      const el = scrollRef.current.children[activeIdx] as HTMLElement;
-      if (el) {
-        el.scrollIntoView({ behavior: selectedIdx === null ? "auto" : "smooth", inline: "center", block: "nearest" });
-      }
-    }
+  useLayoutEffect(() => {
+    if (!scrollRef.current || days.length === 0) return;
+    const el = scrollRef.current.children[activeIdx] as HTMLElement | undefined;
+    if (!el) return;
+    const container = scrollRef.current;
+    const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
+    container.scrollTo({ left: Math.max(0, target), behavior: selectedIdx === null ? "auto" : "smooth" });
   }, [activeIdx, days.length, selectedIdx]);
 
   const currentDay = days[activeIdx];
