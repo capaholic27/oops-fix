@@ -258,7 +258,7 @@ const UpcomingGamesPage = () => {
                 <MatchRow key={m.id} match={m} onSelect={handleSelect} />
               ))}
               {fx.map(f => (
-                <FixtureRow key={f.id} fixture={f} />
+                <FixtureRow key={f.id} fixture={f} onSelect={handleSelectFixture} />
               ))}
             </LeagueGroup>
           ))
@@ -267,6 +267,9 @@ const UpcomingGamesPage = () => {
 
       {selectedMatch && (
         <MatchDetailSheet match={selectedMatch} allMatches={allMatches} onClose={handleClose} />
+      )}
+      {selectedFixture && (
+        <FixturePredictSheet fixture={selectedFixture} onClose={handleCloseFixture} />
       )}
     </div>
   );
