@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { useMatches, useFixtures, type Fixture } from "@/hooks/useMatches";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
+import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { cn } from "@/lib/utils";
@@ -70,8 +71,11 @@ const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) =
   );
 };
 
-const FixtureRow = ({ fixture: f }: { fixture: Fixture }) => (
-  <div className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3">
+const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: Fixture) => void }) => (
+  <button
+    onClick={() => onSelect(f)}
+    className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3 hover:bg-muted/50 transition-colors"
+  >
     <div className="flex-1 flex items-center justify-end gap-2 pr-3">
       <span className="text-sm font-medium">{getAbbr(f.home_team)}</span>
       <TeamLogo teamName={f.home_team} size="xs" />
@@ -84,7 +88,7 @@ const FixtureRow = ({ fixture: f }: { fixture: Fixture }) => (
       <TeamLogo teamName={f.away_team} size="xs" />
       <span className="text-sm font-medium">{getAbbr(f.away_team)}</span>
     </div>
-  </div>
+  </button>
 );
 
 const LeagueGroup = ({ league, children }: { league: string; children: React.ReactNode }) => (
@@ -103,10 +107,13 @@ const UpcomingGamesPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const { data: fixtures = [] } = useFixtures();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedFixture, setSelectedFixture] = useState<Fixture | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleSelect = useCallback((m: Match) => setSelectedMatch(m), []);
   const handleClose = useCallback(() => setSelectedMatch(null), []);
+  const handleSelectFixture = useCallback((f: Fixture) => setSelectedFixture(f), []);
+  const handleCloseFixture = useCallback(() => setSelectedFixture(null), []);
 
   const today = useMemo(() => toDateStr(new Date()), []);
 
@@ -162,13 +169,13 @@ const UpcomingGamesPage = () => {
     setSelectedIdx(null);
   }, [todayIndex]);
 
-  useEffect(() => {
-    if (scrollRef.current && days.length > 0) {
-      const el = scrollRef.current.children[activeIdx] as HTMLElement;
-      if (el) {
-        el.scrollIntoView({ behavior: selectedIdx === null ? "auto" : "smooth", inline: "center", block: "nearest" });
-      }
-    }
+  useLayoutEffect(() => {
+    if (!scrollRef.current || days.length === 0) return;
+    const el = scrollRef.current.children[activeIdx] as HTMLElement | undefined;
+    if (!el) return;
+    const container = scrollRef.current;
+    const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
+    container.scrollTo({ left: Math.max(0, target), behavior: selectedIdx === null ? "auto" : "smooth" });
   }, [activeIdx, days.length, selectedIdx]);
 
   const currentDay = days[activeIdx];
@@ -251,7 +258,7 @@ const UpcomingGamesPage = () => {
                 <MatchRow key={m.id} match={m} onSelect={handleSelect} />
               ))}
               {fx.map(f => (
-                <FixtureRow key={f.id} fixture={f} />
+                <FixtureRow key={f.id} fixture={f} onSelect={handleSelectFixture} />
               ))}
             </LeagueGroup>
           ))
@@ -260,6 +267,9 @@ const UpcomingGamesPage = () => {
 
       {selectedMatch && (
         <MatchDetailSheet match={selectedMatch} allMatches={allMatches} onClose={handleClose} />
+      )}
+      {selectedFixture && (
+        <FixturePredictSheet fixture={selectedFixture} onClose={handleCloseFixture} />
       )}
     </div>
   );

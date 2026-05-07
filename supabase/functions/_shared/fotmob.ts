@@ -29,9 +29,17 @@ export const FOTMOB_LEAGUES: FotmobLeague[] = [
   { id: 130, code: "MLS",  name: "Major League Soccer"   },
   { id: 67,  code: "SWE1", name: "Allsvenskan"           },
   { id: 113, code: "AUS1", name: "A-League"              },
-  // European competitions
-  { id: 42,  code: "UCL",  name: "UEFA Champions League" },
-  { id: 73,  code: "UEL",  name: "UEFA Europa League"    },
+  // European club competitions
+  { id: 42,    code: "UCL",   name: "UEFA Champions League"  },
+  { id: 73,    code: "UEL",   name: "UEFA Europa League"     },
+  { id: 10216, code: "UECL",  name: "UEFA Conference League" },
+  // International tournaments
+  { id: 77,    code: "WC",    name: "World Cup"              },
+  { id: 50,    code: "EURO",  name: "Euros"                  },
+  { id: 44,    code: "COPA",  name: "Copa America"           },
+  { id: 6427,  code: "AFCON", name: "AFCON"                  },
+  { id: 78,    code: "CWC",   name: "FIFA Club World Cup"    },
+  { id: 10204, code: "UNL",   name: "UEFA Nations League"    },
 ];
 
 export type RawFixture = {
