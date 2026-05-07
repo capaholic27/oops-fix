@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { useMatches, useFixtures, type Fixture } from "@/hooks/useMatches";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
+import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { cn } from "@/lib/utils";
