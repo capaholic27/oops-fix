@@ -107,10 +107,13 @@ const UpcomingGamesPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const { data: fixtures = [] } = useFixtures();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const [selectedFixture, setSelectedFixture] = useState<Fixture | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleSelect = useCallback((m: Match) => setSelectedMatch(m), []);
   const handleClose = useCallback(() => setSelectedMatch(null), []);
+  const handleSelectFixture = useCallback((f: Fixture) => setSelectedFixture(f), []);
+  const handleCloseFixture = useCallback(() => setSelectedFixture(null), []);
 
   const today = useMemo(() => toDateStr(new Date()), []);
 
