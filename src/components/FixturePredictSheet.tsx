@@ -79,8 +79,8 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
     const homeCorners = avg(homeViews, (v) => v.cornersFor);
     const awayCorners = avg(awayViews, (v) => v.cornersFor);
     const totalCorners = homeCorners + awayCorners;
-    const homeCardsAvg = avg(homeViews, (v) => (v.match.home_team === fixture.home_team ? v.match.home_yellows ?? 0 : v.match.away_yellows ?? 0));
-    const awayCardsAvg = avg(awayViews, (v) => (v.match.home_team === fixture.away_team ? v.match.home_yellows ?? 0 : v.match.away_yellows ?? 0));
+    const homeCardsAvg = avg(homeViews, (v) => v.yellowCards);
+    const awayCardsAvg = avg(awayViews, (v) => v.yellowCards);
     const totalCards = homeCardsAvg + awayCardsAvg;
 
     const sugg: Suggestion[] = [];
