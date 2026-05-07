@@ -71,8 +71,11 @@ const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) =
   );
 };
 
-const FixtureRow = ({ fixture: f }: { fixture: Fixture }) => (
-  <div className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3">
+const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: Fixture) => void }) => (
+  <button
+    onClick={() => onSelect(f)}
+    className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3 hover:bg-muted/50 transition-colors"
+  >
     <div className="flex-1 flex items-center justify-end gap-2 pr-3">
       <span className="text-sm font-medium">{getAbbr(f.home_team)}</span>
       <TeamLogo teamName={f.home_team} size="xs" />
@@ -85,7 +88,7 @@ const FixtureRow = ({ fixture: f }: { fixture: Fixture }) => (
       <TeamLogo teamName={f.away_team} size="xs" />
       <span className="text-sm font-medium">{getAbbr(f.away_team)}</span>
     </div>
-  </div>
+  </button>
 );
 
 const LeagueGroup = ({ league, children }: { league: string; children: React.ReactNode }) => (
