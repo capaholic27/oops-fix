@@ -1,4 +1,4 @@
-import { normalizeTeamName } from "@/lib/teamNormalize";
+import { normalizeTeamName, canonicalTeamKey } from "@/lib/teamNormalize";
 
 export type Match = {
   id: string;
@@ -220,14 +220,19 @@ function calculateVariance(numbers: number[]): number {
   return numbers.reduce((s, n) => s + (n - mean) ** 2, 0) / numbers.length;
 }
 
-// Get unique team names from matches (normalized)
+// Get unique team names from matches (normalized + dedup by canonical key,
+// keeping the longest/most-complete display variant for each club).
 export function getUniqueTeams(matches: Match[]): string[] {
-  const teams = new Set<string>();
-  matches.forEach(m => {
-    teams.add(normalizeTeamName(m.home_team));
-    teams.add(normalizeTeamName(m.away_team));
-  });
-  return Array.from(teams).sort();
+  const byKey = new Map<string, string>();
+  const consider = (raw: string) => {
+    const display = normalizeTeamName(raw);
+    const key = canonicalTeamKey(display);
+    if (!key) return;
+    const prev = byKey.get(key);
+    if (!prev || display.length > prev.length) byKey.set(key, display);
+  };
+  matches.forEach(m => { consider(m.home_team); consider(m.away_team); });
+  return Array.from(byKey.values()).sort();
 }
 
 // Get unique leagues

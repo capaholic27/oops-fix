@@ -5,13 +5,15 @@ import {
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
+  PolarRadiusAxis,
   Radar,
 } from "recharts";
-import { Trophy, Target, Crosshair, Zap } from "lucide-react";
+import { Trophy, Target, Crosshair, Zap, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getSyntheticSquad } from "@/lib/playerNames";
 import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
+import { PlayerInsightSheet, type PlayerInsightProfile } from "@/components/PlayerInsightSheet";
 
 type Props = {
   views: TeamMatchView[];
@@ -49,21 +51,25 @@ function realToProfile(p: RealPlayer): PlayerProfile {
   const isFwd = !isGK && !isDef && (pos.startsWith("ATT") || pos.startsWith("FOR") || /ST|CF|LW|RW|LF|RF/.test(pos));
   const isMid = !isGK && !isDef && !isFwd;
 
-  // Rating is the strongest available signal (typical range ~6.0–8.0).
-  // Map it to a 35–95 base.
-  const rating = p.rating ?? 6.6;
-  const base = Math.max(35, Math.min(95, Math.round((rating - 6.0) * 35 + 60)));
+  // Rating is the strongest signal when present (~6.0–8.0). Map to 35–95.
+  // When missing (very common — Fotmob squad payload often omits ratings),
+  // derive base from goals/assists + position so two players differ meaningfully.
+  const hasRating = typeof p.rating === "number" && p.rating > 0;
+  const productivity = (p.goals || 0) * 4 + (p.assists || 0) * 3 + (p.shots || 0) * 0.4;
+  const base = hasRating
+    ? Math.max(35, Math.min(95, Math.round(((p.rating ?? 6.6) - 6.0) * 35 + 60)))
+    : Math.max(40, Math.min(90, 50 + Math.min(35, Math.round(productivity))));
 
-  // Production bonus from real Fotmob counters.
   const goals = p.goals || 0;
   const assists = p.assists || 0;
   const goalBoost = Math.min(35, goals * 3);
   const assistBoost = Math.min(30, assists * 3);
 
-  // Deterministic per-player jitter (±8) so two CBs with similar ratings differ.
+  // Larger deterministic jitter so two same-position depth players never
+  // produce identical radars when underlying counters are zero.
   const seed = (p.fullName || p.name).split("").reduce((s, c) => s + c.charCodeAt(0), 0);
-  const j = (n: number) => ((seed * 9301 + n * 49297) % 233280) / 233280; // 0..1
-  const jit = (n: number, range = 8) => Math.round((j(n) - 0.5) * 2 * range);
+  const j = (n: number) => ((seed * 9301 + n * 49297) % 233280) / 233280;
+  const jit = (n: number, range = 14) => Math.round((j(n) - 0.5) * 2 * range);
 
   const clamp = (v: number) => Math.max(20, Math.min(99, Math.round(v)));
 
@@ -75,12 +81,12 @@ function realToProfile(p: RealPlayer): PlayerProfile {
     goals,
     assists,
     shots: p.shots || 0,
-    attacking: clamp(base + goalBoost + (isFwd ? 15 : isMid ? 4 : isDef ? -18 : -32) + jit(1)),
-    creativity: clamp(base + assistBoost + (isMid ? 16 : isFwd ? 6 : isDef ? -8 : -22) + jit(2)),
-    finishing: clamp(base + goalBoost * 0.9 + (isFwd ? 18 : isMid ? -2 : isDef ? -22 : -34) + jit(3)),
-    aerial: clamp(base - 6 + (isDef ? 22 : isFwd ? 8 : isMid ? -6 : 14) + jit(4, 12)),
-    defending: clamp(base + (isDef ? 26 : isGK ? 22 : isMid ? -2 : -22) + jit(5)),
-    passing: clamp(base + assistBoost * 0.6 + (isMid ? 18 : isDef ? 4 : isFwd ? -2 : -16) + jit(6)),
+    attacking: clamp(base + goalBoost + (isFwd ? 18 : isMid ? 4 : isDef ? -18 : -32) + jit(1)),
+    creativity: clamp(base + assistBoost + (isMid ? 18 : isFwd ? 6 : isDef ? -8 : -22) + jit(2)),
+    finishing: clamp(base + goalBoost * 0.9 + (isFwd ? 20 : isMid ? -2 : isDef ? -22 : -34) + jit(3)),
+    aerial: clamp(base - 6 + (isDef ? 24 : isFwd ? 8 : isMid ? -8 : 16) + jit(4, 18)),
+    defending: clamp(base + (isDef ? 28 : isGK ? 24 : isMid ? -2 : -24) + jit(5)),
+    passing: clamp(base + assistBoost * 0.6 + (isMid ? 20 : isDef ? 4 : isFwd ? -2 : -16) + jit(6)),
   };
 }
 
@@ -193,6 +199,7 @@ export const MomentumChart = ({ views, teamName }: Props) => {
   }, [realPlayers, views, teamName]);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [insightOpen, setInsightOpen] = useState(false);
   const player = players[selectedIdx];
 
   if (!player) return null;
@@ -223,7 +230,7 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           </span>
         </div>
 
-        {/* Player selector pills — all squad players, compact, horizontally scrollable */}
+        {/* Player selector pills */}
         <div className="flex gap-1 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
           {players.map((p, i) => {
             const active = selectedIdx === i;
@@ -246,19 +253,23 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           })}
         </div>
 
-        {/* Player header */}
-        <div className="flex items-center justify-between mb-2 px-1">
+        {/* Player header — clickable to open insight sheet */}
+        <button
+          onClick={() => setInsightOpen(true)}
+          className="w-full flex items-center justify-between mb-2 px-1 group"
+        >
           <div className="flex items-center gap-2.5">
             <PlayerAvatar name={player.name} number={player.number ?? undefined} photoUrl={player.photoUrl} size="md" />
-            <div>
-              <p className="text-base font-bold leading-tight">
+            <div className="text-left">
+              <p className="text-base font-bold leading-tight flex items-center gap-1.5">
                 {player.name}
                 {typeof player.number === "number" && (
-                  <span className="ml-1.5 text-[10px] font-mono text-muted-foreground">#{player.number}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">#{player.number}</span>
                 )}
+                <Info className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
               </p>
               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-                {player.position} · Rank #{selectedIdx + 1}
+                {player.position} · Tap for insights
               </p>
             </div>
           </div>
@@ -266,24 +277,40 @@ export const MomentumChart = ({ views, teamName }: Props) => {
             <p className="font-mono text-2xl font-bold text-primary leading-none">{overall}</p>
             <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Overall</p>
           </div>
-        </div>
+        </button>
 
-        {/* Radar / Hexagon chart */}
-        <div className="h-56 -mx-2">
+        {/* Radar — concentric rings with labelled levels (Fotmob-style) */}
+        <div className="h-64 -mx-2 relative">
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData} outerRadius="72%">
-              <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.4} />
+            <RadarChart data={radarData} outerRadius="78%">
+              <defs>
+                <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.55} />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
+                </radialGradient>
+              </defs>
+              <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.55} gridType="polygon" />
               <PolarAngleAxis
                 dataKey="attr"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+              />
+              <PolarRadiusAxis
+                angle={90}
+                domain={[0, 100]}
+                tickCount={6}
+                tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))", fillOpacity: 0.55 }}
+                stroke="hsl(var(--border))"
+                strokeOpacity={0.3}
+                axisLine={false}
               />
               <Radar
                 name={player.name}
                 dataKey="value"
                 stroke="hsl(var(--primary))"
-                fill="hsl(var(--primary))"
-                fillOpacity={0.45}
-                strokeWidth={2}
+                fill="url(#radarFill)"
+                fillOpacity={1}
+                strokeWidth={2.5}
+                dot={{ fill: "hsl(var(--primary))", r: 3, strokeWidth: 0 }}
               />
             </RadarChart>
           </ResponsiveContainer>
@@ -296,6 +323,14 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           <StatPill icon={<Crosshair className="w-3 h-3" />} label="Shots" value={player.shots} />
         </div>
       </div>
+
+      {insightOpen && (
+        <PlayerInsightSheet
+          player={player as PlayerInsightProfile}
+          teamName={teamName}
+          onClose={() => setInsightOpen(false)}
+        />
+      )}
     </section>
   );
 };
