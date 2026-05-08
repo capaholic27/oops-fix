@@ -172,12 +172,15 @@ const UpcomingGamesPage = () => {
   }, [todayIndex]);
 
   useLayoutEffect(() => {
-    if (!scrollRef.current || days.length === 0) return;
-    const el = scrollRef.current.children[activeIdx] as HTMLElement | undefined;
-    if (!el) return;
     const container = scrollRef.current;
+    if (!container || days.length === 0) return;
+    const el = container.children[activeIdx] as HTMLElement | undefined;
+    if (!el) return;
     const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
-    container.scrollTo({ left: Math.max(0, target), behavior: selectedIdx === null ? "auto" : "smooth" });
+    // Use rAF so layout has settled before we scroll.
+    requestAnimationFrame(() => {
+      container.scrollTo({ left: Math.max(0, target), behavior: selectedIdx === null ? "auto" : "smooth" });
+    });
   }, [activeIdx, days.length, selectedIdx]);
 
   const currentDay = days[activeIdx];
