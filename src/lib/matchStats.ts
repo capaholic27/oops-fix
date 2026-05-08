@@ -223,7 +223,6 @@ function calculateVariance(numbers: number[]): number {
 // Get unique team names from matches (normalized + dedup by canonical key,
 // keeping the longest/most-complete display variant for each club).
 export function getUniqueTeams(matches: Match[]): string[] {
-  const { canonicalTeamKey } = require("./teamNormalize") as typeof import("./teamNormalize");
   const byKey = new Map<string, string>();
   const consider = (raw: string) => {
     const display = normalizeTeamName(raw);
