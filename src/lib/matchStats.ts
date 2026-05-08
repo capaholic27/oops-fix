@@ -1,4 +1,4 @@
-import { normalizeTeamName } from "@/lib/teamNormalize";
+import { normalizeTeamName, canonicalTeamKey } from "@/lib/teamNormalize";
 
 export type Match = {
   id: string;
