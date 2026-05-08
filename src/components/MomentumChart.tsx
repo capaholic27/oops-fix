@@ -51,21 +51,25 @@ function realToProfile(p: RealPlayer): PlayerProfile {
   const isFwd = !isGK && !isDef && (pos.startsWith("ATT") || pos.startsWith("FOR") || /ST|CF|LW|RW|LF|RF/.test(pos));
   const isMid = !isGK && !isDef && !isFwd;
 
-  // Rating is the strongest available signal (typical range ~6.0–8.0).
-  // Map it to a 35–95 base.
-  const rating = p.rating ?? 6.6;
-  const base = Math.max(35, Math.min(95, Math.round((rating - 6.0) * 35 + 60)));
+  // Rating is the strongest signal when present (~6.0–8.0). Map to 35–95.
+  // When missing (very common — Fotmob squad payload often omits ratings),
+  // derive base from goals/assists + position so two players differ meaningfully.
+  const hasRating = typeof p.rating === "number" && p.rating > 0;
+  const productivity = (p.goals || 0) * 4 + (p.assists || 0) * 3 + (p.shots || 0) * 0.4;
+  const base = hasRating
+    ? Math.max(35, Math.min(95, Math.round(((p.rating ?? 6.6) - 6.0) * 35 + 60)))
+    : Math.max(40, Math.min(90, 50 + Math.min(35, Math.round(productivity))));
 
-  // Production bonus from real Fotmob counters.
   const goals = p.goals || 0;
   const assists = p.assists || 0;
   const goalBoost = Math.min(35, goals * 3);
   const assistBoost = Math.min(30, assists * 3);
 
-  // Deterministic per-player jitter (±8) so two CBs with similar ratings differ.
+  // Larger deterministic jitter so two same-position depth players never
+  // produce identical radars when underlying counters are zero.
   const seed = (p.fullName || p.name).split("").reduce((s, c) => s + c.charCodeAt(0), 0);
-  const j = (n: number) => ((seed * 9301 + n * 49297) % 233280) / 233280; // 0..1
-  const jit = (n: number, range = 8) => Math.round((j(n) - 0.5) * 2 * range);
+  const j = (n: number) => ((seed * 9301 + n * 49297) % 233280) / 233280;
+  const jit = (n: number, range = 14) => Math.round((j(n) - 0.5) * 2 * range);
 
   const clamp = (v: number) => Math.max(20, Math.min(99, Math.round(v)));
 
@@ -77,12 +81,12 @@ function realToProfile(p: RealPlayer): PlayerProfile {
     goals,
     assists,
     shots: p.shots || 0,
-    attacking: clamp(base + goalBoost + (isFwd ? 15 : isMid ? 4 : isDef ? -18 : -32) + jit(1)),
-    creativity: clamp(base + assistBoost + (isMid ? 16 : isFwd ? 6 : isDef ? -8 : -22) + jit(2)),
-    finishing: clamp(base + goalBoost * 0.9 + (isFwd ? 18 : isMid ? -2 : isDef ? -22 : -34) + jit(3)),
-    aerial: clamp(base - 6 + (isDef ? 22 : isFwd ? 8 : isMid ? -6 : 14) + jit(4, 12)),
-    defending: clamp(base + (isDef ? 26 : isGK ? 22 : isMid ? -2 : -22) + jit(5)),
-    passing: clamp(base + assistBoost * 0.6 + (isMid ? 18 : isDef ? 4 : isFwd ? -2 : -16) + jit(6)),
+    attacking: clamp(base + goalBoost + (isFwd ? 18 : isMid ? 4 : isDef ? -18 : -32) + jit(1)),
+    creativity: clamp(base + assistBoost + (isMid ? 18 : isFwd ? 6 : isDef ? -8 : -22) + jit(2)),
+    finishing: clamp(base + goalBoost * 0.9 + (isFwd ? 20 : isMid ? -2 : isDef ? -22 : -34) + jit(3)),
+    aerial: clamp(base - 6 + (isDef ? 24 : isFwd ? 8 : isMid ? -8 : 16) + jit(4, 18)),
+    defending: clamp(base + (isDef ? 28 : isGK ? 24 : isMid ? -2 : -24) + jit(5)),
+    passing: clamp(base + assistBoost * 0.6 + (isMid ? 20 : isDef ? 4 : isFwd ? -2 : -16) + jit(6)),
   };
 }
 
