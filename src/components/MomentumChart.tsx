@@ -199,6 +199,7 @@ export const MomentumChart = ({ views, teamName }: Props) => {
   }, [realPlayers, views, teamName]);
 
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [insightOpen, setInsightOpen] = useState(false);
   const player = players[selectedIdx];
 
   if (!player) return null;
@@ -229,7 +230,7 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           </span>
         </div>
 
-        {/* Player selector pills — all squad players, compact, horizontally scrollable */}
+        {/* Player selector pills */}
         <div className="flex gap-1 mb-3 overflow-x-auto -mx-1 px-1 pb-1">
           {players.map((p, i) => {
             const active = selectedIdx === i;
@@ -252,19 +253,23 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           })}
         </div>
 
-        {/* Player header */}
-        <div className="flex items-center justify-between mb-2 px-1">
+        {/* Player header — clickable to open insight sheet */}
+        <button
+          onClick={() => setInsightOpen(true)}
+          className="w-full flex items-center justify-between mb-2 px-1 group"
+        >
           <div className="flex items-center gap-2.5">
             <PlayerAvatar name={player.name} number={player.number ?? undefined} photoUrl={player.photoUrl} size="md" />
-            <div>
-              <p className="text-base font-bold leading-tight">
+            <div className="text-left">
+              <p className="text-base font-bold leading-tight flex items-center gap-1.5">
                 {player.name}
                 {typeof player.number === "number" && (
-                  <span className="ml-1.5 text-[10px] font-mono text-muted-foreground">#{player.number}</span>
+                  <span className="text-[10px] font-mono text-muted-foreground">#{player.number}</span>
                 )}
+                <Info className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
               </p>
               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-                {player.position} · Rank #{selectedIdx + 1}
+                {player.position} · Tap for insights
               </p>
             </div>
           </div>
@@ -272,24 +277,40 @@ export const MomentumChart = ({ views, teamName }: Props) => {
             <p className="font-mono text-2xl font-bold text-primary leading-none">{overall}</p>
             <p className="text-[9px] text-muted-foreground uppercase tracking-wider mt-0.5">Overall</p>
           </div>
-        </div>
+        </button>
 
-        {/* Radar / Hexagon chart */}
-        <div className="h-56 -mx-2">
+        {/* Radar — concentric rings with labelled levels (Fotmob-style) */}
+        <div className="h-64 -mx-2 relative">
           <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={radarData} outerRadius="72%">
-              <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.4} />
+            <RadarChart data={radarData} outerRadius="78%">
+              <defs>
+                <radialGradient id="radarFill" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.55} />
+                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
+                </radialGradient>
+              </defs>
+              <PolarGrid stroke="hsl(var(--border))" strokeOpacity={0.55} gridType="polygon" />
               <PolarAngleAxis
                 dataKey="attr"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 600 }}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))", fontWeight: 700 }}
+              />
+              <PolarRadiusAxis
+                angle={90}
+                domain={[0, 100]}
+                tickCount={6}
+                tick={{ fontSize: 8, fill: "hsl(var(--muted-foreground))", fillOpacity: 0.55 }}
+                stroke="hsl(var(--border))"
+                strokeOpacity={0.3}
+                axisLine={false}
               />
               <Radar
                 name={player.name}
                 dataKey="value"
                 stroke="hsl(var(--primary))"
-                fill="hsl(var(--primary))"
-                fillOpacity={0.45}
-                strokeWidth={2}
+                fill="url(#radarFill)"
+                fillOpacity={1}
+                strokeWidth={2.5}
+                dot={{ fill: "hsl(var(--primary))", r: 3, strokeWidth: 0 }}
               />
             </RadarChart>
           </ResponsiveContainer>
@@ -302,6 +323,14 @@ export const MomentumChart = ({ views, teamName }: Props) => {
           <StatPill icon={<Crosshair className="w-3 h-3" />} label="Shots" value={player.shots} />
         </div>
       </div>
+
+      {insightOpen && (
+        <PlayerInsightSheet
+          player={player as PlayerInsightProfile}
+          teamName={teamName}
+          onClose={() => setInsightOpen(false)}
+        />
+      )}
     </section>
   );
 };
