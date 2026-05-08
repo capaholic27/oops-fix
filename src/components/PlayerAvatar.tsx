@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getInitials, nameColor } from "@/lib/playerNames";
 
@@ -17,13 +17,32 @@ const SIZES = {
   lg: "w-12 h-12 text-[13px]",
 };
 
-/** Circular avatar — shows real player photo when available, falls back to colored initials.
- *  Optional shirt-number badge in the bottom-right. */
+/** Build a chain of CDN URLs to try in order. Fotmob occasionally serves a
+ *  player image at one path but not another, so we try several before giving
+ *  up and showing initials. */
+function buildPhotoChain(primary?: string | null): string[] {
+  if (!primary) return [];
+  const chain = [primary];
+  // Extract id from .../playerimages/{id}.png
+  const m = primary.match(/playerimages\/(\d+)/);
+  if (m) {
+    const id = m[1];
+    chain.push(
+      `https://images.fotmob.com/image_resources/playerimages/${id}.png?t=1`,
+      `https://www.fotmob.com/_next/image?url=https%3A%2F%2Fimages.fotmob.com%2Fimage_resources%2Fplayerimages%2F${id}.png&w=128&q=75`,
+    );
+  }
+  return chain;
+}
+
+/** Circular avatar — shows real player photo when available, falls back to colored initials. */
 export const PlayerAvatar = ({ name, number, photoUrl, size = "sm", className }: Props) => {
-  const [imgFailed, setImgFailed] = useState(false);
+  const chain = useMemo(() => buildPhotoChain(photoUrl), [photoUrl]);
+  const [chainIdx, setChainIdx] = useState(0);
+  const [allFailed, setAllFailed] = useState(false);
   const initials = getInitials(name);
   const bg = nameColor(name);
-  const showPhoto = photoUrl && !imgFailed;
+  const showPhoto = chain.length > 0 && !allFailed && chainIdx < chain.length;
 
   return (
     <div className={cn("relative flex-shrink-0", className)}>
@@ -37,11 +56,14 @@ export const PlayerAvatar = ({ name, number, photoUrl, size = "sm", className }:
       >
         {showPhoto ? (
           <img
-            src={photoUrl!}
+            src={chain[chainIdx]}
             alt={name}
             className="w-full h-full object-cover"
             loading="lazy"
-            onError={() => setImgFailed(true)}
+            onError={() => {
+              if (chainIdx + 1 < chain.length) setChainIdx(chainIdx + 1);
+              else setAllFailed(true);
+            }}
           />
         ) : (
           initials
