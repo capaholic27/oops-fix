@@ -5,13 +5,15 @@ import {
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
+  PolarRadiusAxis,
   Radar,
 } from "recharts";
-import { Trophy, Target, Crosshair, Zap } from "lucide-react";
+import { Trophy, Target, Crosshair, Zap, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getSyntheticSquad } from "@/lib/playerNames";
 import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
+import { PlayerInsightSheet, type PlayerInsightProfile } from "@/components/PlayerInsightSheet";
 
 type Props = {
   views: TeamMatchView[];
