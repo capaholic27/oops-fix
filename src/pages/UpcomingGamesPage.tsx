@@ -121,6 +121,8 @@ const UpcomingGamesPage = () => {
     const dateSet = new Set<string>();
     allMatches.forEach(m => dateSet.add(m.match_date));
     fixtures.forEach(f => dateSet.add(f.match_date));
+    // Always show today, even if no fixtures, so the bar starts there.
+    dateSet.add(today);
 
     const rangeStart = new Date();
     rangeStart.setDate(rangeStart.getDate() - 14);
