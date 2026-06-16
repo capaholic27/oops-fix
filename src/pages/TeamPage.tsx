@@ -431,34 +431,50 @@ const LeagueSelector = ({
             </div>
           )}
 
-          {/* All leagues list — locked leagues are visible but require Pro */}
-          {filter === "all" && (
-            <div className="space-y-2">
-              {leagues.map((l) => {
-                const locked = !canAccessLeague(l.name);
-                return (
-                  <button
-                    key={l.code}
-                    onClick={() => tryOpenLeague(l)}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left",
-                      locked && "opacity-60"
-                    )}
-                  >
-                    <LeagueLogo leagueName={l.name} size="sm" />
-                    <span className="text-sm font-medium flex-1">{l.name}</span>
-                    {locked ? (
-                      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary">
-                        <Lock className="w-3 h-3" /> Pro
-                      </span>
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* All competitions — split into Leagues and Tournaments */}
+          {filter === "all" && (() => {
+            const domestic = leagues.filter((l) => !isTournamentLeague(l.name));
+            const tournaments = leagues.filter((l) => isTournamentLeague(l.name));
+            const renderRow = (l: { code: string; name: string }) => {
+              const locked = !canAccessLeague(l.name);
+              return (
+                <button
+                  key={l.code}
+                  onClick={() => tryOpenLeague(l)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all text-left",
+                    locked && "opacity-60"
+                  )}
+                >
+                  <LeagueLogo leagueName={l.name} size="sm" />
+                  <span className="text-sm font-medium flex-1">{l.name}</span>
+                  {locked ? (
+                    <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                      <Lock className="w-3 h-3" /> Pro
+                    </span>
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </button>
+              );
+            };
+            return (
+              <div className="space-y-5">
+                {domestic.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="stat-label px-1">Leagues</h3>
+                    <div className="space-y-2">{domestic.map(renderRow)}</div>
+                  </div>
+                )}
+                {tournaments.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="stat-label px-1">Tournaments</h3>
+                    <div className="space-y-2">{tournaments.map(renderRow)}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Generate Prediction button */}
           <button
