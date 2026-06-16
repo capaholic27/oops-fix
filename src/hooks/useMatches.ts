@@ -193,10 +193,28 @@ export function useSyncFixtures() {
       });
 
       if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
-      return res.json();
+      const out = await res.json();
+
+      // Fire-and-forget: backfill major tournament history (WC, Euros, Copa,
+      // AFCON, Club World Cup). Idempotent — skips when already populated.
+      try {
+        await fetch(`https://${projectId}.supabase.co/functions/v1/fetch-wc-history`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({}),
+        });
+      } catch (e) {
+        console.warn("WC history sync failed (non-fatal)", e);
+      }
+
+      return out;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixtures"] });
+      queryClient.invalidateQueries({ queryKey: ["matches"] });
     },
   });
 }
