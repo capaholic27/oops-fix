@@ -107,8 +107,15 @@ const sizes = {
   lg: "w-12 h-12 text-xs",
 };
 
+import { getCountryInfo } from "@/lib/countries";
+
 export const TeamLogo = ({ teamName, fotmobId, size = "sm", className }: Props) => {
-  const fromId = fotmobId ? TEAM_LOGO(fotmobId) : null;
+  // National teams: route to the Fotmob national-team CDN directly so they
+  // pop in instantly without a DB roundtrip or resolver call.
+  const country = getCountryInfo(teamName);
+  const countryUrl = country ? TEAM_LOGO(country.fotmobId) : null;
+
+  const fromId = fotmobId ? TEAM_LOGO(fotmobId) : countryUrl;
   const initial =
     fromId ??
     memCache.get(teamName) ??

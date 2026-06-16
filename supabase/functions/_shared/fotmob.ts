@@ -164,6 +164,58 @@ export async function fetchFotmobAll(
 }
 
 /**
+ * Pull a single league for a specific historical season (e.g. World Cup 2018).
+ * Fotmob accepts ?id={id}&season={year} for past tournaments.
+ */
+export async function fetchFotmobLeagueSeason(
+  league: FotmobLeague,
+  season: string | number
+): Promise<RawResult[]> {
+  try {
+    const url = `${FOTMOB_BASE}/leagues?id=${league.id}&season=${encodeURIComponent(String(season))}`;
+    const res = await fetch(url, { headers: { "User-Agent": UA, "Accept": "application/json" } });
+    if (!res.ok) {
+      console.warn(`Fotmob ${league.code} season ${season} HTTP ${res.status}`);
+      return [];
+    }
+    const data = await res.json();
+    const matches: any[] = data?.fixtures?.allMatches ?? data?.matches?.allMatches ?? [];
+    const out: RawResult[] = [];
+    for (const m of matches) {
+      const utc: string | undefined = m?.status?.utcTime;
+      if (!utc) continue;
+      const d = new Date(utc);
+      if (isNaN(d.getTime())) continue;
+      if (!m?.status?.finished) continue;
+      const home = m?.home?.name?.trim();
+      const away = m?.away?.name?.trim();
+      if (!home || !away) continue;
+      const score: string = m?.status?.scoreStr ?? "";
+      const parts = score.split(/[-–:]/).map((s: string) => s.trim());
+      const hg = Number(parts[0]);
+      const ag = Number(parts[1]);
+      if (!Number.isFinite(hg) || !Number.isFinite(ag)) continue;
+      out.push({
+        league_code: league.code,
+        league_name: league.name,
+        season: String(season),
+        match_date: d.toISOString().slice(0, 10),
+        home_team: home,
+        away_team: away,
+        ft_home_goals: hg,
+        ft_away_goals: ag,
+        ft_result: hg > ag ? "H" : hg < ag ? "A" : "D",
+        match_id: m?.id,
+      });
+    }
+    return out;
+  } catch (e) {
+    console.warn(`fetchFotmobLeagueSeason ${league.code}/${season} error`, e);
+    return [];
+  }
+}
+
+/**
  * Pull per-match stats (corners, cards, shots, fouls) from Fotmob match details endpoint.
  * Returns null if stats are unavailable or the endpoint fails.
  */
