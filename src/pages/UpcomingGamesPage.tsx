@@ -171,17 +171,33 @@ const UpcomingGamesPage = () => {
     setSelectedIdx(null);
   }, [todayIndex]);
 
+  // Center the date bar on "Today" — needs to wait until children are laid
+  // out, so we use a double rAF + a fallback timeout. Re-runs when the data
+  // arrives (days.length changes) and when the user picks another date.
   useLayoutEffect(() => {
     const container = scrollRef.current;
     if (!container || days.length === 0) return;
-    const el = container.children[activeIdx] as HTMLElement | undefined;
-    if (!el) return;
-    const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
-    // Use rAF so layout has settled before we scroll.
-    requestAnimationFrame(() => {
-      container.scrollTo({ left: Math.max(0, target), behavior: selectedIdx === null ? "auto" : "smooth" });
+    const center = () => {
+      const el = container.children[activeIdx] as HTMLElement | undefined;
+      if (!el) return;
+      const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
+      container.scrollTo({
+        left: Math.max(0, target),
+        behavior: selectedIdx === null ? "auto" : "smooth",
+      });
+    };
+    // Two rAFs to make sure layout has settled (flex children width).
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(center);
+      (center as any)._r2 = r2;
     });
-  }, [activeIdx, days.length, selectedIdx]);
+    const t = window.setTimeout(center, 120);
+    return () => {
+      cancelAnimationFrame(r1);
+      if ((center as any)._r2) cancelAnimationFrame((center as any)._r2);
+      clearTimeout(t);
+    };
+  }, [activeIdx, days.length, selectedIdx, isLoading]);
 
   const currentDay = days[activeIdx];
 
