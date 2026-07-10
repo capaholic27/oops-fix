@@ -1399,6 +1399,8 @@ const EdgePage = () => {
             <BetBuilder />
           </div>
         )}
+
+        {tab === "bankroll" && <BankrollManager />}
       </div>
     </div>
   );
