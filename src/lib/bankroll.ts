@@ -169,7 +169,7 @@ export function logBet(state: BankrollState, entry: Omit<BankrollLogEntry, "id" 
     ...state,
     dailyRisked: { ...state.dailyRisked, [today]: (state.dailyRisked[today] ?? 0) + entry.stake },
     log: [
-      { id: crypto.randomUUID(), date: new Date().toISOString(), result: "pending", ...entry },
+      { id: crypto.randomUUID(), date: new Date().toISOString(), result: "pending" as const, ...entry },
       ...state.log,
     ].slice(0, 100),
   };
