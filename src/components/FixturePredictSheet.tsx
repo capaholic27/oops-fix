@@ -239,6 +239,12 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                     </div>
                     <p className="text-xs font-bold">{s.pick}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">{s.reason}</p>
+                    <div className="mt-1.5">
+                      <BookmakerOddsRow
+                        seed={`${fixture.id}-${s.market}-${s.pick}`}
+                        fairProb={s.confidence / 100}
+                      />
+                    </div>
                   </div>
                 ))}
                 {suggestions.length === 0 && (
