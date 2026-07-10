@@ -164,6 +164,10 @@ const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => (
         <span>{pick.edge}</span>
       </div>
     )}
+    <BookmakerOddsRow
+      seed={`${pick.match}-${pick.market}-${pick.prediction}`}
+      fairProb={pick.confidence / 100}
+    />
   </div>
 );
 
