@@ -4,11 +4,14 @@ import {
   TrendingUp, ChevronRight, Zap, Shield, Target, RefreshCw,
   DollarSign, ArrowRight, CheckCircle2, Info, Filter, ChevronDown,
   Sparkles, Brain, Eye, Percent, Activity, Calendar, Trophy, HelpCircle,
+  Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { settleSlip, type SettleableLeg } from "@/lib/betSettlement";
+import { BankrollManager } from "@/components/BankrollManager";
+import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 
 const PREMIUM_UNLOCKED_KEY = "fe_premium_unlocked";
 function isEdgeUnlocked(): boolean {
@@ -1167,7 +1170,7 @@ const BetBuilder = () => {
 /* ─── Main Edge Page ─── */
 const EdgePage = () => {
   const [unlocked, setUnlocked] = useState(isEdgeUnlocked);
-  const [tab, setTab] = useState<"picks" | "builder">("picks");
+  const [tab, setTab] = useState<"picks" | "builder" | "bankroll">("picks");
   const [edgeData, setEdgeData] = useState<EdgeData | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -1201,8 +1204,9 @@ const EdgePage = () => {
   }, [unlocked, fetchEdge]);
 
   const TABS = [
-    { id: "picks", label: "Today's Edge", icon: Crosshair },
-    { id: "builder", label: "Bet Builder", icon: DollarSign },
+    { id: "picks",    label: "Today's Edge", icon: Crosshair },
+    { id: "builder",  label: "Bet Builder",  icon: DollarSign },
+    { id: "bankroll", label: "Bankroll",     icon: Wallet },
   ] as const;
 
   /* ── Locked state ── */
