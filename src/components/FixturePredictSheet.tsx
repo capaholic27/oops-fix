@@ -196,6 +196,15 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                 <span className="text-center">Draw</span>
                 <span className="text-right">Away</span>
               </div>
+              <div className="grid grid-cols-3 gap-1.5 mt-2">
+                <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="home" fairProb={pred.homeWin / 100} />
+                <div className="justify-self-center">
+                  <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="draw" fairProb={pred.draw / 100} />
+                </div>
+                <div className="justify-self-end">
+                  <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="away" fairProb={pred.awayWin / 100} />
+                </div>
+              </div>
             </div>
 
             {/* Top scorelines */}
