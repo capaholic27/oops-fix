@@ -5,6 +5,7 @@ import type { Fixture } from "@/hooks/useMatches";
 import { useMatches } from "@/hooks/useMatches";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
+import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { getTeamMatchView, aggregateStats, type TeamMatchView, type Match } from "@/lib/matchStats";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { cn } from "@/lib/utils";
@@ -195,6 +196,15 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                 <span className="text-center">Draw</span>
                 <span className="text-right">Away</span>
               </div>
+              <div className="grid grid-cols-3 gap-1.5 mt-2">
+                <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="home" fairProb={pred.homeWin / 100} />
+                <div className="justify-self-center">
+                  <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="draw" fairProb={pred.draw / 100} />
+                </div>
+                <div className="justify-self-end">
+                  <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="away" fairProb={pred.awayWin / 100} />
+                </div>
+              </div>
             </div>
 
             {/* Top scorelines */}
@@ -229,6 +239,12 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                     </div>
                     <p className="text-xs font-bold">{s.pick}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">{s.reason}</p>
+                    <div className="mt-1.5">
+                      <BookmakerOddsRow
+                        seed={`${fixture.id}-${s.market}-${s.pick}`}
+                        fairProb={s.confidence / 100}
+                      />
+                    </div>
                   </div>
                 ))}
                 {suggestions.length === 0 && (
