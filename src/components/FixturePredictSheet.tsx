@@ -5,6 +5,7 @@ import type { Fixture } from "@/hooks/useMatches";
 import { useMatches } from "@/hooks/useMatches";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
+import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { getTeamMatchView, aggregateStats, type TeamMatchView, type Match } from "@/lib/matchStats";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { cn } from "@/lib/utils";
