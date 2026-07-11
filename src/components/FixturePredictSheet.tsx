@@ -6,6 +6,7 @@ import { useMatches } from "@/hooks/useMatches";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
+import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { getTeamMatchView, aggregateStats, type TeamMatchView, type Match } from "@/lib/matchStats";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { cn } from "@/lib/utils";
@@ -197,12 +198,15 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                 <span className="text-right">Away</span>
               </div>
               <div className="grid grid-cols-3 gap-1.5 mt-2">
-                <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="home" fairProb={pred.homeWin / 100} />
+                <LiveOddsRow home={fixture.home_team} away={fixture.away_team} market="h2h" outcome={fixture.home_team}
+                  fallbackSeed={`${fixture.id}-1x2`} fallbackSide="home" fallbackFairProb={pred.homeWin / 100} />
                 <div className="justify-self-center">
-                  <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="draw" fairProb={pred.draw / 100} />
+                  <LiveOddsRow home={fixture.home_team} away={fixture.away_team} market="h2h" outcome="Draw"
+                    fallbackSeed={`${fixture.id}-1x2`} fallbackSide="draw" fallbackFairProb={pred.draw / 100} />
                 </div>
                 <div className="justify-self-end">
-                  <BookmakerOddsRow seed={`${fixture.id}-1x2`} side="away" fairProb={pred.awayWin / 100} />
+                  <LiveOddsRow home={fixture.home_team} away={fixture.away_team} market="h2h" outcome={fixture.away_team}
+                    fallbackSeed={`${fixture.id}-1x2`} fallbackSide="away" fallbackFairProb={pred.awayWin / 100} />
                 </div>
               </div>
             </div>
