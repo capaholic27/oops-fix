@@ -107,15 +107,35 @@ const sizes = {
   lg: "w-12 h-12 text-xs",
 };
 
-import { getCountryInfo } from "@/lib/countries";
+import { getCountryInfo, flagUrl } from "@/lib/countries";
+
+const flagSizes = {
+  xs: "w-4 h-4",
+  sm: "w-6 h-6",
+  md: "w-8 h-8",
+  lg: "w-12 h-12",
+} as const;
 
 export const TeamLogo = ({ teamName, fotmobId, size = "sm", className }: Props) => {
-  // National teams: route to the Fotmob national-team CDN directly so they
-  // pop in instantly without a DB roundtrip or resolver call.
+  // National teams: render the modern country flag (not the federation crest,
+  // which is often outdated). Flagcdn is instant and deterministic.
   const country = getCountryInfo(teamName);
-  const countryUrl = country ? TEAM_LOGO(country.fotmobId) : null;
+  if (country) {
+    return (
+      <div className={cn("flex-shrink-0 rounded-full overflow-hidden border border-border bg-muted", flagSizes[size], className)}>
+        <img
+          src={flagUrl(country.iso2, size === "lg" ? 160 : 80)}
+          alt={teamName}
+          className="w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      </div>
+    );
+  }
 
-  const fromId = fotmobId ? TEAM_LOGO(fotmobId) : countryUrl;
+  const fromId = fotmobId ? TEAM_LOGO(fotmobId) : null;
   const initial =
     fromId ??
     memCache.get(teamName) ??
