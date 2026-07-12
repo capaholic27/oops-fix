@@ -19,8 +19,9 @@ const HISTORY: { code: string; seasons: (string | number)[] }[] = [
   { code: "WC",    seasons: [2022, 2018, 2014, 2010, 2006, 2002] },
   { code: "EURO",  seasons: [2024, 2020, 2016, 2012, 2008] },
   { code: "COPA",  seasons: [2024, 2021, 2019, 2016, 2015] },
-  { code: "AFCON", seasons: [2024, 2022, 2019, 2017] },
+  { code: "AFCON", seasons: ["2023-2024", 2024, "2021-2022", 2022, 2019, 2017] },
   { code: "CWC",   seasons: [2025, 2023, 2022, 2021] },
+  { code: "UNL",   seasons: ["2024-2025", "2022-2023", "2020-2021", "2018-2019"] },
 ];
 
 Deno.serve(async (req) => {
