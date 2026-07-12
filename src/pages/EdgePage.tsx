@@ -812,6 +812,39 @@ const BetBuilder = () => {
     }
   };
 
+  const [swapping, setSwapping] = useState<number | null>(null);
+  const swapLeg = async (index: number) => {
+    if (!result?.slip?.[index]) return;
+    setSwapping(index);
+    try {
+      const rejected = result.slip[index];
+      const { data, error } = await supabase.functions.invoke("build-bet", {
+        body: {
+          swapLeg: { match: rejected.match, market: rejected.market, pick: (rejected as any).pick },
+          existingLegs: result.slip.filter((_, i) => i !== index).map(l => ({ match: l.match, market: l.market })),
+          riskLevel: risk,
+          enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+          leagueFilter: leagueFilter || undefined,
+          targetDate: targetDate || rejected.matchDate || undefined,
+          maxLegs: 1,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const alt = (data?.slip?.[0]) as BetLeg | undefined;
+      if (!alt) { toast.error("No alternative found — try widening the date or leagues."); return; }
+      const newSlip = [...result.slip];
+      newSlip[index] = alt;
+      const newCombined = Number(newSlip.reduce((a, l) => a * (Number(l.odds) || 1), 1).toFixed(2));
+      setResult({ ...result, slip: newSlip, combinedOdds: newCombined });
+      toast.success("Leg swapped", { description: `${alt.market} @ ${alt.odds?.toFixed(2)}` });
+    } catch (e: any) {
+      toast.error(e.message || "Swap failed");
+    } finally {
+      setSwapping(null);
+    }
+  };
+
   // Check for help message: did AI suggest adding leagues?
   const needsHelp = result && result.advice && (
     result.advice.toLowerCase().includes("not enough") ||
