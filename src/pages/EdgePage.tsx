@@ -645,15 +645,33 @@ const QUICK_TEMPLATES = [
 ];
 
 /* ─── League list for filter ─── */
-const BET_LEAGUES = [
-  { code: "PL", name: "Premier League" },
-  { code: "BL1", name: "Bundesliga" },
-  { code: "SA", name: "Serie A" },
-  { code: "PD", name: "La Liga" },
-  { code: "FL1", name: "Ligue 1" },
-  { code: "DED", name: "Eredivisie" },
-  { code: "PPL", name: "Primeira Liga" },
-  { code: "ELC", name: "Championship" },
+const BET_LEAGUES: { code: string; name: string; group: "League" | "Tournament" }[] = [
+  // Top domestic leagues
+  { code: "PL",   name: "Premier League",       group: "League" },
+  { code: "PD",   name: "La Liga",              group: "League" },
+  { code: "BL1",  name: "Bundesliga",           group: "League" },
+  { code: "SA",   name: "Serie A",              group: "League" },
+  { code: "FL1",  name: "Ligue 1",              group: "League" },
+  { code: "DED",  name: "Eredivisie",           group: "League" },
+  { code: "PPL",  name: "Primeira Liga",        group: "League" },
+  { code: "ELC",  name: "Championship",         group: "League" },
+  { code: "SB",   name: "Serie B",              group: "League" },
+  { code: "TR",   name: "Süper Lig",            group: "League" },
+  { code: "SCO",  name: "Scottish Premiership", group: "League" },
+  { code: "SWE",  name: "Allsvenskan",          group: "League" },
+  { code: "MLS",  name: "Major League Soccer",  group: "League" },
+  { code: "AUS",  name: "A-League",             group: "League" },
+  // Continental club tournaments
+  { code: "UCL",  name: "UEFA Champions League", group: "Tournament" },
+  { code: "UEL",  name: "UEFA Europa League",    group: "Tournament" },
+  { code: "UECL", name: "UEFA Conference League",group: "Tournament" },
+  { code: "CWC",  name: "FIFA Club World Cup",   group: "Tournament" },
+  // National team tournaments
+  { code: "WC",   name: "World Cup",             group: "Tournament" },
+  { code: "EURO", name: "Euros",                 group: "Tournament" },
+  { code: "AFCON",name: "AFCON",                 group: "Tournament" },
+  { code: "COPA", name: "Copa America",          group: "Tournament" },
+  { code: "UNL",  name: "UEFA Nations League",   group: "Tournament" },
 ];
 
 /* ─── Build upcoming-date list (today + next 13 days) ─── */
