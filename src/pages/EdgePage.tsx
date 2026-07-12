@@ -1182,6 +1182,16 @@ const BetBuilder = () => {
                       </p>
                     </div>
                   )}
+                  <div className="pt-1 flex justify-end">
+                    <button
+                      onClick={() => swapLeg(i)}
+                      disabled={swapping !== null}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                    >
+                      {swapping === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Swap / find new
+                    </button>
+                  </div>
                 </div>
               );
             })}
