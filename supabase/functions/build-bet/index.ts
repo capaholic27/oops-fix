@@ -71,7 +71,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate, stakeAmount, desiredWinAmount } = await req.json();
+    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate, stakeAmount, desiredWinAmount, swapLeg, existingLegs } = await req.json();
+
+    // Swap-leg mode: produce ONE alternative leg for the same match+context.
+    const isSwap = !!swapLeg && typeof swapLeg === "object";
 
     // Resolve target odds: explicit, OR derived from stake + desired win.
     // Profit = stake × (odds - 1)  → odds = profit/stake + 1
@@ -84,7 +87,7 @@ serve(async (req) => {
       }
     }
 
-    if (!resolvedTargetOdds || !riskLevel) {
+    if (!isSwap && (!resolvedTargetOdds || !riskLevel)) {
       return new Response(JSON.stringify({ error: "Missing targetOdds (or stake+desiredWin) and riskLevel" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -233,6 +236,13 @@ serve(async (req) => {
       "Total Shots Over/Under (18.5, 20.5, 22.5)",
       "Total Shots on Target Over/Under (4.5, 5.5, 6.5, 7.5)",
       "Offsides Over/Under (3.5, 4.5)",
+      "Anytime Goalscorer (specific player to score)",
+      "First Goalscorer (specific player to score first)",
+      "Player to Assist (named player)",
+      "Player Shots on Target (named player over 0.5/1.5/2.5)",
+      "Player Total Shots (named player over 1.5/2.5/3.5)",
+      "Player Fouls Committed (named player over 0.5/1.5/2.5)",
+      "Player to be Carded (named player yellow/red)",
     ];
 
     const markets = enabledMarkets?.length
@@ -296,15 +306,27 @@ Output STRICT JSON:
       ? `\n\nTEAM CONTEXT (last-8 averages — cite these numbers in every "reason"):\n${[...teamContextById.entries()].map(([t, s]) => `- ${t}: ${s}`).join("\n")}`
       : "";
 
-    const userPrompt = `Build me a bet slip.
+    const swapBlock = isSwap ? `
+
+SWAP MODE: The user wants ONE alternative leg to replace this rejected pick:
+  - Rejected match: ${swapLeg.match ?? "(unknown)"}
+  - Rejected market: ${swapLeg.market ?? "(unknown)"}
+  - Rejected pick: ${swapLeg.pick ?? swapLeg.selection ?? ""}
+Return EXACTLY 1 leg. It MUST differ in market family from the rejected leg. Prefer a DIFFERENT match if possible; if the same match is used, pick a totally different market. Set combinedOdds equal to the single leg's odds.
+
+Existing legs already in slip (do NOT duplicate any of these matches OR markets):
+${Array.isArray(existingLegs) ? existingLegs.map((l: any, i: number) => `  ${i+1}. ${l.match} — ${l.market}`).join("\n") : "(none)"}
+` : "";
+
+    const userPrompt = `${isSwap ? "Suggest an alternative single leg." : "Build me a bet slip."}
 
 TODAY: ${TODAY_STR}
-TARGET ODDS: ${resolvedTargetOdds}${stakeAmount && desiredWinAmount ? ` (derived from stake $${stakeAmount} → win $${desiredWinAmount})` : ""}
-RISK LEVEL: ${riskLevel}
+${isSwap ? "" : `TARGET ODDS: ${resolvedTargetOdds}${stakeAmount && desiredWinAmount ? ` (derived from stake $${stakeAmount} → win $${desiredWinAmount})` : ""}`}
+RISK LEVEL: ${riskLevel ?? "medium"}
 ${effectiveDate ? `TARGET MATCH DATE: ${effectiveDate} (use ONLY matches from this date if any exist)` : `DATE WINDOW: ${TODAY_STR} to ${addDays(7)}`}
-${maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs.` : ""}
+${!isSwap && maxLegs ? `REQUIRED NUMBER OF LEGS: EXACTLY ${maxLegs} legs.` : ""}
 ${leagueFilter ? `LEAGUE FOCUS: ${leagueFilter}.` : ""}
-
+${swapBlock}
 ${haveFixtures
   ? `UPCOMING FIXTURES (use ONLY these, verbatim team names + exact date):\n${JSON.stringify(compactFixtures, null, 2)}`
   : "NO FIXTURE DATA AVAILABLE — return slip:[] with advice asking the user to wait for fixtures to refresh."}

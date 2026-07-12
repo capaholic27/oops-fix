@@ -102,9 +102,16 @@ const ALL_MARKETS = [
   { id: "shots", label: "Total Shots O/U", category: "Stats" },
   { id: "shots_on_target", label: "Shots on Target", category: "Stats" },
   { id: "offsides", label: "Offsides", category: "Stats" },
+  { id: "anytime_scorer", label: "Anytime Goalscorer", category: "Players" },
+  { id: "first_scorer", label: "First Goalscorer", category: "Players" },
+  { id: "player_assist", label: "Player to Assist", category: "Players" },
+  { id: "player_shots_on_target", label: "Player Shots on Target", category: "Players" },
+  { id: "player_shots", label: "Player Total Shots", category: "Players" },
+  { id: "player_fouls", label: "Player Fouls Committed", category: "Players" },
+  { id: "player_card", label: "Player to be Carded", category: "Players" },
 ] as const;
 
-const MARKET_CATEGORIES = ["Result", "Goals", "Team", "Stats"] as const;
+const MARKET_CATEGORIES = ["Result", "Goals", "Team", "Stats", "Players"] as const;
 
 /* ─── Confidence badge ─── */
 const ConfidenceBadge = ({ value }: { value: number }) => {
@@ -638,15 +645,33 @@ const QUICK_TEMPLATES = [
 ];
 
 /* ─── League list for filter ─── */
-const BET_LEAGUES = [
-  { code: "PL", name: "Premier League" },
-  { code: "BL1", name: "Bundesliga" },
-  { code: "SA", name: "Serie A" },
-  { code: "PD", name: "La Liga" },
-  { code: "FL1", name: "Ligue 1" },
-  { code: "DED", name: "Eredivisie" },
-  { code: "PPL", name: "Primeira Liga" },
-  { code: "ELC", name: "Championship" },
+const BET_LEAGUES: { code: string; name: string; group: "League" | "Tournament" }[] = [
+  // Top domestic leagues
+  { code: "PL",   name: "Premier League",       group: "League" },
+  { code: "PD",   name: "La Liga",              group: "League" },
+  { code: "BL1",  name: "Bundesliga",           group: "League" },
+  { code: "SA",   name: "Serie A",              group: "League" },
+  { code: "FL1",  name: "Ligue 1",              group: "League" },
+  { code: "DED",  name: "Eredivisie",           group: "League" },
+  { code: "PPL",  name: "Primeira Liga",        group: "League" },
+  { code: "ELC",  name: "Championship",         group: "League" },
+  { code: "SB",   name: "Serie B",              group: "League" },
+  { code: "TR",   name: "Süper Lig",            group: "League" },
+  { code: "SCO",  name: "Scottish Premiership", group: "League" },
+  { code: "SWE",  name: "Allsvenskan",          group: "League" },
+  { code: "MLS",  name: "Major League Soccer",  group: "League" },
+  { code: "AUS",  name: "A-League",             group: "League" },
+  // Continental club tournaments
+  { code: "UCL",  name: "UEFA Champions League", group: "Tournament" },
+  { code: "UEL",  name: "UEFA Europa League",    group: "Tournament" },
+  { code: "UECL", name: "UEFA Conference League",group: "Tournament" },
+  { code: "CWC",  name: "FIFA Club World Cup",   group: "Tournament" },
+  // National team tournaments
+  { code: "WC",   name: "World Cup",             group: "Tournament" },
+  { code: "EURO", name: "Euros",                 group: "Tournament" },
+  { code: "AFCON",name: "AFCON",                 group: "Tournament" },
+  { code: "COPA", name: "Copa America",          group: "Tournament" },
+  { code: "UNL",  name: "UEFA Nations League",   group: "Tournament" },
 ];
 
 /* ─── Build upcoming-date list (today + next 13 days) ─── */
@@ -784,6 +809,39 @@ const BetBuilder = () => {
       toast.error(e.message || "Failed to build bet");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const [swapping, setSwapping] = useState<number | null>(null);
+  const swapLeg = async (index: number) => {
+    if (!result?.slip?.[index]) return;
+    setSwapping(index);
+    try {
+      const rejected = result.slip[index];
+      const { data, error } = await supabase.functions.invoke("build-bet", {
+        body: {
+          swapLeg: { match: rejected.match, market: rejected.market, pick: (rejected as any).pick },
+          existingLegs: result.slip.filter((_, i) => i !== index).map(l => ({ match: l.match, market: l.market })),
+          riskLevel: risk,
+          enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+          leagueFilter: leagueFilter || undefined,
+          targetDate: targetDate || rejected.matchDate || undefined,
+          maxLegs: 1,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const alt = (data?.slip?.[0]) as BetLeg | undefined;
+      if (!alt) { toast.error("No alternative found — try widening the date or leagues."); return; }
+      const newSlip = [...result.slip];
+      newSlip[index] = alt;
+      const newCombined = Number(newSlip.reduce((a, l) => a * (Number(l.odds) || 1), 1).toFixed(2));
+      setResult({ ...result, slip: newSlip, combinedOdds: newCombined });
+      toast.success("Leg swapped", { description: `${alt.market} @ ${alt.odds?.toFixed(2)}` });
+    } catch (e: any) {
+      toast.error(e.message || "Swap failed");
+    } finally {
+      setSwapping(null);
     }
   };
 
@@ -930,10 +988,17 @@ const BetBuilder = () => {
             onChange={e => setLeagueFilter(e.target.value)}
             className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
-            <option value="">All Leagues</option>
-            {BET_LEAGUES.map(l => (
-              <option key={l.code} value={l.name}>{l.name}</option>
-            ))}
+            <option value="">All Leagues & Tournaments</option>
+            <optgroup label="Leagues">
+              {BET_LEAGUES.filter(l => l.group === "League").map(l => (
+                <option key={l.code} value={l.name}>{l.name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Tournaments">
+              {BET_LEAGUES.filter(l => l.group === "Tournament").map(l => (
+                <option key={l.code} value={l.name}>{l.name}</option>
+              ))}
+            </optgroup>
           </select>
           {leagueFilter && (
             <p className="text-[9px] text-muted-foreground">
@@ -1117,6 +1182,16 @@ const BetBuilder = () => {
                       </p>
                     </div>
                   )}
+                  <div className="pt-1 flex justify-end">
+                    <button
+                      onClick={() => swapLeg(i)}
+                      disabled={swapping !== null}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                    >
+                      {swapping === i ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Swap / find new
+                    </button>
+                  </div>
                 </div>
               );
             })}
