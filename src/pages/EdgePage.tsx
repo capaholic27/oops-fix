@@ -955,10 +955,17 @@ const BetBuilder = () => {
             onChange={e => setLeagueFilter(e.target.value)}
             className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
           >
-            <option value="">All Leagues</option>
-            {BET_LEAGUES.map(l => (
-              <option key={l.code} value={l.name}>{l.name}</option>
-            ))}
+            <option value="">All Leagues & Tournaments</option>
+            <optgroup label="Leagues">
+              {BET_LEAGUES.filter(l => l.group === "League").map(l => (
+                <option key={l.code} value={l.name}>{l.name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Tournaments">
+              {BET_LEAGUES.filter(l => l.group === "Tournament").map(l => (
+                <option key={l.code} value={l.name}>{l.name}</option>
+              ))}
+            </optgroup>
           </select>
           {leagueFilter && (
             <p className="text-[9px] text-muted-foreground">
