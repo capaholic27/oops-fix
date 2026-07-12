@@ -71,7 +71,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate, stakeAmount, desiredWinAmount } = await req.json();
+    const { targetOdds, riskLevel, enabledMarkets, leagueFilter, maxLegs, targetDate, stakeAmount, desiredWinAmount, swapLeg, existingLegs } = await req.json();
+
+    // Swap-leg mode: produce ONE alternative leg for the same match+context.
+    const isSwap = !!swapLeg && typeof swapLeg === "object";
 
     // Resolve target odds: explicit, OR derived from stake + desired win.
     // Profit = stake × (odds - 1)  → odds = profit/stake + 1
@@ -84,7 +87,7 @@ serve(async (req) => {
       }
     }
 
-    if (!resolvedTargetOdds || !riskLevel) {
+    if (!isSwap && (!resolvedTargetOdds || !riskLevel)) {
       return new Response(JSON.stringify({ error: "Missing targetOdds (or stake+desiredWin) and riskLevel" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
