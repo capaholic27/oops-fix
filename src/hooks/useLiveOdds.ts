@@ -39,29 +39,17 @@ export function useLiveOdds(home: string | undefined | null, away: string | unde
 
     const p = (async (): Promise<LiveOddsResult> => {
       try {
-        const { data, error } = await supabase.functions.invoke("fetch-odds", {
-          body: null,
-          method: "GET",
-          // Supabase JS ignores body on GET; use query via URL trick:
-          // We can't set query directly, so use the direct URL instead:
-        } as any);
-        if (error || !data) throw error ?? new Error("no data");
-        return { found: !!data.found, bookmakers: data.bookmakers ?? [] };
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-odds?home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}`;
+        const res = await fetch(url, {
+          headers: {
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string}`,
+          },
+        });
+        const json = await res.json();
+        return { found: !!json.found, bookmakers: json.bookmakers ?? [] };
       } catch {
-        // Fall back to direct fetch with query params.
-        try {
-          const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-odds?home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}`;
-          const res = await fetch(url, {
-            headers: {
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string}`,
-            },
-          });
-          const json = await res.json();
-          return { found: !!json.found, bookmakers: json.bookmakers ?? [] };
-        } catch {
-          return { found: false, bookmakers: [] };
-        }
+        return { found: false, bookmakers: [] };
       }
     })();
 
