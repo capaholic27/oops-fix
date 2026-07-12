@@ -233,6 +233,13 @@ serve(async (req) => {
       "Total Shots Over/Under (18.5, 20.5, 22.5)",
       "Total Shots on Target Over/Under (4.5, 5.5, 6.5, 7.5)",
       "Offsides Over/Under (3.5, 4.5)",
+      "Anytime Goalscorer (specific player to score)",
+      "First Goalscorer (specific player to score first)",
+      "Player to Assist (named player)",
+      "Player Shots on Target (named player over 0.5/1.5/2.5)",
+      "Player Total Shots (named player over 1.5/2.5/3.5)",
+      "Player Fouls Committed (named player over 0.5/1.5/2.5)",
+      "Player to be Carded (named player yellow/red)",
     ];
 
     const markets = enabledMarkets?.length
