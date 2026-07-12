@@ -102,9 +102,16 @@ const ALL_MARKETS = [
   { id: "shots", label: "Total Shots O/U", category: "Stats" },
   { id: "shots_on_target", label: "Shots on Target", category: "Stats" },
   { id: "offsides", label: "Offsides", category: "Stats" },
+  { id: "anytime_scorer", label: "Anytime Goalscorer", category: "Players" },
+  { id: "first_scorer", label: "First Goalscorer", category: "Players" },
+  { id: "player_assist", label: "Player to Assist", category: "Players" },
+  { id: "player_shots_on_target", label: "Player Shots on Target", category: "Players" },
+  { id: "player_shots", label: "Player Total Shots", category: "Players" },
+  { id: "player_fouls", label: "Player Fouls Committed", category: "Players" },
+  { id: "player_card", label: "Player to be Carded", category: "Players" },
 ] as const;
 
-const MARKET_CATEGORIES = ["Result", "Goals", "Team", "Stats"] as const;
+const MARKET_CATEGORIES = ["Result", "Goals", "Team", "Stats", "Players"] as const;
 
 /* ─── Confidence badge ─── */
 const ConfidenceBadge = ({ value }: { value: number }) => {
