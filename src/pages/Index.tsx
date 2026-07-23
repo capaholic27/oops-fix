@@ -13,6 +13,7 @@ import TeamPage from "@/pages/TeamPage";
 import EdgePage from "@/pages/EdgePage";
 import ProfilePage from "@/pages/ProfilePage";
 import { AdBanner } from "@/components/AdBanner";
+import { HelpSheet } from "@/components/HelpSheet";
 
 const PAGES = [
   { id: "upcoming", label: "Games", icon: CalendarDays },
