@@ -13,6 +13,7 @@ import TeamPage from "@/pages/TeamPage";
 import EdgePage from "@/pages/EdgePage";
 import ProfilePage from "@/pages/ProfilePage";
 import { AdBanner } from "@/components/AdBanner";
+import { HelpSheet } from "@/components/HelpSheet";
 
 const PAGES = [
   { id: "upcoming", label: "Games", icon: CalendarDays },
@@ -81,14 +82,17 @@ const Index = () => {
               <p className="text-[10px] text-muted-foreground font-medium mt-0.5">2025/26 Season</p>
             </div>
           </div>
-          <button
-            onClick={handleSync}
-            disabled={syncData.isPending}
-            className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors"
-          >
-            <RefreshCw className={cn("w-3.5 h-3.5", syncData.isPending && "animate-spin")} />
-            {syncData.isPending ? "…" : "Sync"}
-          </button>
+          <div className="flex items-center gap-2">
+            <HelpSheet activeIdx={activePage} />
+            <button
+              onClick={handleSync}
+              disabled={syncData.isPending}
+              className="flex items-center gap-1.5 px-3 h-8 text-xs font-medium rounded-lg bg-secondary hover:bg-secondary/80 text-secondary-foreground transition-colors"
+            >
+              <RefreshCw className={cn("w-3.5 h-3.5", syncData.isPending && "animate-spin")} />
+              {syncData.isPending ? "…" : "Sync"}
+            </button>
+          </div>
         </div>
       </header>
 
