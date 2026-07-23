@@ -96,7 +96,7 @@ const Index = () => {
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 relative overflow-hidden overflow-y-auto">
           <div className={cn("w-full h-full", 0 !== activePage && "hidden")}>
-            <UpcomingGamesPage key={resetKeys[0]} />
+            <UpcomingGamesPage key={resetKeys[0]} isActive={activePage === 0} />
           </div>
           <div className={cn("w-full h-full", 1 !== activePage && "hidden")}>
             <PremiumPage key={resetKeys[1]} />

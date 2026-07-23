@@ -103,7 +103,11 @@ const LeagueGroup = ({ league, children }: { league: string; children: React.Rea
   </div>
 );
 
-const UpcomingGamesPage = () => {
+type UpcomingGamesPageProps = {
+  isActive?: boolean;
+};
+
+const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   const { data: allMatches = [], isLoading } = useMatches();
   const { data: fixtures = [] } = useFixtures();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -176,7 +180,7 @@ const UpcomingGamesPage = () => {
   // is the first/last real date in the list.
   useLayoutEffect(() => {
     const container = scrollRef.current;
-    if (!container || days.length === 0) return;
+    if (!isActive || !container || days.length === 0) return;
     const center = () => {
       const el = container.children[activeIdx] as HTMLElement | undefined;
       if (!el) return;
@@ -197,7 +201,7 @@ const UpcomingGamesPage = () => {
       if ((center as any)._r2) cancelAnimationFrame((center as any)._r2);
       clearTimeout(t);
     };
-  }, [activeIdx, days.length, selectedIdx, isLoading]);
+  }, [activeIdx, days.length, selectedIdx, isLoading, isActive]);
 
   const currentDay = days[activeIdx];
 
