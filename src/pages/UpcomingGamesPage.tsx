@@ -103,7 +103,11 @@ const LeagueGroup = ({ league, children }: { league: string; children: React.Rea
   </div>
 );
 
-const UpcomingGamesPage = () => {
+type UpcomingGamesPageProps = {
+  isActive?: boolean;
+};
+
+const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   const { data: allMatches = [], isLoading } = useMatches();
   const { data: fixtures = [] } = useFixtures();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -171,12 +175,12 @@ const UpcomingGamesPage = () => {
     setSelectedIdx(null);
   }, [todayIndex]);
 
-  // Center the date bar on "Today" — needs to wait until children are laid
-  // out, so we use a double rAF + a fallback timeout. Re-runs when the data
-  // arrives (days.length changes) and when the user picks another date.
+  // Center the active date. The scroll container has side padding equal to half
+  // the viewport minus half a date chip, so Today can still center even when it
+  // is the first/last real date in the list.
   useLayoutEffect(() => {
     const container = scrollRef.current;
-    if (!container || days.length === 0) return;
+    if (!isActive || !container || days.length === 0) return;
     const center = () => {
       const el = container.children[activeIdx] as HTMLElement | undefined;
       if (!el) return;
@@ -197,7 +201,7 @@ const UpcomingGamesPage = () => {
       if ((center as any)._r2) cancelAnimationFrame((center as any)._r2);
       clearTimeout(t);
     };
-  }, [activeIdx, days.length, selectedIdx, isLoading]);
+  }, [activeIdx, days.length, selectedIdx, isLoading, isActive]);
 
   const currentDay = days[activeIdx];
 
@@ -230,7 +234,11 @@ const UpcomingGamesPage = () => {
         <div
           ref={scrollRef}
           className="flex overflow-x-auto gap-0"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          style={{
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+            paddingInline: "calc(50% - 39px)",
+          }}
         >
           {days.map((day, i) => {
             const isToday = day.date === today;
