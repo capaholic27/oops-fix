@@ -289,7 +289,7 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
                       className="absolute rounded-xl ring-2 ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-500 ease-out animate-in fade-in-0 zoom-in-95"
                     >
                       {/* Pulsing outer ring */}
-                      <span className="absolute inset-0 rounded-xl ring-2 ring-primary/70 animate-ping" />
+                      <span className="absolute inset-0 rounded-xl ring-2 ring-primary/70 animate-ping pointer-events-none" />
                       {/* Numbered pin */}
                       <span
                         className={cn(
