@@ -258,10 +258,12 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="p-1.5 rounded-md hover:bg-muted"
+                  onTouchEnd={(e) => { e.preventDefault(); setOpen(false); }}
+                  className="p-2.5 -mr-1 rounded-md hover:bg-muted active:bg-muted touch-manipulation"
                   aria-label="Close"
+                  type="button"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
