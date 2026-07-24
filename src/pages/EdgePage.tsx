@@ -226,12 +226,10 @@ const EdgeLockedTease = () => {
   ];
 
   const features = [
-    { icon: <Star className="w-4 h-4" />, title: "AI Best Picks", desc: "Daily curated picks with confidence scores and reasoning." },
-    { icon: <Brain className="w-4 h-4" />, title: "AI Bet Builder", desc: "Enter your target odds and risk — AI builds the optimal parlay." },
-    { icon: <Eye className="w-4 h-4" />, title: "Value Alerts", desc: "Instantly spot when odds are mispriced by the market." },
-    { icon: <Gem className="w-4 h-4" />, title: "Undervalued Odds", desc: "Model-backed opportunities the market is sleeping on." },
-    { icon: <Percent className="w-4 h-4" />, title: "Market Probabilities", desc: "See true probabilities across 16+ betting markets." },
-    { icon: <Activity className="w-4 h-4" />, title: "Risk Profiling", desc: "Choose low, medium, or high risk bet construction." },
+    { icon: <Star className="w-4 h-4" />, title: "Daily best picks", desc: "AI-curated with confidence and edge." },
+    { icon: <Brain className="w-4 h-4" />, title: "Smart bet builder", desc: "Set risk, get an optimal parlay." },
+    { icon: <Eye className="w-4 h-4" />, title: "Value alerts", desc: "Spot mispriced odds instantly." },
+    { icon: <Wallet className="w-4 h-4" />, title: "Bankroll tools", desc: "Kelly staking with daily caps." },
   ];
 
   const blurMask =
