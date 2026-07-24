@@ -238,10 +238,14 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
           <div
             className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-150"
             onClick={() => setOpen(false)}
+            onTouchEnd={(e) => {
+              if (e.target === e.currentTarget) { e.preventDefault(); setOpen(false); }
+            }}
           >
             <div
               className="w-full max-w-lg max-h-[92vh] bg-card border-t-2 border-foreground overflow-hidden animate-in slide-in-from-bottom-4 duration-200 rounded-t-2xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="shrink-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
