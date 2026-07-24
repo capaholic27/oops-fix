@@ -194,13 +194,16 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
     };
   }, [open, playing, stepIdx, guide.steps.length]);
 
-  // Lock body scroll
+  // Lock body scroll + Escape to close
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
@@ -235,10 +238,14 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
           <div
             className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-150"
             onClick={() => setOpen(false)}
+            onTouchEnd={(e) => {
+              if (e.target === e.currentTarget) { e.preventDefault(); setOpen(false); }
+            }}
           >
             <div
               className="w-full max-w-lg max-h-[92vh] bg-card border-t-2 border-foreground overflow-hidden animate-in slide-in-from-bottom-4 duration-200 rounded-t-2xl flex flex-col"
               onClick={(e) => e.stopPropagation()}
+              onTouchEnd={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="shrink-0 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
@@ -255,10 +262,12 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="p-1.5 rounded-md hover:bg-muted"
+                  onTouchEnd={(e) => { e.preventDefault(); setOpen(false); }}
+                  className="p-2.5 -mr-1 rounded-md hover:bg-muted active:bg-muted touch-manipulation"
                   aria-label="Close"
+                  type="button"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
@@ -284,7 +293,7 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
                       className="absolute rounded-xl ring-2 ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-500 ease-out animate-in fade-in-0 zoom-in-95"
                     >
                       {/* Pulsing outer ring */}
-                      <span className="absolute inset-0 rounded-xl ring-2 ring-primary/70 animate-ping" />
+                      <span className="absolute inset-0 rounded-xl ring-2 ring-primary/70 animate-ping pointer-events-none" />
                       {/* Numbered pin */}
                       <span
                         className={cn(
