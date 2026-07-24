@@ -178,7 +178,7 @@ export const BankrollManager = () => {
       <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
         <div>
           <p className="text-sm font-bold">Risk profile</p>
-          <p className="text-[10px] text-muted-foreground">Pick one — we handle the math.</p>
+          <p className="text-[10px] text-muted-foreground">Pick one. We do the math.</p>
         </div>
         <div className="grid grid-cols-3 gap-2">
           {(Object.keys(PROFILES) as RiskProfile[]).map((key) => {
