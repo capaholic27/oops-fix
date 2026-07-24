@@ -194,13 +194,16 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
     };
   }, [open, playing, stepIdx, guide.steps.length]);
 
-  // Lock body scroll
+  // Lock body scroll + Escape to close
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
