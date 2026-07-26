@@ -182,37 +182,115 @@ const DatePill = ({ date }: { date?: string }) => {
   );
 };
 
-/* ─── Pick Card ─── */
-const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => (
-  <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-3.5 space-y-2 hover:border-primary/30 transition-colors">
-    <div className="flex items-start justify-between gap-2">
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-foreground truncate">{pick.match}</p>
-        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-          <DatePill date={pick.matchDate} />
-          <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md", accent)}>
-            {pick.market}
-          </span>
-          <ConfidenceBadge value={pick.confidence} />
+/* ─── Pick Card (minimal, clickable) ─── */
+const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => {
+  const [open, setOpen] = useState(false);
+  const { home, away } = parseMatch(pick.match);
+  const liveParams = marketToLiveParams(pick, home, away);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full text-left rounded-xl border border-border bg-card/60 backdrop-blur-sm p-3 hover:border-primary/40 hover:bg-card/80 transition-all active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-foreground truncate">{pick.match}</p>
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <DatePill date={pick.matchDate} />
+              <span className={cn("text-[10px] font-semibold px-1.5 py-0.5 rounded-md", accent)}>
+                {pick.market}
+              </span>
+              <ConfidenceBadge value={pick.confidence} />
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold leading-none">Pick</p>
+            <p className="text-sm font-black text-primary leading-tight mt-0.5 truncate max-w-[110px]">{pick.prediction}</p>
+          </div>
+          <MousePointerClick className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         </div>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-sm font-black text-primary">{pick.prediction}</p>
-      </div>
-    </div>
-    <p className="text-[11px] text-muted-foreground leading-relaxed">{pick.reasoning}</p>
-    {pick.edge && (
-      <div className="flex items-center gap-1 text-[10px] text-primary font-medium">
-        <TrendingUp className="w-3 h-3" />
-        <span>{pick.edge}</span>
-      </div>
-    )}
-    <BookmakerOddsRow
-      seed={`${pick.match}-${pick.market}-${pick.prediction}`}
-      fairProb={pick.confidence / 100}
-    />
-  </div>
-);
+      </button>
+
+      {open && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm animate-in fade-in-0 duration-150"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-md max-h-[85vh] bg-card border-t border-border rounded-t-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shrink-0 border-b border-border px-4 py-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none">Edge Pick</p>
+                <p className="text-sm font-bold leading-tight mt-0.5 truncate">{pick.match}</p>
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                className="p-2.5 -mr-1 rounded-md hover:bg-muted"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <DatePill date={pick.matchDate} />
+                <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-md", accent)}>{pick.market}</span>
+                <ConfidenceBadge value={pick.confidence} />
+              </div>
+
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Recommended</p>
+                <p className="text-xl font-black text-primary leading-tight">{pick.prediction}</p>
+                {pick.edge && (
+                  <div className="flex items-center gap-1 mt-2 text-[11px] text-primary font-semibold">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>{pick.edge}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Why</p>
+                <p className="text-xs text-foreground/90 leading-relaxed">{pick.reasoning}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Live odds</p>
+                {home && away && liveParams ? (
+                  <LiveOddsRow
+                    home={home}
+                    away={away}
+                    market={liveParams.market}
+                    outcome={liveParams.outcome}
+                    point={liveParams.point}
+                    fallbackFairProb={pick.confidence / 100}
+                    fallbackSeed={`${pick.match}-${pick.market}-${pick.prediction}`}
+                    fallbackSide={liveParams.side}
+                  />
+                ) : (
+                  <BookmakerOddsRow
+                    seed={`${pick.match}-${pick.market}-${pick.prediction}`}
+                    fairProb={pick.confidence / 100}
+                  />
+                )}
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Real-time when available, otherwise model-derived signal.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+};
 
 /* ─── Value Alert Card ─── */
 const ValueAlertCard = ({ alert }: { alert: ValueAlert }) => (
