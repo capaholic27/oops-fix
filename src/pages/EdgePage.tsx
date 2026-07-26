@@ -12,6 +12,42 @@ import { toast } from "sonner";
 import { settleSlip, type SettleableLeg } from "@/lib/betSettlement";
 import { BankrollManager } from "@/components/BankrollManager";
 import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
+import { LiveOddsRow } from "@/components/LiveOddsRow";
+import { createPortal } from "react-dom";
+import { X, MousePointerClick } from "lucide-react";
+
+/** Parse "Home vs Away" (or "Home - Away") into team names. */
+function parseMatch(match: string): { home?: string; away?: string } {
+  const m = match.match(/^(.+?)\s+(?:vs\.?|v\.?|-|–)\s+(.+)$/i);
+  if (!m) return {};
+  return { home: m[1].trim(), away: m[2].trim() };
+}
+
+/** Best-effort map from AI market/prediction text → live-odds params. */
+function marketToLiveParams(
+  pick: { market: string; prediction: string },
+  home?: string,
+  away?: string,
+): { market: "h2h" | "totals" | "btts"; outcome: string; point?: number; side: "home" | "draw" | "away" | "generic" } | null {
+  const m = (pick.market || "").toLowerCase();
+  const p = (pick.prediction || "").trim();
+  const pl = p.toLowerCase();
+  // BTTS
+  if (m.includes("btts") || pl.includes("btts") || /both teams to score/.test(m) || /both teams to score/.test(pl)) {
+    const yes = /yes|both/.test(pl);
+    return { market: "btts", outcome: yes ? "Yes" : "No", side: "generic" };
+  }
+  // Totals
+  const totals = pl.match(/(over|under)\s*(\d+(?:\.\d+)?)/i) || m.match(/(over|under)\s*(\d+(?:\.\d+)?)/i);
+  if (totals) {
+    return { market: "totals", outcome: totals[1].charAt(0).toUpperCase() + totals[1].slice(1).toLowerCase(), point: parseFloat(totals[2]), side: "generic" };
+  }
+  // 1X2 / Result
+  if (/draw/i.test(p)) return { market: "h2h", outcome: "Draw", side: "draw" };
+  if (home && new RegExp(home.split(/\s+/)[0], "i").test(p)) return { market: "h2h", outcome: home, side: "home" };
+  if (away && new RegExp(away.split(/\s+/)[0], "i").test(p)) return { market: "h2h", outcome: away, side: "away" };
+  return null;
+}
 
 const PREMIUM_UNLOCKED_KEY = "fe_premium_unlocked";
 function isEdgeUnlocked(): boolean {
