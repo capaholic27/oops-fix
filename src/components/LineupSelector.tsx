@@ -95,7 +95,7 @@ export const LineupSelector = ({ team, unavailable, onChange, onSquad }: Props) 
                   out ? "bg-stat-negative/5 opacity-60" : "hover:bg-muted/40",
                 )}
               >
-                <PlayerAvatar name={p.name} photo={p.photo} size="xs" />
+                <PlayerAvatar name={p.name} photoUrl={p.photo} number={p.number} size="xs" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-semibold truncate">{p.name}</p>
                   <p className="text-[9px] text-muted-foreground truncate">
