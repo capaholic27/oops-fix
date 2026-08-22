@@ -26,7 +26,11 @@ import { TeamSwitcher } from "@/components/TeamSwitcher";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { getSyntheticSquad } from "@/lib/playerNames";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useTeamPlayers } from "@/hooks/useTeamPlayers";
+import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
+import { LineupSelector } from "@/components/LineupSelector";
+import { PlayerPropsPanel } from "@/components/PlayerPropsPanel";
+import { PredictionGuide } from "@/components/PredictionGuide";
+import { computeLineupImpact, type PredictionMode } from "@/lib/playerProps";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
