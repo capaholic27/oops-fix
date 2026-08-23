@@ -290,3 +290,47 @@ export function evaluateMatchup(
     prediction,
   };
 }
+
+/* ─── Recency window ───────────────────────────────────────────────
+ * The `matches` table holds several seasons of history (plus tournament
+ * archives going back to 2002). "Current form" must never be filled with
+ * rows from old seasons, so every form/prediction consumer slices through
+ * this window first.
+ */
+
+/** Days of history that still count as "current" (current season + tail of the last one). */
+export const RECENT_WINDOW_DAYS = 400;
+
+/** ISO date (YYYY-MM-DD) of the start of the recency window. */
+export function recentWindowStart(days = RECENT_WINDOW_DAYS): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Keep only matches inside the recency window. Falls back to the most recent
+ * `minKeep` rows when a team (e.g. a national side between tournaments) has
+ * nothing inside the window, so pages never go blank.
+ */
+export function filterRecentMatches<T extends { match_date: string }>(
+  rows: T[],
+  minKeep = 5,
+  days = RECENT_WINDOW_DAYS,
+): T[] {
+  const floor = recentWindowStart(days);
+  const today = new Date().toISOString().slice(0, 10);
+  const inWindow = rows.filter((r) => r.match_date >= floor && r.match_date <= today);
+  if (inWindow.length >= 3) return inWindow;
+  const sorted = [...rows].sort((a, b) => a.match_date.localeCompare(b.match_date));
+  return sorted.slice(-minKeep);
+}
+
+/** Same as filterRecentMatches but for already-mapped team views. */
+export function filterRecentViews(views: TeamMatchView[], minKeep = 5): TeamMatchView[] {
+  const floor = recentWindowStart();
+  const today = new Date().toISOString().slice(0, 10);
+  const inWindow = views.filter((v) => v.match.match_date >= floor && v.match.match_date <= today);
+  if (inWindow.length >= 3) return inWindow;
+  return views.slice(-minKeep);
+}
