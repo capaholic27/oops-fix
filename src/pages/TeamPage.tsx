@@ -6,6 +6,7 @@ import {
   aggregateStats,
   getUniqueTeams,
   getUniqueLeagues,
+  filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
 import { isTournamentLeague, normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
@@ -30,7 +31,7 @@ import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
 import { LineupSelector } from "@/components/LineupSelector";
 import { PlayerPropsPanel } from "@/components/PlayerPropsPanel";
 import { PredictionGuide } from "@/components/PredictionGuide";
-import { computeLineupImpact, type PredictionMode } from "@/lib/playerProps";
+import { computeLineupImpact, computePlayerProps, type PredictionMode } from "@/lib/playerProps";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
