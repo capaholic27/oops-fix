@@ -1012,6 +1012,11 @@ export const PredictionDialog = ({
     setOpponentSearch("");
     setMatchContext("");
     setShowAI(false);
+    setMode("full");
+    setSquadA([]);
+    setSquadB([]);
+    setOutA(new Set());
+    setOutB(new Set());
   };
 
   const handleRunPredict = useCallback(async () => {
@@ -1024,6 +1029,18 @@ export const PredictionDialog = ({
         body.upcomingOpponent = selectedTeamB;
         body.opponentStats = statsB;
         body.opponentForm = statsB.formLast5;
+      }
+      body.predictionMode = mode;
+      const lineupLines = [
+        ...impactA.notes.map((n) => `${selectedTeamA}: ${n}`),
+        ...impactB.notes.map((n) => `${selectedTeamB}: ${n}`),
+      ];
+      if (lineupLines.length > 0) body.unavailablePlayers = lineupLines;
+      if (mode !== "full" && dcResult) {
+        body.playerMarkets = {
+          home: computePlayerProps(squadA, selectedTeamA, dcResult.lambdaHome, outA).slice(0, 6),
+          away: computePlayerProps(squadB, selectedTeamB, dcResult.lambdaAway, outB).slice(0, 6),
+        };
       }
       if (matchContext.trim()) {
         body.matchContext = matchContext.trim();
@@ -1044,7 +1061,7 @@ export const PredictionDialog = ({
     } finally {
       setPredicting(false);
     }
-  }, [selectedTeamA, statsA, selectedTeamB, statsB]);
+  }, [selectedTeamA, statsA, selectedTeamB, statsB, matchContext, mode, impactA, impactB, dcResult, squadA, squadB, outA, outB]);
 
   const ComparisonRow = ({ label, a, b, better }: { label: string; a: string; b: string; better: "a" | "b" | "none" }) => (
     <div className="flex items-center py-2 px-3">
