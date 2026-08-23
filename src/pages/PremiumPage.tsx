@@ -22,6 +22,7 @@ import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
 import {
   getTeamMatchView, aggregateStats, getUniqueTeams, getUniqueLeagues,
   type TeamMatchView, type AggregatedStats,
+  filterRecentViews,
 } from "@/lib/matchStats";
 import { computeMentality, normalizeTeamName, isTournamentLeague } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
