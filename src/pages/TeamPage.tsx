@@ -1164,6 +1164,56 @@ export const PredictionDialog = ({
             </div>
           )}
 
+          {/* How it works */}
+          {!showAI && <PredictionGuide />}
+
+          {/* Prediction type */}
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <div>
+              <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Prediction type</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: "full" as PredictionMode, label: "Full match", hint: "1X2 · O/U · BTTS" },
+                  { key: "players" as PredictionMode, label: "Player markets", hint: "Scorers · cards" },
+                  { key: "both" as PredictionMode, label: "Both", hint: "Everything" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setMode(opt.key)}
+                    className={cn(
+                      "rounded-xl border px-2 py-2 text-left transition-colors",
+                      mode === opt.key ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-muted"
+                    )}
+                  >
+                    <p className={cn("text-[11px] font-semibold leading-tight", mode === opt.key && "text-primary")}>{opt.label}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{opt.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Player availability */}
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground font-medium block">
+                Player availability <span className="text-[10px]">— injuries and suspensions are pre-selected</span>
+              </label>
+              <LineupSelector team={selectedTeamA} unavailable={outA} onChange={setOutA} onSquad={setSquadA} />
+              <LineupSelector team={selectedTeamB} unavailable={outB} onChange={setOutB} onSquad={setSquadB} />
+              {(impactA.notes.length > 0 || impactB.notes.length > 0) && (
+                <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 space-y-1">
+                  {impactA.notes.map((n, i) => (
+                    <p key={`a${i}`} className="text-[10px] text-muted-foreground">{selectedTeamA}: {n}</p>
+                  ))}
+                  {impactB.notes.map((n, i) => (
+                    <p key={`b${i}`} className="text-[10px] text-muted-foreground">{selectedTeamB}: {n}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Match context input */}
           {selectedTeamA && selectedTeamB && !showAI && (
             <div>
