@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useFixtures, useMatches, type Fixture } from "@/hooks/useMatches";
-import { getTeamMatchView } from "@/lib/matchStats";
+import { getTeamMatchView, filterRecentViews } from "@/lib/matchStats";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { aggregateStats, type TeamMatchView } from "@/lib/matchStats";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -30,16 +30,18 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
   const leagueAvg = useMemo(() => computeLeagueAvgGoals(allMatches), [allMatches]);
 
   const getQuickPrediction = (fixture: Fixture) => {
-    const homeViews = allMatches
-      .filter((m) => m.home_team === fixture.home_team || m.away_team === fixture.home_team)
-      .map((m) => getTeamMatchView(m, fixture.home_team))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-10);
-    const awayViews = allMatches
-      .filter((m) => m.home_team === fixture.away_team || m.away_team === fixture.away_team)
-      .map((m) => getTeamMatchView(m, fixture.away_team))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-10);
+    const homeViews = filterRecentViews(
+      allMatches
+        .filter((m) => m.home_team === fixture.home_team || m.away_team === fixture.home_team)
+        .map((m) => getTeamMatchView(m, fixture.home_team))
+        .filter((v): v is TeamMatchView => v !== null)
+    ).slice(-10);
+    const awayViews = filterRecentViews(
+      allMatches
+        .filter((m) => m.home_team === fixture.away_team || m.away_team === fixture.away_team)
+        .map((m) => getTeamMatchView(m, fixture.away_team))
+        .filter((v): v is TeamMatchView => v !== null)
+    ).slice(-10);
 
     if (homeViews.length < 3 || awayViews.length < 3) return null;
 

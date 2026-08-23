@@ -6,6 +6,7 @@ import {
   aggregateStats,
   getUniqueTeams,
   getUniqueLeagues,
+  filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
 import { isTournamentLeague, normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
@@ -30,7 +31,7 @@ import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
 import { LineupSelector } from "@/components/LineupSelector";
 import { PlayerPropsPanel } from "@/components/PlayerPropsPanel";
 import { PredictionGuide } from "@/components/PredictionGuide";
-import { computeLineupImpact, type PredictionMode } from "@/lib/playerProps";
+import { computeLineupImpact, computePlayerProps, type PredictionMode } from "@/lib/playerProps";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
@@ -728,18 +729,21 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
 
   const nextOpponentStats = useMemo(() => {
     if (!nextOpponentName) return null;
-    const oppViews = allMatches
-      .map((m) => getTeamMatchView(m, nextOpponentName))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-pastN);
+    const oppViews = filterRecentViews(
+      allMatches
+        .map((m) => getTeamMatchView(m, nextOpponentName))
+        .filter((v): v is TeamMatchView => v !== null)
+    ).slice(-pastN);
     return oppViews.length > 0 ? aggregateStats(oppViews) : null;
   }, [nextOpponentName, allMatches, pastN]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
-    return teamMatches
-      .map((m) => getTeamMatchView(m, selectedTeam))
-      .filter((v): v is TeamMatchView => v !== null);
+    return filterRecentViews(
+      teamMatches
+        .map((m) => getTeamMatchView(m, selectedTeam))
+        .filter((v): v is TeamMatchView => v !== null)
+    );
   }, [teamMatches, selectedTeam]);
 
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
@@ -936,6 +940,11 @@ export const PredictionDialog = ({
   const [opponentSearch, setOpponentSearch] = useState("");
   const [showAI, setShowAI] = useState(false);
   const [matchContext, setMatchContext] = useState("");
+  const [mode, setMode] = useState<PredictionMode>("full");
+  const [squadA, setSquadA] = useState<RealPlayer[]>([]);
+  const [squadB, setSquadB] = useState<RealPlayer[]>([]);
+  const [outA, setOutA] = useState<Set<string>>(new Set());
+  const [outB, setOutB] = useState<Set<string>>(new Set());
   const pastN = 10;
 
   const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
@@ -943,11 +952,12 @@ export const PredictionDialog = ({
   const getTeamStats = useCallback(
     (teamName: string) => {
       if (!teamName) return null;
-      const views = allMatches
-        .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
-        .map((m: any) => getTeamMatchView(m, teamName))
-        .filter((v: any): v is TeamMatchView => v !== null)
-        .slice(-pastN);
+      const views = filterRecentViews(
+        allMatches
+          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .map((m: any) => getTeamMatchView(m, teamName))
+          .filter((v: any): v is TeamMatchView => v !== null)
+      ).slice(-pastN);
       return views.length > 0 ? aggregateStats(views) : null;
     },
     [allMatches, pastN]
@@ -956,24 +966,44 @@ export const PredictionDialog = ({
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
   const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
 
+  const impactA = useMemo(() => computeLineupImpact(squadA, outA), [squadA, outA]);
+  const impactB = useMemo(() => computeLineupImpact(squadB, outB), [squadB, outB]);
+
   const dcResult = useMemo<PredictionResult | null>(() => {
     if (!statsA || !statsB || !selectedTeamA || !selectedTeamB) return null;
     const leagueAvg = computeLeagueAvgGoals(allMatches);
     const getRecentStats = (teamName: string) => {
-      const views = allMatches
-        .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
-        .map((m: any) => getTeamMatchView(m, teamName))
-        .filter((v: any): v is TeamMatchView => v !== null)
-        .slice(-5);
+      const views = filterRecentViews(
+        allMatches
+          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .map((m: any) => getTeamMatchView(m, teamName))
+          .filter((v: any): v is TeamMatchView => v !== null)
+      ).slice(-5);
       if (views.length === 0) return { scored: 0, conceded: 0, n: 0 };
       return { scored: views.reduce((s, v) => s + v.goalsFor, 0), conceded: views.reduce((s, v) => s + v.goalsAgainst, 0), n: views.length };
     };
     const recentA = getRecentStats(selectedTeamA);
     const recentB = getRecentStats(selectedTeamB);
-    const homeInput: TeamInput = { goalsScored: statsA.goalsFor, goalsConceded: statsA.goalsAgainst, matchesPlayed: statsA.matchesPlayed, recentGoalsScored: recentA.scored, recentGoalsConceded: recentA.conceded, recentMatches: recentA.n };
-    const awayInput: TeamInput = { goalsScored: statsB.goalsFor, goalsConceded: statsB.goalsAgainst, matchesPlayed: statsB.matchesPlayed, recentGoalsScored: recentB.scored, recentGoalsConceded: recentB.conceded, recentMatches: recentB.n };
+    // Availability multipliers: losing attackers cuts goals scored, losing
+    // defenders/keepers raises goals conceded.
+    const homeInput: TeamInput = {
+      goalsScored: statsA.goalsFor * impactA.attackMultiplier,
+      goalsConceded: statsA.goalsAgainst * impactA.concedeMultiplier,
+      matchesPlayed: statsA.matchesPlayed,
+      recentGoalsScored: recentA.scored * impactA.attackMultiplier,
+      recentGoalsConceded: recentA.conceded * impactA.concedeMultiplier,
+      recentMatches: recentA.n,
+    };
+    const awayInput: TeamInput = {
+      goalsScored: statsB.goalsFor * impactB.attackMultiplier,
+      goalsConceded: statsB.goalsAgainst * impactB.concedeMultiplier,
+      matchesPlayed: statsB.matchesPlayed,
+      recentGoalsScored: recentB.scored * impactB.attackMultiplier,
+      recentGoalsConceded: recentB.conceded * impactB.concedeMultiplier,
+      recentMatches: recentB.n,
+    };
     return predictMatch(homeInput, awayInput, leagueAvg);
-  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches]);
+  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches, impactA, impactB]);
 
   const handleReset = () => {
     setPrediction(null);
@@ -983,6 +1013,11 @@ export const PredictionDialog = ({
     setOpponentSearch("");
     setMatchContext("");
     setShowAI(false);
+    setMode("full");
+    setSquadA([]);
+    setSquadB([]);
+    setOutA(new Set());
+    setOutB(new Set());
   };
 
   const handleRunPredict = useCallback(async () => {
@@ -995,6 +1030,18 @@ export const PredictionDialog = ({
         body.upcomingOpponent = selectedTeamB;
         body.opponentStats = statsB;
         body.opponentForm = statsB.formLast5;
+      }
+      body.predictionMode = mode;
+      const lineupLines = [
+        ...impactA.notes.map((n) => `${selectedTeamA}: ${n}`),
+        ...impactB.notes.map((n) => `${selectedTeamB}: ${n}`),
+      ];
+      if (lineupLines.length > 0) body.unavailablePlayers = lineupLines;
+      if (mode !== "full" && dcResult) {
+        body.playerMarkets = {
+          home: computePlayerProps(squadA, selectedTeamA, dcResult.lambdaHome, outA).slice(0, 6),
+          away: computePlayerProps(squadB, selectedTeamB, dcResult.lambdaAway, outB).slice(0, 6),
+        };
       }
       if (matchContext.trim()) {
         body.matchContext = matchContext.trim();
@@ -1015,7 +1062,7 @@ export const PredictionDialog = ({
     } finally {
       setPredicting(false);
     }
-  }, [selectedTeamA, statsA, selectedTeamB, statsB]);
+  }, [selectedTeamA, statsA, selectedTeamB, statsB, matchContext, mode, impactA, impactB, dcResult, squadA, squadB, outA, outB]);
 
   const ComparisonRow = ({ label, a, b, better }: { label: string; a: string; b: string; better: "a" | "b" | "none" }) => (
     <div className="flex items-center py-2 px-3">
@@ -1117,6 +1164,56 @@ export const PredictionDialog = ({
             </div>
           )}
 
+          {/* How it works */}
+          {!showAI && <PredictionGuide />}
+
+          {/* Prediction type */}
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <div>
+              <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Prediction type</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {([
+                  { key: "full" as PredictionMode, label: "Full match", hint: "1X2 · O/U · BTTS" },
+                  { key: "players" as PredictionMode, label: "Player markets", hint: "Scorers · cards" },
+                  { key: "both" as PredictionMode, label: "Both", hint: "Everything" },
+                ]).map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setMode(opt.key)}
+                    className={cn(
+                      "rounded-xl border px-2 py-2 text-left transition-colors",
+                      mode === opt.key ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-muted"
+                    )}
+                  >
+                    <p className={cn("text-[11px] font-semibold leading-tight", mode === opt.key && "text-primary")}>{opt.label}</p>
+                    <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{opt.hint}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Player availability */}
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground font-medium block">
+                Player availability <span className="text-[10px]">— injuries and suspensions are pre-selected</span>
+              </label>
+              <LineupSelector team={selectedTeamA} unavailable={outA} onChange={setOutA} onSquad={setSquadA} />
+              <LineupSelector team={selectedTeamB} unavailable={outB} onChange={setOutB} onSquad={setSquadB} />
+              {(impactA.notes.length > 0 || impactB.notes.length > 0) && (
+                <div className="rounded-xl border border-border bg-muted/30 px-3 py-2 space-y-1">
+                  {impactA.notes.map((n, i) => (
+                    <p key={`a${i}`} className="text-[10px] text-muted-foreground">{selectedTeamA}: {n}</p>
+                  ))}
+                  {impactB.notes.map((n, i) => (
+                    <p key={`b${i}`} className="text-[10px] text-muted-foreground">{selectedTeamB}: {n}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Match context input */}
           {selectedTeamA && selectedTeamB && !showAI && (
             <div>
@@ -1144,6 +1241,21 @@ export const PredictionDialog = ({
                   <ProbBar label={selectedTeamB} value={dcResult.awayWin} color="bg-stat-negative" />
                 </div>
               </div>
+
+              {mode !== "full" && (
+                <PlayerPropsPanel
+                  homeTeam={selectedTeamA}
+                  awayTeam={selectedTeamB}
+                  homeSquad={squadA}
+                  awaySquad={squadB}
+                  homeOut={outA}
+                  awayOut={outB}
+                  lambdaHome={dcResult.lambdaHome}
+                  lambdaAway={dcResult.lambdaAway}
+                />
+              )}
+
+
 
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="px-3 py-2 bg-muted/40 border-b border-border">

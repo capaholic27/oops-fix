@@ -22,6 +22,7 @@ import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
 import {
   getTeamMatchView, aggregateStats, getUniqueTeams, getUniqueLeagues,
   type TeamMatchView, type AggregatedStats,
+  filterRecentViews,
 } from "@/lib/matchStats";
 import { computeMentality, normalizeTeamName, isTournamentLeague } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
@@ -471,9 +472,11 @@ const ProDashboard = ({
   const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
-    return teamMatches
-      .map((m) => getTeamMatchView(m, teamName))
-      .filter((v): v is TeamMatchView => v !== null);
+    return filterRecentViews(
+      teamMatches
+        .map((m) => getTeamMatchView(m, teamName))
+        .filter((v): v is TeamMatchView => v !== null)
+    );
   }, [teamMatches, teamName]);
 
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
@@ -492,10 +495,11 @@ const ProDashboard = ({
 
   const opponentStats = useMemo(() => {
     if (!nextOpponentName) return null;
-    const views = allMatches
-      .map((m: any) => getTeamMatchView(m, nextOpponentName))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-pastN);
+    const views = filterRecentViews(
+      allMatches
+        .map((m: any) => getTeamMatchView(m, nextOpponentName))
+        .filter((v): v is TeamMatchView => v !== null)
+    ).slice(-pastN);
     return views.length > 0 ? aggregateStats(views) : null;
   }, [nextOpponentName, allMatches, pastN]);
 

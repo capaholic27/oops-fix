@@ -139,7 +139,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { teamName, stats, recentForm, upcomingOpponent, opponentStats, opponentForm, matchContext } = await req.json();
+    const { teamName, stats, recentForm, upcomingOpponent, opponentStats, opponentForm, matchContext, predictionMode, unavailablePlayers, playerMarkets } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -172,7 +172,8 @@ Output sections:
 4. **Key Factors** — form, tactical matchup, discipline, scoring patterns
 5. **Risk & Variance** — what could swing the result against the model
 6. **Betting Angles** — best-value markets backed by the model numbers (1X2, O/U, BTTS, corners, cards)
-${matchContext ? `7. **Context Impact** — explicitly address "${matchContext}" and how it modulates tactics/risk` : ""}
+${predictionMode && predictionMode !== "full" ? `7. **Player Markets** — for each listed player give the market (anytime scorer / assist / card) with its model probability, flag the 3 best-value ones` : ""}
+${matchContext ? `8. **Context Impact** — explicitly address "${matchContext}" and how it modulates tactics/risk` : ""}
 
 Tone: punchy, professional, like a premium tipster's research note. 400 words max.`;
 
@@ -199,6 +200,9 @@ OPPONENT STATS (last ${opponentStats?.matchesPlayed ?? "?"} games):
 - Style: ${opponentStats?.tacticalProfile?.style ?? "Unknown"}
 - Form last 5: ${opponentForm?.join(" ") ?? "N/A"}` : "No specific opponent selected — predict their general next match outlook."}
 ${matchContext ? `\nMATCH CONTEXT: ${matchContext}` : ""}
+${predictionMode ? `\nPREDICTION MODE: ${predictionMode} (full = team markets only, players = player markets only, both = cover both)` : ""}
+${Array.isArray(unavailablePlayers) && unavailablePlayers.length ? `\nUNAVAILABLE / DESELECTED PLAYERS (already priced into the model numbers):\n- ${unavailablePlayers.join("\n- ")}` : ""}
+${playerMarkets ? `\nPLAYER MARKET PROBABILITIES FROM THE MODEL (do not contradict):\n${JSON.stringify(playerMarkets)}` : ""}
 ${modelBlock}
 Produce the analysis.`;
 
