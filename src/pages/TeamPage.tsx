@@ -946,11 +946,12 @@ export const PredictionDialog = ({
   const getTeamStats = useCallback(
     (teamName: string) => {
       if (!teamName) return null;
-      const views = allMatches
-        .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
-        .map((m: any) => getTeamMatchView(m, teamName))
-        .filter((v: any): v is TeamMatchView => v !== null)
-        .slice(-pastN);
+      const views = filterRecentViews(
+        allMatches
+          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .map((m: any) => getTeamMatchView(m, teamName))
+          .filter((v: any): v is TeamMatchView => v !== null)
+      ).slice(-pastN);
       return views.length > 0 ? aggregateStats(views) : null;
     },
     [allMatches, pastN]
@@ -959,24 +960,44 @@ export const PredictionDialog = ({
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
   const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
 
+  const impactA = useMemo(() => computeLineupImpact(squadA, outA), [squadA, outA]);
+  const impactB = useMemo(() => computeLineupImpact(squadB, outB), [squadB, outB]);
+
   const dcResult = useMemo<PredictionResult | null>(() => {
     if (!statsA || !statsB || !selectedTeamA || !selectedTeamB) return null;
     const leagueAvg = computeLeagueAvgGoals(allMatches);
     const getRecentStats = (teamName: string) => {
-      const views = allMatches
-        .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
-        .map((m: any) => getTeamMatchView(m, teamName))
-        .filter((v: any): v is TeamMatchView => v !== null)
-        .slice(-5);
+      const views = filterRecentViews(
+        allMatches
+          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .map((m: any) => getTeamMatchView(m, teamName))
+          .filter((v: any): v is TeamMatchView => v !== null)
+      ).slice(-5);
       if (views.length === 0) return { scored: 0, conceded: 0, n: 0 };
       return { scored: views.reduce((s, v) => s + v.goalsFor, 0), conceded: views.reduce((s, v) => s + v.goalsAgainst, 0), n: views.length };
     };
     const recentA = getRecentStats(selectedTeamA);
     const recentB = getRecentStats(selectedTeamB);
-    const homeInput: TeamInput = { goalsScored: statsA.goalsFor, goalsConceded: statsA.goalsAgainst, matchesPlayed: statsA.matchesPlayed, recentGoalsScored: recentA.scored, recentGoalsConceded: recentA.conceded, recentMatches: recentA.n };
-    const awayInput: TeamInput = { goalsScored: statsB.goalsFor, goalsConceded: statsB.goalsAgainst, matchesPlayed: statsB.matchesPlayed, recentGoalsScored: recentB.scored, recentGoalsConceded: recentB.conceded, recentMatches: recentB.n };
+    // Availability multipliers: losing attackers cuts goals scored, losing
+    // defenders/keepers raises goals conceded.
+    const homeInput: TeamInput = {
+      goalsScored: statsA.goalsFor * impactA.attackMultiplier,
+      goalsConceded: statsA.goalsAgainst * impactA.concedeMultiplier,
+      matchesPlayed: statsA.matchesPlayed,
+      recentGoalsScored: recentA.scored * impactA.attackMultiplier,
+      recentGoalsConceded: recentA.conceded * impactA.concedeMultiplier,
+      recentMatches: recentA.n,
+    };
+    const awayInput: TeamInput = {
+      goalsScored: statsB.goalsFor * impactB.attackMultiplier,
+      goalsConceded: statsB.goalsAgainst * impactB.concedeMultiplier,
+      matchesPlayed: statsB.matchesPlayed,
+      recentGoalsScored: recentB.scored * impactB.attackMultiplier,
+      recentGoalsConceded: recentB.conceded * impactB.concedeMultiplier,
+      recentMatches: recentB.n,
+    };
     return predictMatch(homeInput, awayInput, leagueAvg);
-  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches]);
+  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches, impactA, impactB]);
 
   const handleReset = () => {
     setPrediction(null);
