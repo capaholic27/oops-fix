@@ -1242,6 +1242,21 @@ export const PredictionDialog = ({
                 </div>
               </div>
 
+              {mode !== "full" && (
+                <PlayerPropsPanel
+                  homeTeam={selectedTeamA}
+                  awayTeam={selectedTeamB}
+                  homeSquad={squadA}
+                  awaySquad={squadB}
+                  homeOut={outA}
+                  awayOut={outB}
+                  lambdaHome={dcResult.lambdaHome}
+                  lambdaAway={dcResult.lambdaAway}
+                />
+              )}
+
+
+
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="px-3 py-2 bg-muted/40 border-b border-border">
                   <span className="text-xs font-semibold text-muted-foreground">⚽ Expected Goals</span>
