@@ -728,18 +728,21 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
 
   const nextOpponentStats = useMemo(() => {
     if (!nextOpponentName) return null;
-    const oppViews = allMatches
-      .map((m) => getTeamMatchView(m, nextOpponentName))
-      .filter((v): v is TeamMatchView => v !== null)
-      .slice(-pastN);
+    const oppViews = filterRecentViews(
+      allMatches
+        .map((m) => getTeamMatchView(m, nextOpponentName))
+        .filter((v): v is TeamMatchView => v !== null)
+    ).slice(-pastN);
     return oppViews.length > 0 ? aggregateStats(oppViews) : null;
   }, [nextOpponentName, allMatches, pastN]);
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
-    return teamMatches
-      .map((m) => getTeamMatchView(m, selectedTeam))
-      .filter((v): v is TeamMatchView => v !== null);
+    return filterRecentViews(
+      teamMatches
+        .map((m) => getTeamMatchView(m, selectedTeam))
+        .filter((v): v is TeamMatchView => v !== null)
+    );
   }, [teamMatches, selectedTeam]);
 
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
