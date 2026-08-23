@@ -939,6 +939,11 @@ export const PredictionDialog = ({
   const [opponentSearch, setOpponentSearch] = useState("");
   const [showAI, setShowAI] = useState(false);
   const [matchContext, setMatchContext] = useState("");
+  const [mode, setMode] = useState<PredictionMode>("full");
+  const [squadA, setSquadA] = useState<RealPlayer[]>([]);
+  const [squadB, setSquadB] = useState<RealPlayer[]>([]);
+  const [outA, setOutA] = useState<Set<string>>(new Set());
+  const [outB, setOutB] = useState<Set<string>>(new Set());
   const pastN = 10;
 
   const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
