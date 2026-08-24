@@ -39,3 +39,5 @@
 - [Team Normalization](mem://features/team-normalization) — Alias mapping utility to prevent duplicates
 - [Premium Content](mem://features/premium-content) — Client-side unlock toggle for advanced analytics
 - [Edge Page](mem://features/edge-page) — AI-powered betting edge with picks, value alerts, and bet builder
+- [Recency Window](mem://features/recency-window) — 400-day form window; no old-season leakage
+- [Player-Aware Prediction](mem://features/player-aware-prediction) — lineup toggles, prediction modes, player markets
