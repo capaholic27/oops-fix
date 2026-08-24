@@ -195,17 +195,15 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
                     <img
                       src={guide.image}
                       alt={`${guide.title} screen`}
-                      className="absolute inset-0 w-full h-full object-contain object-top select-none"
+                      className="absolute inset-0 w-full h-full object-fill select-none"
                       draggable={false}
                     />
-                    {/* Dimming layer */}
-                    <div className="absolute inset-0 bg-black/50 pointer-events-none transition-opacity duration-300" />
-                    {/* Highlight window (cutout via inset shadow) */}
+                    {/* Highlight window — dims everything outside via a huge outer shadow */}
                     <div
-                      key={stepIdx}
                       style={regionStyle}
-                      className="absolute rounded-lg ring-2 ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-500 ease-out pointer-events-none"
+                      className="absolute rounded-md ring-2 ring-primary ring-offset-0 shadow-[0_0_0_9999px_rgba(0,0,0,0.62)] transition-all duration-500 ease-out pointer-events-none"
                     >
+
                       <span
                         className="absolute -top-2 -left-2 flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold shadow-md"
                       >
