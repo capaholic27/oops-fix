@@ -28,16 +28,21 @@ type PageGuide = {
   tip?: string;
 };
 
+/**
+ * Regions below are measured directly from the 804x1640 screenshots in
+ * src/assets/help (px / 804 for x,w and px / 1640 for y,h), so the ring
+ * traces the real element outline instead of an estimate.
+ */
 const GUIDES: Record<string, PageGuide> = {
   upcoming: {
     title: "Games",
     tagline: "Browse fixtures and predict any upcoming match.",
     image: shotUpcoming,
     steps: [
-      { title: "Date strip", body: "Today is centered on open. Swipe or tap any day to jump. Double-tap the Games nav icon to snap back.", region: { x: 0.02, y: 0.07, w: 0.96, h: 0.10 } },
-      { title: "Grouped by competition", body: "Leagues and Tournaments (World Cup, Euros, AFCON, Copa) are separated so major events don't get buried.", region: { x: 0.02, y: 0.19, w: 0.96, h: 0.08 } },
-      { title: "Tap a match", body: "Any upcoming fixture opens a prediction sheet: W/D/L probabilities, likely scores, and best-value bet markets.", region: { x: 0.02, y: 0.29, w: 0.96, h: 0.14 } },
-      { title: "Bottom navigation", body: "Five pages. Double-tap any icon to reset that page's state.", region: { x: 0.0, y: 0.92, w: 1.0, h: 0.08 } },
+      { title: "Date strip", body: "Today is centered on open. Swipe or tap any day to jump. Double-tap the Games nav icon to snap back.", region: { x: 0, y: 0.064, w: 1, h: 0.064 } },
+      { title: "Grouped by competition", body: "Leagues and Tournaments (World Cup, Euros, AFCON, Copa) are separated so major events don't get buried.", region: { x: 0.02, y: 0.141, w: 0.5, h: 0.03 } },
+      { title: "Tap a match", body: "Any upcoming fixture opens a prediction sheet: W/D/L probabilities, likely scores, and best-value bet markets.", region: { x: 0.041, y: 0.175, w: 0.919, h: 0.065 } },
+      { title: "Bottom navigation", body: "Five pages. Double-tap any icon to reset that page's state.", region: { x: 0, y: 0.927, w: 1, h: 0.073 } },
     ],
     tip: "Live scores update in real time when a match kicks off.",
   },
@@ -46,10 +51,10 @@ const GUIDES: Record<string, PageGuide> = {
     tagline: "Deep predictive analytics per team.",
     image: shotPremium,
     steps: [
-      { title: "Unlock Pro", body: "Free covers the top 9 leagues. Pro unlocks every competition plus full squad profiles and advanced markets.", region: { x: 0.03, y: 0.28, w: 0.94, h: 0.12 } },
-      { title: "Bet market probabilities", body: "AI-priced probabilities for every market: Over/Under, BTTS, Corners, Cards. Green = high edge, orange = low.", region: { x: 0.03, y: 0.42, w: 0.94, h: 0.10 } },
-      { title: "Goals markets", body: "Over 1.5 / 2.5 / 3.5 and BTTS with model confidence. Tap any card for a plain-English breakdown.", region: { x: 0.03, y: 0.53, w: 0.94, h: 0.18 } },
-      { title: "Corners & shots", body: "Advanced markets scroll below. Each metric is tappable for match-by-match history.", region: { x: 0.03, y: 0.72, w: 0.94, h: 0.18 } },
+      { title: "Unlock Pro", body: "Free covers the top 9 leagues. Pro unlocks every competition plus full squad profiles and advanced markets.", region: { x: 0.041, y: 0.303, w: 0.919, h: 0.055 } },
+      { title: "Bet market probabilities", body: "AI-priced probabilities for every market: Over/Under, BTTS, Corners, Cards. Green = high edge, orange = low.", region: { x: 0.06, y: 0.398, w: 0.88, h: 0.031 } },
+      { title: "Goals markets", body: "Over 1.5 / 2.5 / 3.5 and BTTS with model confidence. Tap any card for a plain-English breakdown.", region: { x: 0.075, y: 0.447, w: 0.85, h: 0.164 } },
+      { title: "Corners & shots", body: "Advanced markets scroll below. Each metric is tappable for match-by-match history.", region: { x: 0.075, y: 0.633, w: 0.85, h: 0.161 } },
     ],
     tip: "Recency filter on the Stats page controls every calculation shown here.",
   },
@@ -58,10 +63,10 @@ const GUIDES: Record<string, PageGuide> = {
     tagline: "The team-centric hub — pick any club or national team.",
     image: shotTeam,
     steps: [
-      { title: "Favorites, Top, All", body: "Three tabs. Star teams to pin them to Favorites; browse Top Leagues instantly; explore All grouped into Leagues and Tournaments.", region: { x: 0.03, y: 0.13, w: 0.94, h: 0.08 } },
-      { title: "Global search", body: "Search any team or league across every competition — instant fuzzy match.", region: { x: 0.03, y: 0.21, w: 0.94, h: 0.07 } },
-      { title: "League grid", body: "Tap a league to open its team switcher. Official Fotmob crests load instantly from cache.", region: { x: 0.03, y: 0.29, w: 0.94, h: 0.44 } },
-      { title: "Generate Prediction", body: "Jump into a predicted matchup. Perfect when you already know which two teams you want.", region: { x: 0.03, y: 0.74, w: 0.94, h: 0.07 } },
+      { title: "Favorites, Top, All", body: "Three tabs. Star teams to pin them to Favorites; browse Top Leagues instantly; explore All grouped into Leagues and Tournaments.", region: { x: 0.041, y: 0.14, w: 0.919, h: 0.045 } },
+      { title: "Global search", body: "Search any team or league across every competition — instant fuzzy match.", region: { x: 0.041, y: 0.208, w: 0.919, h: 0.046 } },
+      { title: "League grid", body: "Tap a league to open its team switcher. Official crests load instantly from cache.", region: { x: 0.041, y: 0.274, w: 0.919, h: 0.451 } },
+      { title: "Generate Prediction", body: "Jump into a predicted matchup. Perfect when you already know which two teams you want.", region: { x: 0.041, y: 0.743, w: 0.919, h: 0.062 } },
     ],
     tip: "Double-tap the Stats nav icon to reset the team switcher.",
   },
@@ -70,10 +75,10 @@ const GUIDES: Record<string, PageGuide> = {
     tagline: "Your betting workspace — picks, live odds, bankroll.",
     image: shotEdge,
     steps: [
-      { title: "Edge is a Pro feature", body: "Included with the Pro subscription. Unlocks bet builder, value alerts, and live odds comparison.", region: { x: 0.02, y: 0.28, w: 0.96, h: 0.14 } },
-      { title: "Value picks", body: "Curated high-confidence picks where model probability significantly beats implied odds. Percentage = model confidence.", region: { x: 0.02, y: 0.44, w: 0.96, h: 0.14 } },
-      { title: "Market & confidence", body: "Each card names the market, model confidence, and a plain-English reason. Tap a card to open the full breakdown.", region: { x: 0.02, y: 0.60, w: 0.96, h: 0.14 } },
-      { title: "Bankroll tab", body: "Set your bankroll, pick a risk profile (Conservative / Balanced / Aggressive) and get suggested stakes using fractional Kelly.", region: { x: 0.02, y: 0.76, w: 0.96, h: 0.14 } },
+      { title: "Edge is a Pro feature", body: "Included with the Pro subscription. Unlocks bet builder, value alerts, and live odds comparison.", region: { x: 0.041, y: 0.301, w: 0.919, h: 0.198 } },
+      { title: "Value picks", body: "Curated high-confidence picks where model probability significantly beats implied odds. Percentage = model confidence.", region: { x: 0.041, y: 0.525, w: 0.919, h: 0.114 } },
+      { title: "Market & confidence", body: "Each card names the market, model confidence, and a plain-English reason. Tap a card to open the full breakdown.", region: { x: 0.041, y: 0.651, w: 0.919, h: 0.115 } },
+      { title: "Bankroll tab", body: "Open Edge from the bottom nav, then switch to Bankroll: set your bankroll, pick a risk profile and get suggested stakes using fractional Kelly.", region: { x: 0.64, y: 0.927, w: 0.16, h: 0.073 } },
     ],
     tip: "Bankroll lives on this device — clear browser storage and it resets.",
   },
@@ -82,13 +87,14 @@ const GUIDES: Record<string, PageGuide> = {
     tagline: "Account, favorites, themes, and app settings.",
     image: shotProfile,
     steps: [
-      { title: "Sign in / Sign up", body: "Backed by Lovable Cloud auth. Sync your favorites and preferences across devices.", region: { x: 0.03, y: 0.28, w: 0.94, h: 0.30 } },
-      { title: "Password reset", body: "Forgot password sends a reset link to your email. Sign-up creates an account instantly.", region: { x: 0.03, y: 0.55, w: 0.94, h: 0.10 } },
-      { title: "Themes", body: "Six visual themes stored locally. Compact density and typography stay consistent across all of them.", region: { x: 0.03, y: 0.76, w: 0.94, h: 0.18 } },
+      { title: "Sign in / Sign up", body: "Backed by Lovable Cloud auth. Sync your favorites and preferences across devices.", region: { x: 0.041, y: 0.085, w: 0.919, h: 0.312 } },
+      { title: "Email & password", body: "Sign in, or tap Sign Up to create an account instantly. Forgot password sends a reset link to your email.", region: { x: 0.101, y: 0.42, w: 0.798, h: 0.227 } },
+      { title: "Themes", body: "Six visual themes stored locally. Compact density and typography stay consistent across all of them.", region: { x: 0.041, y: 0.746, w: 0.919, h: 0.178 } },
     ],
     tip: "Sign out at the bottom of the page. Theme and bankroll stay on this device.",
   },
 };
+
 
 const PAGE_KEYS = ["upcoming", "premium", "team", "edge", "profile"];
 
@@ -189,17 +195,15 @@ export const HelpSheet = ({ activeIdx }: { activeIdx: number }) => {
                     <img
                       src={guide.image}
                       alt={`${guide.title} screen`}
-                      className="absolute inset-0 w-full h-full object-contain object-top select-none"
+                      className="absolute inset-0 w-full h-full object-fill select-none"
                       draggable={false}
                     />
-                    {/* Dimming layer */}
-                    <div className="absolute inset-0 bg-black/50 pointer-events-none transition-opacity duration-300" />
-                    {/* Highlight window (cutout via inset shadow) */}
+                    {/* Highlight window — dims everything outside via a huge outer shadow */}
                     <div
-                      key={stepIdx}
                       style={regionStyle}
-                      className="absolute rounded-lg ring-2 ring-primary shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-500 ease-out pointer-events-none"
+                      className="absolute rounded-md ring-2 ring-primary ring-offset-0 shadow-[0_0_0_9999px_rgba(0,0,0,0.62)] transition-all duration-500 ease-out pointer-events-none"
                     >
+
                       <span
                         className="absolute -top-2 -left-2 flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-mono font-bold shadow-md"
                       >
