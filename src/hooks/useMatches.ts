@@ -182,32 +182,26 @@ export function useSyncFixtures() {
   return useMutation({
     mutationFn: async () => {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/fetch-fixtures`;
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      };
+      const base = `https://${projectId}.supabase.co/functions/v1`;
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-      });
-
+      const res = await fetch(`${base}/fetch-fixtures`, { method: "POST", headers });
       if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
       const out = await res.json();
 
-      // Fire-and-forget: backfill major tournament history (WC, Euros, Copa,
-      // AFCON, Club World Cup). Idempotent — skips when already populated.
+      // Fire-and-forget: refresh official league tables (promoted/relegated
+      // teams, live positions) and backfill major tournament history.
+      // Both are idempotent.
       try {
-        await fetch(`https://${projectId}.supabase.co/functions/v1/fetch-wc-history`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({}),
-        });
+        await Promise.allSettled([
+          fetch(`${base}/fetch-standings`, { method: "POST", headers, body: JSON.stringify({}) }),
+          fetch(`${base}/fetch-wc-history`, { method: "POST", headers, body: JSON.stringify({}) }),
+        ]);
       } catch (e) {
-        console.warn("WC history sync failed (non-fatal)", e);
+        console.warn("Post-sync refresh failed (non-fatal)", e);
       }
 
       return out;
@@ -215,9 +209,75 @@ export function useSyncFixtures() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fixtures"] });
       queryClient.invalidateQueries({ queryKey: ["matches"] });
+      queryClient.invalidateQueries({ queryKey: ["standings"] });
     },
   });
 }
+
+export type StandingsTeam = {
+  position: number;
+  team_id: number;
+  name: string;
+  logo: string;
+  played: number;
+  points: number;
+};
+
+export type LeagueStandings = {
+  league_code: string;
+  league_name: string;
+  season: string | null;
+  rows: StandingsTeam[];
+  fetched_at: string;
+};
+
+const STANDINGS_STALE_MS = 6 * 60 * 60 * 1000; // matches edge-function cache TTL
+let standingsRefreshInFlight = false;
+
+/**
+ * Official current-season standings for every league. This is the
+ * authoritative roster: when a new season starts, promoted teams appear and
+ * relegated teams disappear as soon as the source table updates.
+ */
+export function useStandings() {
+  const queryClient = useQueryClient();
+
+  return useQuery({
+    queryKey: ["standings"],
+    queryFn: async (): Promise<LeagueStandings[]> => {
+      const { data, error } = await supabase
+        .from("standings")
+        .select("league_code, league_name, season, rows, fetched_at");
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as LeagueStandings[];
+
+      // If any table is stale (or missing), trigger a background refresh so a
+      // new season's promoted/relegated teams are picked up automatically.
+      const stale = rows.length === 0 || rows.some(
+        (r) => Date.now() - new Date(r.fetched_at).getTime() > STANDINGS_STALE_MS
+      );
+      if (stale && !standingsRefreshInFlight) {
+        standingsRefreshInFlight = true;
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        fetch(`https://${projectId}.supabase.co/functions/v1/fetch-standings`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({}),
+        })
+          .then(() => queryClient.invalidateQueries({ queryKey: ["standings"] }))
+          .catch((e) => console.warn("standings auto-refresh failed", e))
+          .finally(() => { standingsRefreshInFlight = false; });
+      }
+
+      return rows;
+    },
+    staleTime: STANDINGS_STALE_MS,
+  });
+}
+
 
 // useSyncApiFootball removed — Fotmob is the sole data source.
 // Use useSyncFixtures() instead, which already handles results + fixtures.
