@@ -147,14 +147,31 @@ const LeagueSelector = ({
     onSelectTeam(team, leagueCode);
   };
 
+  // Official current-season tables — the authoritative roster per league.
+  // When a new season starts, promoted teams appear and relegated teams
+  // disappear automatically once the standings sync runs.
+  const { data: standings } = useStandings();
+
   const teamsByLeague = useMemo(() => {
+    const byCode = new Map((standings ?? []).map((s) => [s.league_code, s]));
     const map: Record<string, string[]> = {};
     leagues.forEach((l) => {
-      const filtered = allMatches.filter((m: any) => m.league_code === l.code);
-      map[l.code] = getUniqueTeams(filtered);
+      const rows = byCode.get(l.code)?.rows ?? [];
+      if (rows.length > 0) {
+        // Current-season table = current teams, ordered by position.
+        map[l.code] = [...rows]
+          .sort((a, b) => a.position - b.position)
+          .map((r) => r.name)
+          .filter(Boolean);
+      } else {
+        // No table yet (e.g. tournaments before kick-off) — fall back to
+        // teams seen in fixtures/recent matches.
+        const filtered = allMatches.filter((m: any) => m.league_code === l.code);
+        map[l.code] = getUniqueTeams(filtered);
+      }
     });
     return map;
-  }, [leagues, allMatches]);
+  }, [leagues, allMatches, standings]);
 
   const searchLower = search.toLowerCase().trim();
 
