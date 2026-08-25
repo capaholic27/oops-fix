@@ -159,10 +159,17 @@ const LeagueSelector = ({
       const rows = byCode.get(l.code)?.rows ?? [];
       if (rows.length > 0) {
         // Current-season table = current teams, ordered by position.
+        // Dedupe defensively (grouped tables can repeat a team).
+        const seen = new Set<string>();
         map[l.code] = [...rows]
           .sort((a, b) => a.position - b.position)
           .map((r) => r.name)
-          .filter(Boolean);
+          .filter((n) => {
+            const k = normalizeTeamName(n || "").toLowerCase();
+            if (!k || seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          });
       } else {
         // No table yet (e.g. tournaments before kick-off) — fall back to
         // teams seen in fixtures/recent matches.
