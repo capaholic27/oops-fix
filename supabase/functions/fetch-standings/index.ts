@@ -69,6 +69,17 @@ function extractStanding(data: any): { season: string | null; rows: StandingRow[
     allRows = grouped.flatMap((g: any) => g?.table?.all ?? []);
   }
 
+  // Grouped competitions (MLS conferences, World Cup groups) can repeat a
+  // team across the combined table and its group table — dedupe by team id,
+  // keeping the first (highest-ranked) occurrence.
+  const seen = new Set<string>();
+  allRows = (allRows ?? []).filter((r: any) => {
+    const key = String(r?.id ?? "") || String(r?.name ?? "").toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
   // Pick season label off any field we can find.
   const season =
     data?.details?.selectedSeason ??
