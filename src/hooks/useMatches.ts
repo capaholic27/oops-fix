@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
@@ -281,3 +282,120 @@ export function useStandings() {
 
 // useSyncApiFootball removed — Fotmob is the sole data source.
 // Use useSyncFixtures() instead, which already handles results + fixtures.
+
+/* ------------------------------------------------------------------ *
+ * Automatic background sync
+ *
+ * Primary refresh happens server-side on a schedule (database cron jobs
+ * hitting the fetch-* functions), so data stays current even when nobody
+ * has the app open. This hook is the client-side safety net: if the data
+ * a user loads is older than the freshness threshold — e.g. the scheduled
+ * run was missed — it quietly triggers one sync per session.
+ *
+ * It never blocks rendering and shows no toasts.
+ * ------------------------------------------------------------------ */
+
+const AUTO_SYNC_STALE_MS = 20 * 60 * 1000; // 20 min — fixtures job runs every 15
+const AUTO_SYNC_SESSION_KEY = "fe:lastAutoSync";
+let autoSyncAttempted = false;
+
+export function useAutoSync() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (autoSyncAttempted) return;
+    autoSyncAttempted = true;
+
+    // Don't re-check within the same session window.
+    try {
+      const last = Number(sessionStorage.getItem(AUTO_SYNC_SESSION_KEY) ?? 0);
+      if (last && Date.now() - last < AUTO_SYNC_STALE_MS) return;
+    } catch {
+      /* sessionStorage unavailable — proceed */
+    }
+
+    (async () => {
+      try {
+        // Newest fixture row tells us when the last successful sync landed.
+        const [fixtureRes, standingsRes] = await Promise.all([
+          supabase
+            .from("fixtures")
+            .select("created_at")
+            .order("created_at", { ascending: false })
+            .limit(1),
+          supabase
+            .from("standings")
+            .select("fetched_at")
+            .order("fetched_at", { ascending: false })
+            .limit(1),
+        ]);
+
+        const newestFixture = fixtureRes.data?.[0]?.created_at
+          ? new Date(fixtureRes.data[0].created_at as string).getTime()
+          : 0;
+        const newestStanding = standingsRes.data?.[0]?.fetched_at
+          ? new Date(standingsRes.data[0].fetched_at as string).getTime()
+          : 0;
+
+        const newest = Math.max(newestFixture, newestStanding);
+        const stale = !newest || Date.now() - newest > AUTO_SYNC_STALE_MS;
+        if (!stale) return;
+
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        };
+        const base = `https://${projectId}.supabase.co/functions/v1`;
+
+        await Promise.allSettled([
+          fetch(`${base}/fetch-fixtures`, { method: "POST", headers }),
+          fetch(`${base}/fetch-standings`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({}),
+          }),
+        ]);
+
+        try {
+          sessionStorage.setItem(AUTO_SYNC_SESSION_KEY, String(Date.now()));
+        } catch {
+          /* ignore */
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["fixtures"] });
+        queryClient.invalidateQueries({ queryKey: ["matches"] });
+        queryClient.invalidateQueries({ queryKey: ["standings"] });
+      } catch (e) {
+        // Non-fatal: the scheduled server-side jobs remain the primary path.
+        console.warn("auto-sync skipped", e);
+      }
+    })();
+  }, [queryClient]);
+}
+
+/** Schedule of the automatic server-side refresh jobs (for display). */
+export type SyncJob = {
+  job_name: string;
+  label: string;
+  schedule: string;
+  target_function: string;
+  enabled: boolean;
+};
+
+export function useSyncJobs() {
+  return useQuery({
+    queryKey: ["sync-jobs"],
+    queryFn: async (): Promise<SyncJob[]> => {
+      const { data, error } = await supabase
+        .from("sync_jobs")
+        .select("job_name, label, schedule, target_function, enabled")
+        .eq("enabled", true)
+        .order("label");
+      if (error) throw error;
+      return (data ?? []) as unknown as SyncJob[];
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
+
