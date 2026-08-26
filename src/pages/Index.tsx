@@ -3,7 +3,7 @@ import {
   CalendarDays, Lock, Zap, Crosshair, User, RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSyncData } from "@/hooks/useMatches";
+import { useSyncData, useAutoSync } from "@/hooks/useMatches";
 import { toast } from "sonner";
 import { applyTheme, getStoredTheme } from "@/lib/themes";
 
@@ -32,6 +32,10 @@ const Index = () => {
   
   const syncData = useSyncData();
 
+  // Data refreshes itself: server-side scheduled jobs are the primary path,
+  // this is the silent catch-up if a user opens the app on stale data.
+  useAutoSync();
+
   useEffect(() => {
     applyTheme(getStoredTheme());
   }, []);
@@ -54,19 +58,21 @@ const Index = () => {
     }
   }, [activePage]);
 
+  // Optional manual override — data already refreshes on its own.
   const handleSync = () => {
-    toast.info("Syncing…");
+    toast.info("Refreshing…");
     syncData.mutate(
-      { season: "2526" },
+      { season: "2627" },
       {
         onSuccess: (data) => {
           const total = data.results?.reduce((s: number, r: { inserted: number }) => s + r.inserted, 0) ?? 0;
-          toast.success(`Synced ${total} matches`);
+          toast.success(`Up to date · ${total} matches`);
         },
-        onError: (err) => toast.error(`Sync failed: ${err.message}`),
+        onError: (err) => toast.error(`Refresh failed: ${err.message}`),
       }
     );
   };
+
 
   return (
     <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
