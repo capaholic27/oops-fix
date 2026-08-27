@@ -71,6 +71,66 @@ export type Database = {
         }
         Relationships: []
       }
+      live_matches: {
+        Row: {
+          away_goals: number
+          away_team: string
+          created_at: string
+          events: Json
+          finished_at: string | null
+          fotmob_match_id: number
+          home_goals: number
+          home_team: string
+          id: string
+          kickoff_at: string | null
+          league_code: string | null
+          league_name: string
+          minute: number | null
+          stats: Json
+          status: string
+          status_label: string | null
+          updated_at: string
+        }
+        Insert: {
+          away_goals?: number
+          away_team: string
+          created_at?: string
+          events?: Json
+          finished_at?: string | null
+          fotmob_match_id: number
+          home_goals?: number
+          home_team: string
+          id?: string
+          kickoff_at?: string | null
+          league_code?: string | null
+          league_name?: string
+          minute?: number | null
+          stats?: Json
+          status?: string
+          status_label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          away_goals?: number
+          away_team?: string
+          created_at?: string
+          events?: Json
+          finished_at?: string | null
+          fotmob_match_id?: number
+          home_goals?: number
+          home_team?: string
+          id?: string
+          kickoff_at?: string | null
+          league_code?: string | null
+          league_name?: string
+          minute?: number | null
+          stats?: Json
+          status?: string
+          status_label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       match_votes: {
         Row: {
           away_team: string
