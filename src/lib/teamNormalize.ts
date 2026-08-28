@@ -64,7 +64,7 @@ export function canonicalTeamKey(name: string): string {
   s = s.replace(/^(afc|ac|fc|sc|sv|sk|as|us|ss|cf|cd|rc|cs)\s+/i, "");
   // Strip common suffixes (run twice to catch "Wolverhampton Wanderers FC")
   for (let i = 0; i < 2; i++) {
-    s = s.replace(/\s+(fc|afc|cf|sc|sv|sk|hotspur|wanderers|albion|united|utd|city|town|county|rovers|athletic|club|de futbol)$/i, "");
+    s = s.replace(/\s+(fc|afc|cf|sc|sv|sk|hotspur|wanderers|albion|united|utd|town|county|rovers|athletic|club|de futbol)$/i, "");
   }
   s = s.replace(/\s+and\s+hove\s+albion$/i, "");
   s = s.replace(/\s+&\s+hove\s+albion$/i, "");
