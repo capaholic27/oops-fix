@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useFixtures, useMatches, type Fixture } from "@/hooks/useMatches";
 import { getTeamMatchView, filterRecentViews } from "@/lib/matchStats";
+import { formatKickoffTime } from "@/lib/timezone";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { aggregateStats, type TeamMatchView } from "@/lib/matchStats";
 import { TeamLogo } from "@/components/TeamLogo";

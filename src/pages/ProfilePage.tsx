@@ -4,9 +4,10 @@ import {
   User, Palette, Check, LogOut, Bell, BellOff, Heart,
   ChevronRight, Shield, Mail, Star, Vote, Calendar, Lock,
   Download, Trash2, MessageCircle, Info, Sparkles, Globe,
-  KeyRound, ExternalLink,
+  KeyRound, ExternalLink, Clock,
 } from "lucide-react";
 import { themes, applyTheme, getStoredTheme, type ThemeId } from "@/lib/themes";
+import { getUserTimezone, setUserTimezone, COMMON_TIMEZONES } from "@/lib/timezone";
 import { useAuth } from "@/hooks/useAuth";
 import { useFavorites } from "@/hooks/useFavorites";
 import { AuthForm } from "@/components/AuthForm";
@@ -291,6 +292,21 @@ const ProfilePage = () => {
                 >
                   {LEAGUE_OPTIONS.map(l => (
                     <option key={l.code} value={l.code}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Timezone — kick-off times shown in the user's local zone */}
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <Clock className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium flex-1">Timezone</span>
+                <select
+                  value={localStorage.getItem("fe_timezone") ? timezone : "auto"}
+                  onChange={(e) => handleTimezone(e.target.value)}
+                  className="h-8 px-2 rounded-lg border border-border bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 max-w-[160px]"
+                >
+                  <option value="auto">Auto ({timezone.replace(/_/g, " ")})</option>
+                  {COMMON_TIMEZONES.map(tz => (
+                    <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
                   ))}
                 </select>
               </div>

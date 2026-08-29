@@ -1,9 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { useMatches, useFixtures, type Fixture } from "@/hooks/useMatches";
+import { useLiveMatches, type LiveMatch } from "@/hooks/useLiveMatches";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
 import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
+import { formatKickoffTime } from "@/lib/timezone";
+import { canonicalTeamKey } from "@/lib/teamNormalize";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
 
@@ -71,25 +74,84 @@ const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) =
   );
 };
 
-const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: Fixture) => void }) => (
-  <button
-    onClick={() => onSelect(f)}
-    className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3 hover:bg-muted/50 transition-colors"
-  >
-    <div className="flex-1 flex items-center justify-end gap-2 pr-3">
-      <span className="text-sm font-medium">{getAbbr(f.home_team)}</span>
-      <TeamLogo teamName={f.home_team} size="xs" />
+const FixtureRow = ({
+  fixture: f,
+  live,
+  onSelect,
+}: {
+  fixture: Fixture;
+  live?: LiveMatch | null;
+  onSelect: (f: Fixture) => void;
+}) => {
+  const isLive = live && (live.status === "live" || live.status === "ht");
+  const localTime = formatKickoffTime(f.match_date, f.match_time);
+  return (
+    <button
+      onClick={() => onSelect(f)}
+      className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3 hover:bg-muted/50 transition-colors"
+    >
+      <div className="flex-1 flex items-center justify-end gap-2 pr-3">
+        <span className={cn("text-sm font-medium", isLive && live!.home_goals > live!.away_goals && "font-bold")}>{getAbbr(f.home_team)}</span>
+        <TeamLogo teamName={f.home_team} size="xs" />
+      </div>
+      <div className="flex flex-col items-center justify-center px-3 min-w-[56px]">
+        {isLive ? (
+          <>
+            <div className="flex items-center gap-1">
+              <span className="font-mono font-bold text-sm">{live!.home_goals}</span>
+              <span className="text-xs text-muted-foreground">-</span>
+              <span className="font-mono font-bold text-sm">{live!.away_goals}</span>
+            </div>
+            <div className="flex items-center gap-1 mt-0.5">
+              {live!.status === "live" && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
+              <span className={cn("text-[9px] font-bold uppercase tracking-wide", live!.status === "live" ? "text-red-500" : "text-muted-foreground")}>
+                {live!.status === "ht" ? "HT" : live!.status_label || `${live!.minute ?? ""}'`}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <span className="text-xs font-semibold text-primary">vs</span>
+            {localTime && <span className="text-[10px] text-muted-foreground font-mono">{localTime}</span>}
+          </>
+        )}
+      </div>
+      <div className="flex-1 flex items-center justify-start gap-2 pl-3">
+        <TeamLogo teamName={f.away_team} size="xs" />
+        <span className={cn("text-sm font-medium", isLive && live!.away_goals > live!.home_goals && "font-bold")}>{getAbbr(f.away_team)}</span>
+      </div>
+    </button>
+  );
+};
+
+const LiveMatchRow = ({ m }: { m: LiveMatch }) => {
+  const isLive = m.status === "live";
+  return (
+    <div className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3">
+      <div className="flex-1 flex items-center justify-end gap-2 pr-3">
+        <span className={cn("text-sm font-medium truncate max-w-[88px]", m.home_goals > m.away_goals && "font-bold")}>{m.home_team}</span>
+        <TeamLogo teamName={m.home_team} size="xs" />
+      </div>
+      <div className="flex flex-col items-center justify-center px-3 min-w-[56px]">
+        <div className="flex items-center gap-1">
+          <span className="font-mono font-bold text-sm">{m.home_goals}</span>
+          <span className="text-xs text-muted-foreground">-</span>
+          <span className="font-mono font-bold text-sm">{m.away_goals}</span>
+        </div>
+        <div className="flex items-center gap-1 mt-0.5">
+          {isLive && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
+          <span className={cn("text-[9px] font-bold uppercase tracking-wide", isLive ? "text-red-500" : "text-muted-foreground")}>
+            {m.status === "ht" ? "HT" : m.status_label || (m.minute != null ? `${m.minute}'` : "LIVE")}
+          </span>
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-start gap-2 pl-3">
+        <TeamLogo teamName={m.away_team} size="xs" />
+        <span className={cn("text-sm font-medium truncate max-w-[88px]", m.away_goals > m.home_goals && "font-bold")}>{m.away_team}</span>
+      </div>
     </div>
-    <div className="flex flex-col items-center justify-center px-3">
-      <span className="text-xs font-semibold text-primary">vs</span>
-      {f.match_time && <span className="text-[10px] text-muted-foreground font-mono">{f.match_time}</span>}
-    </div>
-    <div className="flex-1 flex items-center justify-start gap-2 pl-3">
-      <TeamLogo teamName={f.away_team} size="xs" />
-      <span className="text-sm font-medium">{getAbbr(f.away_team)}</span>
-    </div>
-  </button>
-);
+  );
+};
 
 const LeagueGroup = ({ league, children }: { league: string; children: React.ReactNode }) => (
   <div className="mb-4">
@@ -110,6 +172,7 @@ type UpcomingGamesPageProps = {
 const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   const { data: allMatches = [], isLoading } = useMatches();
   const { data: fixtures = [] } = useFixtures();
+  const { data: liveMatches = [] } = useLiveMatches();
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [selectedFixture, setSelectedFixture] = useState<Fixture | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -205,6 +268,42 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   const currentDay = days[activeIdx];
 
+  // Live matches keyed by date + canonical team names, so fixtures that are
+  // currently in play can show the live score + minute inline.
+  const liveByKey = useMemo(() => {
+    const map = new Map<string, LiveMatch>();
+    liveMatches.forEach((lm) => {
+      const date = lm.kickoff_at?.slice(0, 10);
+      if (!date) return;
+      const key = `${date}|${canonicalTeamKey(lm.home_team)}|${canonicalTeamKey(lm.away_team)}`;
+      if (!map.has(key)) map.set(key, lm);
+    });
+    return map;
+  }, [liveMatches]);
+
+  const findLive = useCallback(
+    (f: Fixture): LiveMatch | null => {
+      const key = `${f.match_date}|${canonicalTeamKey(f.home_team)}|${canonicalTeamKey(f.away_team)}`;
+      return liveByKey.get(key) ?? null;
+    },
+    [liveByKey],
+  );
+
+  // Currently in-play matches (across all leagues), shown in a Live Now lane.
+  const liveNow = useMemo(
+    () => liveMatches.filter((m) => m.status === "live" || m.status === "ht"),
+    [liveMatches],
+  );
+  const liveByLeague = useMemo(() => {
+    const map = new Map<string, LiveMatch[]>();
+    liveNow.forEach((m) => {
+      const lg = m.league_name || "Live";
+      if (!map.has(lg)) map.set(lg, []);
+      map.get(lg)!.push(m);
+    });
+    return Array.from(map.entries());
+  }, [liveNow]);
+
   const leagueGroups = useMemo(() => {
     if (!currentDay) return [];
     const map = new Map<string, { matches: Match[]; fixtures: Fixture[] }>();
@@ -276,6 +375,24 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
       {/* Matches */}
       <div className="flex-1 overflow-y-auto p-4 pb-20 max-w-lg mx-auto w-full">
+        {liveByLeague.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 px-1 mb-2">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs font-bold text-red-500 uppercase tracking-wide">Live Now</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground">{liveNow.length} in play</span>
+            </div>
+            {liveByLeague.map(([league, lms]) => (
+              <LeagueGroup key={league} league={league}>
+                {lms.map(m => (
+                  <LiveMatchRow key={m.id} m={m} />
+                ))}
+              </LeagueGroup>
+            ))}
+          </div>
+        )}
         {leagueGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm text-muted-foreground">No matches on this date</p>
@@ -287,7 +404,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
                 <MatchRow key={m.id} match={m} onSelect={handleSelect} />
               ))}
               {fx.map(f => (
-                <FixtureRow key={f.id} fixture={f} onSelect={handleSelectFixture} />
+                <FixtureRow key={f.id} fixture={f} live={findLive(f)} onSelect={handleSelectFixture} />
               ))}
             </LeagueGroup>
           ))
