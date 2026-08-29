@@ -187,7 +187,26 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   const { days, todayIndex } = useMemo(() => {
     const dateSet = new Set<string>();
     allMatches.forEach(m => dateSet.add(m.match_date));
-    fixtures.forEach(f => dateSet.add(f.match_date));
+
+    const now = new Date();
+    // A fixture counts as "upcoming" while its kick-off is still ahead — or if
+    // it's currently in play (kept so the live score shows inline). Once a match
+    // has kicked off it has a result in `matches` (shown via MatchRow) or is
+    // simply stale, so we drop it here to avoid showing a kick-off time for a
+    // game that's already been played.
+    const liveFixtureKeys = new Set<string>();
+    liveMatches.forEach((lm) => {
+      const date = lm.kickoff_at?.slice(0, 10);
+      if (date) liveFixtureKeys.add(`${date}|${canonicalTeamKey(lm.home_team)}|${canonicalTeamKey(lm.away_team)}`);
+    });
+    const upcomingFixtures = fixtures.filter((f) => {
+      const key = `${f.match_date}|${canonicalTeamKey(f.home_team)}|${canonicalTeamKey(f.away_team)}`;
+      if (liveFixtureKeys.has(key)) return true;
+      if (f.match_time) return new Date(`${f.match_date}T${f.match_time}:00Z`).getTime() > now.getTime();
+      return f.match_date >= today;
+    });
+
+    upcomingFixtures.forEach(f => dateSet.add(f.match_date));
     // Always show today, even if no fixtures, so the bar starts there.
     dateSet.add(today);
 
@@ -210,7 +229,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
       matchesByDate.get(m.match_date)!.push(m);
     });
     const fixturesByDate = new Map<string, Fixture[]>();
-    fixtures.forEach(f => {
+    upcomingFixtures.forEach(f => {
       if (!fixturesByDate.has(f.match_date)) fixturesByDate.set(f.match_date, []);
       fixturesByDate.get(f.match_date)!.push(f);
     });
@@ -228,7 +247,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
     }
 
     return { days, todayIndex: todayIdx };
-  }, [allMatches, fixtures, today]);
+  }, [allMatches, fixtures, today, liveMatches]);
 
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const activeIdx = selectedIdx ?? todayIndex;
