@@ -142,7 +142,29 @@ export function useFixtures(teamName?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as Fixture[];
+      const rows = (data || []) as unknown as Fixture[];
+
+      // Dedupe cross-source duplicates: the same matchup can land on different
+      // dates/times when the CSV and API-Football disagree, or as placeholder
+      // dates for unscheduled rounds (e.g. a whole UEL matchday stamped on one
+      // default date). Keep the latest date per (home, away, league) so the real
+      // scheduled date wins over placeholders. Home/away legs have distinct
+      // tuples so they are never merged.
+      const seen = new Map<string, Fixture>();
+      for (const f of rows) {
+        const key = `${normalizeTeamName(f.home_team).toLowerCase()}|${normalizeTeamName(f.away_team).toLowerCase()}|${f.league_code}`;
+        const prev = seen.get(key);
+        if (
+          !prev ||
+          f.match_date > prev.match_date ||
+          (f.match_date === prev.match_date && (f.match_time ?? "") > (prev.match_time ?? ""))
+        ) {
+          seen.set(key, f);
+        }
+      }
+      const unique = Array.from(seen.values());
+      unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
+      return unique;
     },
   });
 }

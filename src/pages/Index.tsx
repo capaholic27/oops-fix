@@ -25,6 +25,21 @@ const PAGES = [
 
 const DOUBLE_TAP_MS = 350;
 
+// Per-page cleanup run when a double-tap resets a page to its main view.
+// TeamPage persists the selected team/league in localStorage, so clearing it
+// here lets the remount (key change) land on the league selector, not the
+// previously-opened stats dashboard.
+const PAGE_RESETS: (() => void)[] = [
+  () => {}, // Games
+  () => {}, // Pro
+  () => {
+    localStorage.removeItem("fe_team");
+    localStorage.removeItem("fe_league");
+  }, // Stats
+  () => {}, // Edge
+  () => {}, // You
+];
+
 const Index = () => {
   const [activePage, setActivePage] = useState(2);
   const [resetKeys, setResetKeys] = useState([0, 0, 0, 0, 0]);
@@ -45,7 +60,8 @@ const Index = () => {
     const last = lastTapRef.current;
 
     if (idx === activePage && idx === last.idx && now - last.time < DOUBLE_TAP_MS) {
-      // Double tap on active page → reset it
+      // Double tap on active page → reset it to its main view
+      PAGE_RESETS[idx]?.();
       setResetKeys(prev => {
         const next = [...prev];
         next[idx] = prev[idx] + 1;
