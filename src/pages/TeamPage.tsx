@@ -9,7 +9,7 @@ import {
   filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
-import { isTournamentLeague, normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
+import { normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
@@ -47,6 +47,7 @@ type StatKey = "record" | "corners" | "cards" | "fouls" | "shots" | "over25" | "
 /* Top leagues for the box grid (domestic leagues only, no tournaments).
  * Imported from shared premium helper so Stats + Pro pages stay in sync. */
 import { TOP_LEAGUES, TOP_LEAGUES_SET, isPremiumUnlocked, subscribePremium } from "@/lib/premium";
+import { leagueGroupFor, isNonDomesticLeague, mergeSupportedLeagues, type LeagueGroup } from "@/lib/leagues";
 import { Lock } from "lucide-react";
 
 
@@ -211,7 +212,7 @@ const LeagueSelector = ({
     const seen = new Set<string>();
     // First pass: add from domestic leagues
     leagues.forEach((l) => {
-      if (isTournamentLeague(l.name)) return;
+      if (isNonDomesticLeague(l.name)) return;
       (teamsByLeague[l.code] || []).forEach((team) => {
         const norm = normalizeTeamName(team);
         if (isFavorite(team) && !seen.has(norm)) {
@@ -220,9 +221,9 @@ const LeagueSelector = ({
         }
       });
     });
-    // Second pass: add tournament-only teams that weren't found in domestic
+    // Second pass: add non-domestic teams (tournaments, internationals, friendlies)
     leagues.forEach((l) => {
-      if (!isTournamentLeague(l.name)) return;
+      if (!isNonDomesticLeague(l.name)) return;
       (teamsByLeague[l.code] || []).forEach((team) => {
         const norm = normalizeTeamName(team);
         if (isFavorite(team) && !seen.has(norm)) {
@@ -460,10 +461,14 @@ const LeagueSelector = ({
             </div>
           )}
 
-          {/* All competitions — split into Leagues and Tournaments */}
+          {/* All competitions — grouped into Leagues, Tournaments, International, Friendlies */}
           {filter === "all" && (() => {
-            const domestic = leagues.filter((l) => !isTournamentLeague(l.name));
-            const tournaments = leagues.filter((l) => isTournamentLeague(l.name));
+            const groups: { label: string; group: LeagueGroup }[] = [
+              { label: "Leagues", group: "domestic" },
+              { label: "Tournaments", group: "tournament" },
+              { label: "International", group: "international" },
+              { label: "Friendlies", group: "friendlies" },
+            ];
             const renderRow = (l: { code: string; name: string }) => {
               const locked = !canAccessLeague(l.name);
               return (
@@ -489,18 +494,16 @@ const LeagueSelector = ({
             };
             return (
               <div className="space-y-5">
-                {domestic.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="stat-label px-1">Leagues</h3>
-                    <div className="space-y-2">{domestic.map(renderRow)}</div>
-                  </div>
-                )}
-                {tournaments.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="stat-label px-1">Tournaments</h3>
-                    <div className="space-y-2">{tournaments.map(renderRow)}</div>
-                  </div>
-                )}
+                {groups.map(({ label, group }) => {
+                  const items = leagues.filter((l) => leagueGroupFor(l.name) === group);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={group} className="space-y-2">
+                      <h3 className="stat-label px-1">{label}</h3>
+                      <div className="space-y-2">{items.map(renderRow)}</div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
@@ -729,11 +732,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   const { toggleFavorite, isFavorite } = useFavorites();
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
-  const { data: allMatches = [] } = useMatches(leagueCode || undefined);
-  const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
+  // Form & predictions use ALL of a team's recent matches across every
+  // competition (domestic, tournaments, internationals, friendlies) so the
+  // win-rate reflects current form rather than a single league's older games.
+  const { data: allMatches = [] } = useMatches();
+  const { data: teamMatches = [] } = useTeamMatches(selectedTeam);
   const { data: fixtures = [] } = useFixtures(selectedTeam);
   const { data: allFixtures = [] } = useFixtures();
-  const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
+  const leagues = useMemo(() => mergeSupportedLeagues(getUniqueLeagues(allMatches)), [allMatches]);
   const currentLeagueName = leagues.find((l) => l.code === leagueCode)?.name ?? "All Leagues";
 
   const nextFixture = useMemo(() => {
@@ -1413,7 +1419,7 @@ const TeamPage = () => {
   const { data: allMatches = [], isLoading } = useMatches();
   const syncData = useSyncData();
   const syncFixtures = useSyncFixtures();
-  const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);
+  const leagues = useMemo(() => mergeSupportedLeagues(getUniqueLeagues(allMatches)), [allMatches]);
   const [showPredictionModal, setShowPredictionModal] = useState(false);
 
   const [selectedTeam, setSelectedTeam] = useState<string>(() => localStorage.getItem("fe_team") || "");

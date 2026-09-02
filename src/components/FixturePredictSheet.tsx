@@ -33,6 +33,29 @@ function avg(views: TeamMatchView[], pick: (v: TeamMatchView) => number, n = 8):
 
 type Suggestion = { market: string; pick: string; confidence: number; reason: string };
 
+/**
+ * Map a model suggestion onto a The Odds API market+outcome so we can show
+ * real bookmaker prices for it. Returns null for markets The Odds API doesn't
+ * cover (corners, cards, double chance) — those stay as model signals.
+ */
+function suggestionLiveParams(
+  fixture: Fixture,
+  s: Suggestion,
+): { market: "h2h" | "totals" | "btts"; outcome: string; point?: number; side: "home" | "draw" | "away" | "generic" } | null {
+  if (s.market === "Match Winner") {
+    const isHome = s.pick === fixture.home_team;
+    return { market: "h2h", outcome: s.pick, side: isHome ? "home" : "away" };
+  }
+  if (s.market === "Total Goals") {
+    const m = s.pick.match(/^(Over|Under)\s*([\d.]+)$/);
+    if (m) return { market: "totals", outcome: m[1], point: Number(m[2]), side: "generic" };
+  }
+  if (s.market === "Both Teams To Score") {
+    return { market: "btts", outcome: s.pick, side: "generic" };
+  }
+  return null;
+}
+
 const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
   const { data: allMatches = [] } = useMatches();
 
@@ -246,10 +269,29 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                     <p className="text-xs font-bold">{s.pick}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">{s.reason}</p>
                     <div className="mt-1.5">
-                      <BookmakerOddsRow
-                        seed={`${fixture.id}-${s.market}-${s.pick}`}
-                        fairProb={s.confidence / 100}
-                      />
+                      {(() => {
+                        const lp = suggestionLiveParams(fixture, s);
+                        if (lp) {
+                          return (
+                            <LiveOddsRow
+                              home={fixture.home_team}
+                              away={fixture.away_team}
+                              market={lp.market}
+                              outcome={lp.outcome}
+                              point={lp.point}
+                              fallbackSeed={`${fixture.id}-${s.market}-${s.pick}`}
+                              fallbackSide={lp.side}
+                              fallbackFairProb={s.confidence / 100}
+                            />
+                          );
+                        }
+                        return (
+                          <BookmakerOddsRow
+                            seed={`${fixture.id}-${s.market}-${s.pick}`}
+                            fairProb={s.confidence / 100}
+                          />
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}

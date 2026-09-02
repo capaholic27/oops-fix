@@ -25,17 +25,28 @@ const ODDS_HOST = "https://api.the-odds-api.com/v4";
 // in order and pick the first that has a match for the home/away pair.
 const SOCCER_KEYS = [
   "soccer_epl",
+  "soccer_england_efl_champ",
   "soccer_spain_la_liga",
   "soccer_italy_serie_a",
+  "soccer_italy_serie_b",
   "soccer_germany_bundesliga",
   "soccer_france_ligue_one",
+  "soccer_netherlands_eredivisie",
+  "soccer_portugal_primeira_liga",
+  "soccer_turkey_super_league",
+  "soccer_scotland_premier_league",
+  "soccer_sweden_allsvenskan",
+  "soccer_usa_mls",
   "soccer_uefa_champs_league",
   "soccer_uefa_europa_league",
+  "soccer_uefa_conference_league",
+  "soccer_uefa_nations_league",
   "soccer_uefa_european_championship",
   "soccer_fifa_world_cup",
   "soccer_conmebol_copa_america",
   "soccer_africa_cup_of_nations",
-  "soccer_usa_mls",
+  "soccer_fifa_club_world_cup",
+  "soccer_international_friendly",
 ];
 
 function norm(s: string): string {
@@ -75,10 +86,19 @@ Deno.serve(async (req) => {
   const sportKeys = sportOverride ? [sportOverride] : SOCCER_KEYS;
 
   try {
+    let lastStatus = 0;
+    let lastStatusKey = "";
     for (const sportKey of sportKeys) {
       const oddsUrl = `${ODDS_HOST}/sports/${sportKey}/odds?regions=${regions}&markets=${markets}&oddsFormat=decimal&apiKey=${apiKey}`;
       const res = await fetch(oddsUrl);
-      if (!res.ok) continue;
+      if (!res.ok) {
+        // Capture the most recent non-OK status so callers can tell a bad key
+        // (401) / exhausted quota (422) / missing sport (404) from a genuine
+        // "no fixture listed yet" (200 with empty array).
+        lastStatus = res.status;
+        lastStatusKey = sportKey;
+        continue;
+      }
       const events = await res.json() as Array<{
         id: string; commence_time: string; home_team: string; away_team: string;
         bookmakers: Array<{ key: string; title: string; markets: Array<{ key: string; outcomes: Array<{ name: string; price: number; point?: number }> }> }>;
@@ -106,7 +126,15 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ found: false, event: null, bookmakers: [] }),
+      JSON.stringify({
+        found: false,
+        event: null,
+        bookmakers: [],
+        // When every sport key failed, lastStatus tells us why (0 = all keys
+        // returned 200 but no matching fixture was listed yet).
+        lastStatus,
+        lastStatusKey,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {

@@ -64,6 +64,10 @@ const LEAGUE_FOTMOB_ID: Record<string, number> = {
   "Copa America": 44,
   "FIFA Club World Cup": 78,
   "Nations League": 10204,
+  "UEFA Nations League": 10204,
+  "International": 114,
+  "Friendlies": 489,
+  "Club Friendlies": 489,
 };
 
 const LEAGUE_SHORT: Record<string, string> = {
