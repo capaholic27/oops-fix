@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useStandings } from "@/hooks/useMatches";
+import { useExtraTeamMatches } from "@/hooks/useExtraMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getTeamMatchView,
@@ -96,6 +97,7 @@ const FormStrip = ({ views, formLast5 }: { views: TeamMatchView[]; formLast5: ("
                   <span className="font-medium truncate flex-1">
                     <span className="text-muted-foreground text-[9px] mr-1">{v.isHome ? "vs" : "@"}</span>
                     {v.opponent}
+                    <span className="text-muted-foreground/60 text-[8px] ml-1">· {v.match.league_name}</span>
                   </span>
                   <span className="font-mono font-bold flex-shrink-0">{v.goalsFor}-{v.goalsAgainst}</span>
                 </div>
@@ -737,6 +739,8 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   // win-rate reflects current form rather than a single league's older games.
   const { data: allMatches = [] } = useMatches();
   const { data: teamMatches = [] } = useTeamMatches(selectedTeam);
+  // Fetch friendly/international results not in the DB (INTL + FRLY from Fotmob)
+  const extraMatches = useExtraTeamMatches(selectedTeam);
   const { data: fixtures = [] } = useFixtures(selectedTeam);
   const { data: allFixtures = [] } = useFixtures();
   const leagues = useMemo(() => mergeSupportedLeagues(getUniqueLeagues(allMatches)), [allMatches]);
@@ -767,14 +771,28 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     return oppViews.length > 0 ? aggregateStats(oppViews) : null;
   }, [nextOpponentName, allMatches, pastN]);
 
+  // Merge DB matches with extra friendly/international results, dedup by key
+  const allTeamMatches = useMemo(() => {
+    if (extraMatches.length === 0) return teamMatches;
+    const seen = new Set(
+      teamMatches.map((m) =>
+        `${m.match_date}|${normalizeTeamName(m.home_team).toLowerCase()}|${normalizeTeamName(m.away_team).toLowerCase()}`
+      )
+    );
+    const fresh = extraMatches.filter(
+      (m) => !seen.has(`${m.match_date}|${normalizeTeamName(m.home_team).toLowerCase()}|${normalizeTeamName(m.away_team).toLowerCase()}`)
+    );
+    return [...teamMatches, ...fresh].sort((a, b) => a.match_date.localeCompare(b.match_date));
+  }, [teamMatches, extraMatches]);
+
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     if (!selectedTeam) return [];
     return filterRecentViews(
-      teamMatches
+      allTeamMatches
         .map((m) => getTeamMatchView(m, selectedTeam))
         .filter((v): v is TeamMatchView => v !== null)
     );
-  }, [teamMatches, selectedTeam]);
+  }, [allTeamMatches, selectedTeam]);
 
   const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
@@ -939,7 +957,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       />
 
       <MomentumChart views={teamViews} teamName={selectedTeam} />
-      <RecentResults views={teamViews} />
+      <RecentResults views={allTeamViews} />
 
       {leagueCode && (
         <RankingsTable leagueCode={leagueCode} leagueName={currentLeagueName} />

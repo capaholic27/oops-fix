@@ -10,7 +10,7 @@ type Props = {
 
 export const RecentResults = ({ views }: Props) => {
   const [showAll, setShowAll] = useState(false);
-  const allRecent = views.slice(-20).reverse();
+  const allRecent = [...views].reverse();
   const recent = showAll ? allRecent : allRecent.slice(0, 5);
 
   return (
@@ -36,6 +36,7 @@ export const RecentResults = ({ views }: Props) => {
             <tr className="border-b border-border">
               <th className="text-left font-medium text-muted-foreground px-5 pb-3 text-xs uppercase tracking-wider">Date</th>
               <th className="text-left font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">Opponent</th>
+              <th className="text-left font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">Comp</th>
               <th className="text-center font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">Result</th>
               <th className="text-right font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">Shots</th>
               <th className="text-right font-medium text-muted-foreground px-3 pb-3 text-xs uppercase tracking-wider">SOT</th>
@@ -46,10 +47,11 @@ export const RecentResults = ({ views }: Props) => {
           <tbody>
             {recent.map((v, i) => (
               <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors">
-                <td className="px-5 py-2.5 font-mono text-xs text-muted-foreground">{v.match.match_date}</td>
-                <td className="px-3 py-2.5 font-medium text-sm">
+                <td className="px-5 py-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap">{v.match.match_date}</td>
+                <td className="px-3 py-2.5 font-medium text-sm whitespace-nowrap">
                   {v.isHome ? "vs" : "@"} {v.opponent}
                 </td>
+                <td className="px-3 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{v.match.league_name}</td>
                 <td className="px-3 py-2.5 text-center">
                   <div className="flex items-center justify-center gap-1.5">
                     <FormBadge result={v.result} />
