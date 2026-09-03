@@ -101,11 +101,30 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
         awayQuery = awayQuery.eq("league_code", leagueCode);
       }
 
-      const [homeRes, awayRes] = await Promise.all([homeQuery, awayQuery]);
-      if (homeRes.error) throw homeRes.error;
-      if (awayRes.error) throw awayRes.error;
+      // Paginate both queries — the default Supabase limit (1000) can
+      // silently truncate teams with extensive match history.
+      const paginate = async (baseQuery: typeof homeQuery): Promise<Match[]> => {
+        const rows: Match[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
+        while (hasMore) {
+          const { data, error } = await baseQuery.range(from, from + batchSize - 1);
+          if (error) throw error;
+          if (data && data.length > 0) {
+            rows.push(...(data as unknown as Match[]));
+            from += batchSize;
+            hasMore = data.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
+        return rows;
+      };
 
-      const all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
+      const [homeData, awayData] = await Promise.all([paginate(homeQuery), paginate(awayQuery)]);
+
+      const all = [...homeData, ...awayData] as unknown as Match[];
       // Deduplicate by (date, normalized home, normalized away) — collapses
       // alias variants (e.g. "Brighton" / "Brighton & Hove Albion").
       const seen = new Set<string>();
@@ -125,6 +144,10 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
   });
 }
 
+function fixtureKey(f: { home_team: string; away_team: string; league_code: string }) {
+  return `${normalizeTeamName(f.home_team).toLowerCase()}|${normalizeTeamName(f.away_team).toLowerCase()}|${f.league_code}`;
+}
+
 export function useFixtures(teamName?: string) {
   return useQuery({
     queryKey: ["fixtures", teamName],
@@ -140,9 +163,36 @@ export function useFixtures(teamName?: string) {
         query = query.or(parts.join(","));
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return (data || []) as unknown as Fixture[];
+      // Paginate — the fixtures table has thousands of rows and the default
+      // Supabase limit is 1000, which silently truncates results.
+      const all: Fixture[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await query.range(from, from + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          all.push(...(data as unknown as Fixture[]));
+          from += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      // Deduplicate: the same match can appear on multiple dates (e.g. a
+      // fixture listed on both Sep 5 and Sep 6). Keep the earliest date for
+      // each unique (home, away, league) combination.
+      const seen = new Set<string>();
+      const unique: Fixture[] = [];
+      for (const f of all) {
+        const key = fixtureKey(f);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(f);
+      }
+      return unique;
     },
   });
 }
