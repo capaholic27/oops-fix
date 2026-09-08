@@ -21,6 +21,7 @@ import { RankingsTable } from "@/components/RankingsTable";
 import { FormBadge } from "@/components/FormBadge";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
+import { LeagueFilterDropdown } from "@/components/LeagueFilterDropdown";
 import { AdBanner } from "@/components/AdBanner";
 import { MomentumChart } from "@/components/MomentumChart";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
@@ -734,6 +735,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   const { toggleFavorite, isFavorite } = useFavorites();
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
+  const [leagueFilter, setLeagueFilter] = useState<string>("all");
   // Form & predictions use ALL of a team's recent matches across every
   // competition (domestic, tournaments, internationals, friendlies) so the
   // win-rate reflects current form rather than a single league's older games.
@@ -765,11 +767,12 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     if (!nextOpponentName) return null;
     const oppViews = filterRecentViews(
       allMatches
+        .filter((m) => leagueFilter === "all" || m.league_code === leagueFilter)
         .map((m) => getTeamMatchView(m, nextOpponentName))
         .filter((v): v is TeamMatchView => v !== null)
     ).slice(-pastN);
     return oppViews.length > 0 ? aggregateStats(oppViews) : null;
-  }, [nextOpponentName, allMatches, pastN]);
+  }, [nextOpponentName, allMatches, pastN, leagueFilter]);
 
   // Merge DB matches with extra friendly/international results, dedup by key
   const allTeamMatches = useMemo(() => {
@@ -794,7 +797,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     );
   }, [allTeamMatches, selectedTeam]);
 
-  const teamViews = useMemo(() => allTeamViews.slice(-pastN), [allTeamViews, pastN]);
+  // When a specific league is selected, filter views to that competition only
+  // so stats and predictions reflect performance in that specific league.
+  const filteredTeamViews = useMemo(() => {
+    if (leagueFilter === "all") return allTeamViews;
+    return allTeamViews.filter((v) => v.match.league_code === leagueFilter);
+  }, [allTeamViews, leagueFilter]);
+
+  const teamViews = useMemo(() => filteredTeamViews.slice(-pastN), [filteredTeamViews, pastN]);
   const stats = useMemo(() => aggregateStats(teamViews), [teamViews]);
   const winRate = stats.matchesPlayed > 0 ? ((stats.wins / stats.matchesPlayed) * 100).toFixed(1) : "0.0";
 
@@ -802,6 +812,9 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
     () => (leagueCode ? allMatches.filter((m) => m.league_code === leagueCode) : []),
     [allMatches, leagueCode]
   );
+
+  // Leagues this team has actually played in — for the filter dropdown.
+  const teamLeagueMatches = useMemo(() => allTeamMatches, [allTeamMatches]);
 
   if (stats.matchesPlayed === 0) {
     return (
@@ -855,8 +868,14 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
               <div className="flex items-center gap-1.5 mt-1">
                 <LeagueLogo leagueName={currentLeagueName} size="xs" />
                 <p className="text-xs text-muted-foreground font-medium">
-                  {currentLeagueName} · {stats.matchesPlayed} matches
+                  {stats.matchesPlayed} matches
                 </p>
+                <LeagueFilterDropdown
+                  matches={teamLeagueMatches}
+                  value={leagueFilter}
+                  onChange={setLeagueFilter}
+                  variant="compact"
+                />
               </div>
             </div>
           </div>
@@ -867,7 +886,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         </div>
         <div className="flex items-start justify-between mt-2 gap-2">
           <div className="flex-1 min-w-0">
-            <FormStrip views={allTeamViews} formLast5={stats.formLast5} />
+            <FormStrip views={filteredTeamViews} formLast5={stats.formLast5} />
           </div>
           <button
             onClick={onOpenPredict}
@@ -898,7 +917,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
         <StatCard label="Over 2.5" value={`${stats.over25Percentage.toFixed(0)}%`} icon={<Target className="w-4 h-4" />} trend={stats.over25Percentage > 60 ? "positive" : "neutral"} subtitle={`O1.5: ${stats.over15Percentage.toFixed(0)}% · BTTS: ${stats.bttsPercentage.toFixed(0)}%`} delay={400} onClick={() => setOpenStat("over25")} />
         <StatCard label="Clean Sheets" value={stats.cleanSheets} icon={<Shield className="w-4 h-4" />} trend="positive" subtitle={`${(stats.goalsAgainst / stats.matchesPlayed).toFixed(2)} GA/match`} delay={450} onClick={() => setOpenStat("cleanSheets")} />
         {(() => {
-          const mentality = computeMentality(allTeamViews.map(v => v.result));
+          const mentality = computeMentality(filteredTeamViews.map(v => v.result));
           return (
             <div className="rounded-2xl border border-border bg-card p-3 opacity-0 animate-fade-up" style={{ animationDelay: "475ms" }}>
               <div className="flex items-center justify-between mb-2">
@@ -957,7 +976,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       />
 
       <MomentumChart views={teamViews} teamName={selectedTeam} />
-      <RecentResults views={allTeamViews} />
+      <RecentResults views={filteredTeamViews} />
 
       {leagueCode && (
         <RankingsTable leagueCode={leagueCode} leagueName={currentLeagueName} />
@@ -993,22 +1012,36 @@ export const PredictionDialog = ({
   const [squadB, setSquadB] = useState<RealPlayer[]>([]);
   const [outA, setOutA] = useState<Set<string>>(new Set());
   const [outB, setOutB] = useState<Set<string>>(new Set());
+  const [leagueFilter, setLeagueFilter] = useState<string>("all");
   const pastN = 10;
 
   const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
+
+  // Matches for both selected teams — used to populate the league dropdown.
+  const dialogLeagueMatches = useMemo(() => {
+    if (!selectedTeamA && !selectedTeamB) return [];
+    return allMatches.filter(
+      (m: any) =>
+        (selectedTeamA && (m.home_team === selectedTeamA || m.away_team === selectedTeamA)) ||
+        (selectedTeamB && (m.home_team === selectedTeamB || m.away_team === selectedTeamB))
+    );
+  }, [allMatches, selectedTeamA, selectedTeamB]);
 
   const getTeamStats = useCallback(
     (teamName: string) => {
       if (!teamName) return null;
       const views = filterRecentViews(
         allMatches
-          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .filter((m: any) =>
+            (m.home_team === teamName || m.away_team === teamName) &&
+            (leagueFilter === "all" || m.league_code === leagueFilter)
+          )
           .map((m: any) => getTeamMatchView(m, teamName))
           .filter((v: any): v is TeamMatchView => v !== null)
       ).slice(-pastN);
       return views.length > 0 ? aggregateStats(views) : null;
     },
-    [allMatches, pastN]
+    [allMatches, pastN, leagueFilter]
   );
 
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
@@ -1023,7 +1056,10 @@ export const PredictionDialog = ({
     const getRecentStats = (teamName: string) => {
       const views = filterRecentViews(
         allMatches
-          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .filter((m: any) =>
+            (m.home_team === teamName || m.away_team === teamName) &&
+            (leagueFilter === "all" || m.league_code === leagueFilter)
+          )
           .map((m: any) => getTeamMatchView(m, teamName))
           .filter((v: any): v is TeamMatchView => v !== null)
       ).slice(-5);
@@ -1051,7 +1087,7 @@ export const PredictionDialog = ({
       recentMatches: recentB.n,
     };
     return predictMatch(homeInput, awayInput, leagueAvg);
-  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches, impactA, impactB]);
+  }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches, impactA, impactB, leagueFilter]);
 
   const handleReset = () => {
     setPrediction(null);
@@ -1066,6 +1102,7 @@ export const PredictionDialog = ({
     setSquadB([]);
     setOutA(new Set());
     setOutB(new Set());
+    setLeagueFilter("all");
   };
 
   const handleRunPredict = useCallback(async () => {
@@ -1214,6 +1251,15 @@ export const PredictionDialog = ({
 
           {/* How it works */}
           {!showAI && <PredictionGuide />}
+
+          {/* League filter */}
+          {selectedTeamA && selectedTeamB && !showAI && (
+            <LeagueFilterDropdown
+              matches={dialogLeagueMatches}
+              value={leagueFilter}
+              onChange={setLeagueFilter}
+            />
+          )}
 
           {/* Prediction type */}
           {selectedTeamA && selectedTeamB && !showAI && (
@@ -1424,7 +1470,7 @@ export const PredictionDialog = ({
             </div>
           )}
           <p className="text-[10px] text-muted-foreground text-center px-4 py-2">
-            Poisson-Dixon-Coles model · Last {pastN} matches
+            Poisson-Dixon-Coles model · Last {pastN} {leagueFilter === "all" ? "matches (all comps)" : "matches in selected league"}
           </p>
         </div>
       </DialogContent>
