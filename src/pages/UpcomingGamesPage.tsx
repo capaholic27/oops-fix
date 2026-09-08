@@ -5,6 +5,7 @@ import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { cn } from "@/lib/utils";
+import { normalizeTeamName } from "@/lib/teamNormalize";
 import type { Match } from "@/lib/matchStats";
 
 function getAbbr(name: string) {
@@ -30,6 +31,30 @@ function getAbbr(name: string) {
 
 function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Convert a UTC date string + optional UTC time to the user's LOCAL date.
+ * match_date and match_time are stored in UTC; we need the local date so
+ * games are grouped on the day the user actually sees them.
+ */
+function toLocalDate(utcDate: string, utcTime: string | null): string {
+  if (!utcTime) return utcDate; // No time available → keep date as-is
+  const d = new Date(`${utcDate}T${utcTime}:00Z`);
+  if (isNaN(d.getTime())) return utcDate;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/** Convert a UTC time to the user's LOCAL time string (HH:MM). */
+function toLocalTime(utcDate: string, utcTime: string): string {
+  const d = new Date(`${utcDate}T${utcTime}:00Z`);
+  if (isNaN(d.getTime())) return utcTime;
+  const h = String(d.getHours()).padStart(2, "0");
+  const m = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
 }
 
 function formatDateLabel(dateStr: string, today: string) {
@@ -82,7 +107,11 @@ const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: 
     </div>
     <div className="flex flex-col items-center justify-center px-3">
       <span className="text-xs font-semibold text-primary">vs</span>
-      {f.match_time && <span className="text-[10px] text-muted-foreground font-mono">{f.match_time}</span>}
+      {f.match_time && (
+        <span className="text-[10px] text-muted-foreground font-mono">
+          {toLocalTime(f.match_date, f.match_time)}
+        </span>
+      )}
     </div>
     <div className="flex-1 flex items-center justify-start gap-2 pl-3">
       <TeamLogo teamName={f.away_team} size="xs" />
@@ -122,9 +151,26 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   const today = useMemo(() => toDateStr(new Date()), []);
 
   const { days, todayIndex } = useMemo(() => {
+    // Build a set of completed match keys so we can hide fixtures that
+    // already have a result (prevents the same game showing twice).
+    const matchKeys = new Set<string>();
+    allMatches.forEach(m => {
+      matchKeys.add(`${normalizeTeamName(m.home_team).toLowerCase()}|${normalizeTeamName(m.away_team).toLowerCase()}`);
+    });
+
+    // Compute the LOCAL date for each fixture (UTC date+time → local date).
     const dateSet = new Set<string>();
     allMatches.forEach(m => dateSet.add(m.match_date));
-    fixtures.forEach(f => dateSet.add(f.match_date));
+    const fixturesByLocalDate = new Map<string, Fixture[]>();
+    fixtures.forEach(f => {
+      const localDate = toLocalDate(f.match_date, f.match_time);
+      dateSet.add(localDate);
+      // Skip fixtures that already have a completed match.
+      const key = `${normalizeTeamName(f.home_team).toLowerCase()}|${normalizeTeamName(f.away_team).toLowerCase()}`;
+      if (matchKeys.has(key)) return;
+      if (!fixturesByLocalDate.has(localDate)) fixturesByLocalDate.set(localDate, []);
+      fixturesByLocalDate.get(localDate)!.push(f);
+    });
     // Always show today, even if no fixtures, so the bar starts there.
     dateSet.add(today);
 
@@ -146,16 +192,16 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
       if (!matchesByDate.has(m.match_date)) matchesByDate.set(m.match_date, []);
       matchesByDate.get(m.match_date)!.push(m);
     });
-    const fixturesByDate = new Map<string, Fixture[]>();
-    fixtures.forEach(f => {
-      if (!fixturesByDate.has(f.match_date)) fixturesByDate.set(f.match_date, []);
-      fixturesByDate.get(f.match_date)!.push(f);
-    });
 
     const days: DayEntry[] = allDates.map(date => ({
       date,
       matches: matchesByDate.get(date) || [],
-      fixtures: fixturesByDate.get(date) || [],
+      // Sort fixtures by kickoff time (UTC time preserves chronological order).
+      fixtures: (fixturesByLocalDate.get(date) || []).slice().sort((a, b) => {
+        const ta = a.match_time ?? "99:99";
+        const tb = b.match_time ?? "99:99";
+        return ta.localeCompare(tb);
+      }),
     }));
 
     let todayIdx = days.findIndex(d => d.date === today);
