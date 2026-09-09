@@ -169,10 +169,16 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch { /* GET */ }
     const force = !!body?.force;
     const targetDate: string | undefined = body?.targetDate;
+    // Optional: only sync these league codes (keeps a run inside the
+    // edge-function time limit; the cron chunks the full list).
+    const onlyCodes: string[] | undefined = Array.isArray(body?.leagues) && body.leagues.length
+      ? body.leagues.map((c: string) => String(c))
+      : undefined;
+    const partial = !!onlyCodes;
 
     // Skip refresh if we recently fetched (last 6 hours) and have plenty of future fixtures.
     // But: when targetDate is specified, only skip if THAT date has fixtures already.
-    if (!force) {
+    if (!force && !partial) {
       const sixHoursAgo = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
       if (targetDate) {
         const { count: dayCount } = await supabase
@@ -204,17 +210,24 @@ Deno.serve(async (req) => {
     // 1) Fotmob (PRIMARY — no quota, covers MLS/Allsvenskan/etc)
     let fotmobResults: any[] = [];
     let fotmobFixturesCount = 0;
+    const leagueSet = onlyCodes
+      ? FOTMOB_LEAGUES.filter((l) => onlyCodes.includes(l.code))
+      : FOTMOB_LEAGUES;
     try {
-      const fm = await fetchFotmobAll();
+      const fm = await fetchFotmobAll(leagueSet);
       fotmobFixturesCount = fm.fixtures.length;
-      fotmobResults = fm.results;
-      console.log(`Fotmob produced ${fm.fixtures.length} fixtures + ${fm.results.length} results`);
+      // Only keep recent results — deep history is backfilled separately, and
+      // re-checking thousands of old rows every run blows the time budget.
+      const cutoff = addDays(-450);
+      fotmobResults = fm.results.filter((r) => r.match_date >= cutoff);
+      console.log(`Fotmob produced ${fm.fixtures.length} fixtures + ${fotmobResults.length} recent results`);
       // Stash for later upsert into matches table
-      (globalThis as any).__fotmobResults = fm.results;
+      (globalThis as any).__fotmobResults = fotmobResults;
       (globalThis as any).__fotmobFixtures = fm.fixtures;
     } catch (e) {
       console.warn("Fotmob fetch failed, falling back", e);
     }
+
 
     // 2) CSV and API-Football paths are now DISABLED — Fotmob is the sole source.
     //    We keep the helpers in this file for emergency fallback only.
