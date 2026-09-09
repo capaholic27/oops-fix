@@ -1,10 +1,9 @@
 import { useMemo, useState } from "react";
 import { useFixtures, useMatches, type Fixture } from "@/hooks/useMatches";
-import { getTeamMatchView, aggregateStats, filterRecentViews, type TeamMatchView } from "@/lib/matchStats";
-import { getTeamRecentViews } from "@/lib/recentForm";
-import { localToday } from "@/lib/datetime";
-import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { aggregateStats, type TeamMatchView } from "@/lib/matchStats";
+import { getTeamRecentViews } from "@/lib/recentForm";
+import { localToday, utcToLocalTime } from "@/lib/datetime";
+import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { TeamLogo } from "@/components/TeamLogo";
 import { cn } from "@/lib/utils";
 import { CalendarDays, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
@@ -115,7 +114,7 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
                       <span className="text-muted-foreground text-[9px] mr-1">{isHome ? "vs" : "@"}</span>
                       {opponent}
                     </p>
-                    <p className="text-[8px] text-muted-foreground">{dateStr}{f.match_time ? ` · ${f.match_time}` : ""} · {f.league_name}</p>
+                    <p className="text-[8px] text-muted-foreground">{dateStr}{f.match_time ? ` · ${utcToLocalTime(f.match_date, f.match_time)}` : ""} · {f.league_name}</p>
                   </div>
                 </div>
                 <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />

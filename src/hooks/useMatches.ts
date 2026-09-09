@@ -138,7 +138,11 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
         seen.add(key);
         unique.push(m);
       }
-      return unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
+      return unique.sort((a, b) => {
+        const d = a.match_date.localeCompare(b.match_date);
+        if (d !== 0) return d;
+        return (a.match_time ?? "00:00").localeCompare(b.match_time ?? "00:00");
+      });
     },
     enabled: !!teamName,
   });

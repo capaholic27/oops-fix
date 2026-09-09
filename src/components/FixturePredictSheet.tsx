@@ -9,6 +9,7 @@ import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { aggregateStats, type TeamMatchView, type Match } from "@/lib/matchStats";
 import { getTeamRecentViews } from "@/lib/recentForm";
+import { utcToLocalTime } from "@/lib/datetime";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { cn } from "@/lib/utils";
 
@@ -160,7 +161,7 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
             <LeagueLogo leagueName={fixture.league_name} size="sm" />
             <div>
               <p className="text-[11px] font-semibold">{fixture.league_name}</p>
-              <p className="text-[9px] text-muted-foreground">{dateStr}{fixture.match_time ? ` · ${fixture.match_time}` : ""}</p>
+              <p className="text-[9px] text-muted-foreground">{dateStr}{fixture.match_time ? ` · ${utcToLocalTime(fixture.match_date, fixture.match_time)}` : ""}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted">
