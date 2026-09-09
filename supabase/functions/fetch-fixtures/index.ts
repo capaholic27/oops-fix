@@ -256,7 +256,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Persist Fotmob finished results into `matches` (skip duplicates).
+    // Persist Fotmob finished results into `matches`.
+    // NOTE: a unique index on (match_date, lower(home), lower(away)) means a
+    // single duplicate used to abort an entire batch and silently drop weeks of
+    // results. We now dedupe case-insensitively and retry row-by-row on error.
     let resultsInserted = 0;
     const fmResults: any[] = (globalThis as any).__fotmobResults ?? [];
     if (fmResults.length > 0) {
@@ -267,23 +270,35 @@ Deno.serve(async (req) => {
         const { data: existing } = await supabase
           .from("matches")
           .select("match_date, home_team, away_team")
-          .in("match_date", dates);
+          .in("match_date", dates)
+          .limit(10000);
         const existingSet = new Set(
-          (existing ?? []).map((e: any) => `${e.match_date}|${e.home_team}|${e.away_team}`)
+          (existing ?? []).map(
+            (e: any) => `${e.match_date}|${String(e.home_team).toLowerCase()}|${String(e.away_team).toLowerCase()}`
+          )
         );
-        const fresh = batch.filter(
-          (r) => !existingSet.has(`${r.match_date}|${r.home_team}|${r.away_team}`)
-        );
+        const seenBatch = new Set<string>();
+        const fresh = batch.filter((r) => {
+          const k = `${r.match_date}|${r.home_team.toLowerCase()}|${r.away_team.toLowerCase()}`;
+          if (existingSet.has(k) || seenBatch.has(k)) return false;
+          seenBatch.add(k);
+          return true;
+        });
         if (fresh.length === 0) continue;
         const { error } = await supabase.from("matches").insert(fresh);
         if (error) {
-          console.error("Fotmob results insert error:", error);
+          // Fall back to per-row inserts so one clashing row can't drop the batch.
+          for (const row of fresh) {
+            const { error: rowErr } = await supabase.from("matches").insert(row);
+            if (!rowErr) resultsInserted++;
+          }
           continue;
         }
         resultsInserted += fresh.length;
       }
       console.log(`Inserted ${resultsInserted} Fotmob results into matches`);
     }
+
 
     // Cleanup: drop fixtures that already have a result, and any past-dated fixtures.
     // Fotmob is the only source going forward, so we don't worry about losing rows.
