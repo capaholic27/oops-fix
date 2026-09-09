@@ -291,13 +291,18 @@ Deno.serve(async (req) => {
           )
         );
         const seenBatch = new Set<string>();
-        const fresh = batch.filter((r) => {
-          const k = `${r.match_date}|${r.home_team.toLowerCase()}|${r.away_team.toLowerCase()}`;
-          if (existingSet.has(k) || seenBatch.has(k)) return false;
-          seenBatch.add(k);
-          return true;
-        });
+        const fresh = batch
+          .filter((r) => {
+            const k = `${r.match_date}|${r.home_team.toLowerCase()}|${r.away_team.toLowerCase()}`;
+            if (existingSet.has(k) || seenBatch.has(k)) return false;
+            seenBatch.add(k);
+            return true;
+          })
+          // `match_id` is a Fotmob-only field and is not a column on `matches`;
+          // leaving it in made every insert fail.
+          .map(({ match_id: _ignored, ...row }: any) => row);
         if (fresh.length === 0) continue;
+
         const { error } = await supabase.from("matches").insert(fresh);
         if (error) {
           // Fall back to per-row inserts so one clashing row can't drop the batch.
