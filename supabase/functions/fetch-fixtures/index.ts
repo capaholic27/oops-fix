@@ -12,7 +12,7 @@
 // Idempotent: uses upsert so duplicate fixtures don't error.
 
 import { adminClient, reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
-import { fetchFotmobAll } from "../_shared/fotmob.ts";
+import { fetchFotmobAll, FOTMOB_LEAGUES } from "../_shared/fotmob.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,10 +169,16 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch { /* GET */ }
     const force = !!body?.force;
     const targetDate: string | undefined = body?.targetDate;
+    // Optional: only sync these league codes (keeps a run inside the
+    // edge-function time limit; the cron chunks the full list).
+    const onlyCodes: string[] | undefined = Array.isArray(body?.leagues) && body.leagues.length
+      ? body.leagues.map((c: string) => String(c))
+      : undefined;
+    const partial = !!onlyCodes;
 
     // Skip refresh if we recently fetched (last 6 hours) and have plenty of future fixtures.
     // But: when targetDate is specified, only skip if THAT date has fixtures already.
-    if (!force) {
+    if (!force && !partial) {
       const sixHoursAgo = new Date(Date.now() - 6 * 3600 * 1000).toISOString();
       if (targetDate) {
         const { count: dayCount } = await supabase
@@ -204,17 +210,24 @@ Deno.serve(async (req) => {
     // 1) Fotmob (PRIMARY — no quota, covers MLS/Allsvenskan/etc)
     let fotmobResults: any[] = [];
     let fotmobFixturesCount = 0;
+    const leagueSet = onlyCodes
+      ? FOTMOB_LEAGUES.filter((l) => onlyCodes.includes(l.code))
+      : FOTMOB_LEAGUES;
     try {
-      const fm = await fetchFotmobAll();
+      const fm = await fetchFotmobAll(leagueSet);
       fotmobFixturesCount = fm.fixtures.length;
-      fotmobResults = fm.results;
-      console.log(`Fotmob produced ${fm.fixtures.length} fixtures + ${fm.results.length} results`);
+      // Only keep recent results — deep history is backfilled separately, and
+      // re-checking thousands of old rows every run blows the time budget.
+      const cutoff = addDays(-450);
+      fotmobResults = fm.results.filter((r) => r.match_date >= cutoff);
+      console.log(`Fotmob produced ${fm.fixtures.length} fixtures + ${fotmobResults.length} recent results`);
       // Stash for later upsert into matches table
-      (globalThis as any).__fotmobResults = fm.results;
+      (globalThis as any).__fotmobResults = fotmobResults;
       (globalThis as any).__fotmobFixtures = fm.fixtures;
     } catch (e) {
       console.warn("Fotmob fetch failed, falling back", e);
     }
+
 
     // 2) CSV and API-Football paths are now DISABLED — Fotmob is the sole source.
     //    We keep the helpers in this file for emergency fallback only.
@@ -256,7 +269,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Persist Fotmob finished results into `matches` (skip duplicates).
+    // Persist Fotmob finished results into `matches`.
+    // NOTE: a unique index on (match_date, lower(home), lower(away)) means a
+    // single duplicate used to abort an entire batch and silently drop weeks of
+    // results. We now dedupe case-insensitively and retry row-by-row on error.
     let resultsInserted = 0;
     const fmResults: any[] = (globalThis as any).__fotmobResults ?? [];
     if (fmResults.length > 0) {
@@ -267,23 +283,40 @@ Deno.serve(async (req) => {
         const { data: existing } = await supabase
           .from("matches")
           .select("match_date, home_team, away_team")
-          .in("match_date", dates);
+          .in("match_date", dates)
+          .limit(10000);
         const existingSet = new Set(
-          (existing ?? []).map((e: any) => `${e.match_date}|${e.home_team}|${e.away_team}`)
+          (existing ?? []).map(
+            (e: any) => `${e.match_date}|${String(e.home_team).toLowerCase()}|${String(e.away_team).toLowerCase()}`
+          )
         );
-        const fresh = batch.filter(
-          (r) => !existingSet.has(`${r.match_date}|${r.home_team}|${r.away_team}`)
-        );
+        const seenBatch = new Set<string>();
+        const fresh = batch
+          .filter((r) => {
+            const k = `${r.match_date}|${r.home_team.toLowerCase()}|${r.away_team.toLowerCase()}`;
+            if (existingSet.has(k) || seenBatch.has(k)) return false;
+            seenBatch.add(k);
+            return true;
+          })
+          // `match_id` is a Fotmob-only field and is not a column on `matches`;
+          // leaving it in made every insert fail.
+          .map(({ match_id: _ignored, ...row }: any) => row);
         if (fresh.length === 0) continue;
+
         const { error } = await supabase.from("matches").insert(fresh);
         if (error) {
-          console.error("Fotmob results insert error:", error);
+          // Fall back to per-row inserts so one clashing row can't drop the batch.
+          for (const row of fresh) {
+            const { error: rowErr } = await supabase.from("matches").insert(row);
+            if (!rowErr) resultsInserted++;
+          }
           continue;
         }
         resultsInserted += fresh.length;
       }
       console.log(`Inserted ${resultsInserted} Fotmob results into matches`);
     }
+
 
     // Cleanup: drop fixtures that already have a result, and any past-dated fixtures.
     // Fotmob is the only source going forward, so we don't worry about losing rows.

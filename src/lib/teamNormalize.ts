@@ -98,7 +98,10 @@ export const TOURNAMENT_LEAGUES = [
   "AFCON",
   "FIFA Club World Cup",
   "Copa America",
+  "Club Friendlies",
+  "International",
 ];
+
 
 export function isTournamentLeague(leagueName: string): boolean {
   return TOURNAMENT_LEAGUES.some(t => leagueName === t);

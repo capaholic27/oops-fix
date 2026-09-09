@@ -40,7 +40,12 @@ export const FOTMOB_LEAGUES: FotmobLeague[] = [
   { id: 6427,  code: "AFCON", name: "AFCON"                  },
   { id: 78,    code: "CWC",   name: "FIFA Club World Cup"    },
   { id: 10204, code: "UNL",   name: "UEFA Nations League"    },
+  // Always-on extra competitions (requested): club friendlies + national teams
+  { id: 489,   code: "CFR",   name: "Club Friendlies"        },
+  { id: 114,   code: "INTL",  name: "International"          },
+  { id: 10195, code: "INTL",  name: "International"          },
 ];
+
 
 export type RawFixture = {
   league_code: string;

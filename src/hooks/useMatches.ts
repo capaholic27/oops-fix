@@ -73,6 +73,12 @@ export function useMatches(leagueCode?: string) {
   });
 }
 
+/**
+ * Competitions that should always show up in a team's recent form, no matter
+ * which league is currently selected (club friendlies + national-team games).
+ */
+export const ALWAYS_INCLUDE_CODES = new Set(["CFR", "INTL"]);
+
 export function useTeamMatches(teamName: string | undefined, leagueCode?: string) {
   return useQuery({
     queryKey: ["team-matches", teamName, leagueCode],
@@ -84,28 +90,31 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
       const homeFilter = aliases.map(a => `home_team.eq.${a}`).join(",");
       const awayFilter = aliases.map(a => `away_team.eq.${a}`).join(",");
 
-      let homeQuery = supabase
+      const homeQuery = supabase
         .from("matches")
         .select("*")
         .or(homeFilter)
         .order("match_date", { ascending: true });
 
-      let awayQuery = supabase
+      const awayQuery = supabase
         .from("matches")
         .select("*")
         .or(awayFilter)
         .order("match_date", { ascending: true });
 
-      if (leagueCode) {
-        homeQuery = homeQuery.eq("league_code", leagueCode);
-        awayQuery = awayQuery.eq("league_code", leagueCode);
-      }
-
       const [homeRes, awayRes] = await Promise.all([homeQuery, awayQuery]);
       if (homeRes.error) throw homeRes.error;
       if (awayRes.error) throw awayRes.error;
 
-      const all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
+      let all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
+      // League filtering happens client-side so friendlies / international
+      // games are always part of the picture.
+      if (leagueCode) {
+        all = all.filter(
+          (m) => m.league_code === leagueCode || ALWAYS_INCLUDE_CODES.has(m.league_code)
+        );
+      }
+
       // Deduplicate by (date, normalized home, normalized away) — collapses
       // alias variants (e.g. "Brighton" / "Brighton & Hove Albion").
       const seen = new Set<string>();
