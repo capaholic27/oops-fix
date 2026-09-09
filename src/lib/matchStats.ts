@@ -1,4 +1,5 @@
 import { normalizeTeamName, canonicalTeamKey } from "@/lib/teamNormalize";
+import { localToday } from "@/lib/datetime";
 
 export type Match = {
   id: string;
@@ -6,6 +7,7 @@ export type Match = {
   league_name: string;
   season: string;
   match_date: string;
+  match_time?: string | null;
   home_team: string;
   away_team: string;
   ft_home_goals: number;
@@ -309,28 +311,45 @@ export function recentWindowStart(days = RECENT_WINDOW_DAYS): string {
 }
 
 /**
- * Keep only matches inside the recency window. Falls back to the most recent
- * `minKeep` rows when a team (e.g. a national side between tournaments) has
- * nothing inside the window, so pages never go blank.
+ * Sort key for matches: uses match_date + match_time (when available) so that
+ * same-day matches are ordered by actual kickoff time, not arbitrarily.
+ * Falls back to date-only when match_time is absent (older rows).
  */
-export function filterRecentMatches<T extends { match_date: string }>(
+function matchSortKey(m: { match_date: string; match_time?: string | null }): string {
+  return `${m.match_date}T${m.match_time ?? "00:00"}`;
+}
+
+/**
+ * Keep only completed matches inside the recency window, sorted by actual
+ * kickoff timestamp (date + time). Falls back to the most recent `minKeep`
+ * rows when a team has nothing inside the window, so pages never go blank.
+ *
+ * Uses the user's LOCAL timezone for the "today" boundary so matches near
+ * midnight aren't incorrectly included or excluded.
+ */
+export function filterRecentMatches<T extends { match_date: string; match_time?: string | null }>(
   rows: T[],
   minKeep = 5,
   days = RECENT_WINDOW_DAYS,
 ): T[] {
   const floor = recentWindowStart(days);
-  const today = new Date().toISOString().slice(0, 10);
-  const inWindow = rows.filter((r) => r.match_date >= floor && r.match_date <= today);
+  const today = localToday();
+  const inWindow = rows
+    .filter((r) => r.match_date >= floor && r.match_date <= today)
+    .sort((a, b) => matchSortKey(a).localeCompare(matchSortKey(b)));
   if (inWindow.length >= 3) return inWindow;
-  const sorted = [...rows].sort((a, b) => a.match_date.localeCompare(b.match_date));
+  const sorted = [...rows].sort((a, b) => matchSortKey(a).localeCompare(matchSortKey(b)));
   return sorted.slice(-minKeep);
 }
 
 /** Same as filterRecentMatches but for already-mapped team views. */
 export function filterRecentViews(views: TeamMatchView[], minKeep = 5): TeamMatchView[] {
   const floor = recentWindowStart();
-  const today = new Date().toISOString().slice(0, 10);
-  const inWindow = views.filter((v) => v.match.match_date >= floor && v.match.match_date <= today);
+  const today = localToday();
+  const inWindow = views
+    .filter((v) => v.match.match_date >= floor && v.match.match_date <= today)
+    .sort((a, b) => matchSortKey(a.match).localeCompare(matchSortKey(b.match)));
   if (inWindow.length >= 3) return inWindow;
-  return views.slice(-minKeep);
+  const sorted = [...views].sort((a, b) => matchSortKey(a.match).localeCompare(matchSortKey(b.match)));
+  return sorted.slice(-minKeep);
 }

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { predictNextMatchStyles } from "@/lib/tacticalPredictor";
 import type { AggregatedStats, TeamMatchView } from "@/lib/matchStats";
+import { localToday } from "@/lib/datetime";
 import { TeamLogo } from "@/components/TeamLogo";
 import { Calendar, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -33,7 +34,7 @@ export const PredictedTacticalProfile = ({
   const topStyle = predictions[0];
 
   // Upcoming fixtures for picker
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const upcomingFixtures = useMemo(
     () => allFixtures
       .filter((f) => f.match_date >= today && (f.home_team === teamName || f.away_team === teamName))

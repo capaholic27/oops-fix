@@ -310,11 +310,17 @@ Deno.serve(async (req) => {
         await supabase.from("fixtures").delete().in("id", idsToDelete);
         console.log(`Removed ${idsToDelete.length} settled fixtures`);
       }
+      // Only delete fixtures more than 3 days past. This prevents the
+      // "leagues disappear" bug where fixtures were deleted at midnight UTC
+      // even though the match hadn't been played yet in the user's timezone
+      // (e.g. a 23:00 UTC match is 01:00 the next day in UTC+2). Three days
+      // gives ample time for timezone offsets, result sync, and postponed
+      // matches to resolve.
       const { error: stalErr, count: stalCount } = await supabase
         .from("fixtures")
         .delete({ count: "exact" })
-        .lt("match_date", today());
-      if (!stalErr && stalCount) console.log(`Removed ${stalCount} stale past fixtures`);
+        .lt("match_date", addDays(-3));
+      if (!stalErr && stalCount) console.log(`Removed ${stalCount} stale past fixtures (>3 days old)`);
     } catch (e) {
       console.warn("Fixture cleanup failed", e);
     }

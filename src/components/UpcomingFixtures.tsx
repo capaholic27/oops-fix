@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useFixtures, useMatches, type Fixture } from "@/hooks/useMatches";
-import { getTeamMatchView, filterRecentViews } from "@/lib/matchStats";
+import { getTeamMatchView, aggregateStats, filterRecentViews, type TeamMatchView } from "@/lib/matchStats";
+import { getTeamRecentViews } from "@/lib/recentForm";
+import { localToday } from "@/lib/datetime";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { aggregateStats, type TeamMatchView } from "@/lib/matchStats";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -19,7 +21,7 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const allUpcoming = useMemo(
     () => fixtures.filter((f) => f.match_date >= today).slice(0, 15),
     [fixtures, today]
@@ -30,18 +32,8 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
   const leagueAvg = useMemo(() => computeLeagueAvgGoals(allMatches), [allMatches]);
 
   const getQuickPrediction = (fixture: Fixture) => {
-    const homeViews = filterRecentViews(
-      allMatches
-        .filter((m) => m.home_team === fixture.home_team || m.away_team === fixture.home_team)
-        .map((m) => getTeamMatchView(m, fixture.home_team))
-        .filter((v): v is TeamMatchView => v !== null)
-    ).slice(-10);
-    const awayViews = filterRecentViews(
-      allMatches
-        .filter((m) => m.home_team === fixture.away_team || m.away_team === fixture.away_team)
-        .map((m) => getTeamMatchView(m, fixture.away_team))
-        .filter((v): v is TeamMatchView => v !== null)
-    ).slice(-10);
+    const homeViews = getTeamRecentViews(fixture.home_team, allMatches).slice(-10);
+    const awayViews = getTeamRecentViews(fixture.away_team, allMatches).slice(-10);
 
     if (homeViews.length < 3 || awayViews.length < 3) return null;
 

@@ -6,6 +6,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { cn } from "@/lib/utils";
 import { normalizeTeamName } from "@/lib/teamNormalize";
+import { utcToLocalDate, utcToLocalTime, localToday } from "@/lib/datetime";
 import type { Match } from "@/lib/matchStats";
 
 function getAbbr(name: string) {
@@ -33,29 +34,9 @@ function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * Convert a UTC date string + optional UTC time to the user's LOCAL date.
- * match_date and match_time are stored in UTC; we need the local date so
- * games are grouped on the day the user actually sees them.
- */
-function toLocalDate(utcDate: string, utcTime: string | null): string {
-  if (!utcTime) return utcDate; // No time available → keep date as-is
-  const d = new Date(`${utcDate}T${utcTime}:00Z`);
-  if (isNaN(d.getTime())) return utcDate;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** Convert a UTC time to the user's LOCAL time string (HH:MM). */
-function toLocalTime(utcDate: string, utcTime: string): string {
-  const d = new Date(`${utcDate}T${utcTime}:00Z`);
-  if (isNaN(d.getTime())) return utcTime;
-  const h = String(d.getHours()).padStart(2, "0");
-  const m = String(d.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
-}
+// Date/time conversion uses the centralized utilities from @/lib/datetime.
+// utcToLocalDate and utcToLocalTime convert UTC-stored match_date/match_time
+// to the user's local timezone for display and date-grouping.
 
 function formatDateLabel(dateStr: string, today: string) {
   const diff = (new Date(dateStr + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86400000;
@@ -109,7 +90,7 @@ const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: 
       <span className="text-xs font-semibold text-primary">vs</span>
       {f.match_time && (
         <span className="text-[10px] text-muted-foreground font-mono">
-          {toLocalTime(f.match_date, f.match_time)}
+          {utcToLocalTime(f.match_date, f.match_time)}
         </span>
       )}
     </div>
@@ -148,7 +129,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   const handleSelectFixture = useCallback((f: Fixture) => setSelectedFixture(f), []);
   const handleCloseFixture = useCallback(() => setSelectedFixture(null), []);
 
-  const today = useMemo(() => toDateStr(new Date()), []);
+  const today = useMemo(() => localToday(), []);
 
   const { days, todayIndex } = useMemo(() => {
     // Build a set of completed match keys so we can hide fixtures that
@@ -163,7 +144,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
     allMatches.forEach(m => dateSet.add(m.match_date));
     const fixturesByLocalDate = new Map<string, Fixture[]>();
     fixtures.forEach(f => {
-      const localDate = toLocalDate(f.match_date, f.match_time);
+      const localDate = utcToLocalDate(f.match_date, f.match_time);
       dateSet.add(localDate);
       // Skip fixtures that already have a completed match.
       const key = `${normalizeTeamName(f.home_team).toLowerCase()}|${normalizeTeamName(f.away_team).toLowerCase()}`;

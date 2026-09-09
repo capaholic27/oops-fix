@@ -299,6 +299,7 @@ Deno.serve(async (req) => {
             league_name: r.league_name,
             season,
             match_date: d.toISOString().slice(0, 10),
+            match_time: d.toISOString().slice(11, 16),
             home_team: r.home_team,
             away_team: r.away_team,
             ft_home_goals: r.home_goals,

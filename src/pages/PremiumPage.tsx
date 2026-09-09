@@ -25,6 +25,7 @@ import {
   filterRecentViews,
 } from "@/lib/matchStats";
 import { computeMentality, normalizeTeamName, isTournamentLeague } from "@/lib/teamNormalize";
+import { localToday } from "@/lib/datetime";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
@@ -484,7 +485,7 @@ const ProDashboard = ({
 
   const nextFixture = useMemo(() => {
     if (fixtures.length === 0) return null;
-    const today = new Date().toISOString().split("T")[0];
+    const today = localToday();
     return fixtures.find((f) => f.match_date >= today) ?? null;
   }, [fixtures]);
 

@@ -54,6 +54,7 @@ async function fetchFotmobLeagueResults(
       league_name: name,
       season,
       match_date: d.toISOString().slice(0, 10),
+      match_time: d.toISOString().slice(11, 16),
       home_team: home,
       away_team: away,
       ft_home_goals: hg,

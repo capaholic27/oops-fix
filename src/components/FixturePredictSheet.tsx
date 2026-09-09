@@ -7,7 +7,8 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
-import { getTeamMatchView, aggregateStats, filterRecentViews, type TeamMatchView, type Match } from "@/lib/matchStats";
+import { aggregateStats, type TeamMatchView, type Match } from "@/lib/matchStats";
+import { getTeamRecentViews } from "@/lib/recentForm";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +18,7 @@ type Props = {
 };
 
 function teamViews(allMatches: Match[], team: string): TeamMatchView[] {
-  return filterRecentViews(
-    allMatches
-      .filter((m) => m.home_team === team || m.away_team === team)
-      .map((m) => getTeamMatchView(m, team))
-      .filter((v): v is TeamMatchView => v !== null)
-  );
+  return getTeamRecentViews(team, allMatches);
 }
 
 function avg(views: TeamMatchView[], pick: (v: TeamMatchView) => number, n = 8): number {

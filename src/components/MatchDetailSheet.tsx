@@ -6,7 +6,7 @@ import { FormBadge } from "./FormBadge";
 import { TeamLogo } from "./TeamLogo";
 import { LeagueLogo } from "./LeagueLogo";
 import type { Match } from "@/lib/matchStats";
-import { getTeamMatchView } from "@/lib/matchStats";
+import { getTeamRecentViews } from "@/lib/recentForm";
 
 type Props = {
   match: Match;
@@ -15,15 +15,11 @@ type Props = {
 };
 
 function getTeamForm(team: string, allMatches: Match[], beforeDate: string, count = 5) {
-  return allMatches
-    .filter((m) => (m.home_team === team || m.away_team === team) && m.match_date < beforeDate)
-    .sort((a, b) => b.match_date.localeCompare(a.match_date))
-    .slice(0, count)
-    .map((m) => {
-      const view = getTeamMatchView(m, team);
-      return view ? { result: view.result, match: m } : null;
-    })
-    .filter(Boolean) as { result: "W" | "D" | "L"; match: Match }[];
+  // Use the shared recent-form logic so the match-detail sheet and the Stats
+  // page always show the same matches in the same order.
+  const views = getTeamRecentViews(team, allMatches, count, beforeDate);
+  // Return most-recent FIRST for the detail list display.
+  return views.slice().reverse().map((v) => ({ result: v.result, match: v.match }));
 }
 
 type StatRowProps = { label: string; home: number | string; away: number | string; highlight?: boolean };

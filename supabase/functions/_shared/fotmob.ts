@@ -60,6 +60,7 @@ export type RawResult = {
   league_name: string;
   season: string;            // e.g. "2526"
   match_date: string;
+  match_time: string | null;  // HH:MM (UTC)
   home_team: string;
   away_team: string;
   ft_home_goals: number;
@@ -152,6 +153,7 @@ export async function fetchFotmobAll(
           league_name: lg.name,
           season,
           match_date: matchDate,
+          match_time: matchTime,
           home_team: home,
           away_team: away,
           ft_home_goals: hg,
@@ -203,6 +205,7 @@ export async function fetchFotmobLeagueSeason(
         league_name: league.name,
         season: String(season),
         match_date: d.toISOString().slice(0, 10),
+        match_time: d.toISOString().slice(11, 16),
         home_team: home,
         away_team: away,
         ft_home_goals: hg,

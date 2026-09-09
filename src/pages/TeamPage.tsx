@@ -11,6 +11,7 @@ import {
   type TeamMatchView,
 } from "@/lib/matchStats";
 import { normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
+import { localToday } from "@/lib/datetime";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
@@ -753,7 +754,7 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
       return fixtures.find((f) => f.id === selectedFixtureId) ?? null;
     }
     if (fixtures.length === 0) return null;
-    const today = new Date().toISOString().split("T")[0];
+    const today = localToday();
     return fixtures.find((f) => f.match_date >= today) ?? null;
   }, [fixtures, selectedFixtureId]);
 
