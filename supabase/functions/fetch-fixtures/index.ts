@@ -12,7 +12,7 @@
 // Idempotent: uses upsert so duplicate fixtures don't error.
 
 import { adminClient, reserveQuota, refundQuota, getTodayCount, DAILY_LIMIT } from "../_shared/quota.ts";
-import { fetchFotmobAll } from "../_shared/fotmob.ts";
+import { fetchFotmobAll, FOTMOB_LEAGUES } from "../_shared/fotmob.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
