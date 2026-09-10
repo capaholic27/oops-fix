@@ -1446,12 +1446,11 @@ const TeamPage = () => {
     toast.info("Syncing fixtures & results from Fotmob…");
     syncFixtures.mutate(undefined, {
       onSuccess: (data) => {
-        const fx = data.fotmobFixtures ?? data.inserted ?? 0;
-        const res = data.resultsInserted ?? 0;
-        toast.success(`Synced ${fx} fixtures & ${res} results`);
+        toast.success(`Updated ${data.groups} competition groups`);
       },
       onError: (e) => toast.error(`Sync failed: ${e.message}`),
     });
+
   };
 
   if (isLoading) {

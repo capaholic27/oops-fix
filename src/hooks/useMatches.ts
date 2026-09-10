@@ -186,6 +186,18 @@ export function useSyncData() {
   });
 }
 
+/**
+ * Competition groups used when refreshing. The full list is too large for one
+ * request, so it is split into chunks that each finish comfortably.
+ */
+export const SYNC_LEAGUE_GROUPS: string[][] = [
+  ["E0", "E1", "SP1", "D1"],
+  ["I1", "I2", "F1", "N1"],
+  ["P1", "T1", "SC0", "MLS", "SWE1", "AUS1"],
+  ["UCL", "UEL", "UECL", "WC", "EURO", "COPA", "AFCON", "CWC", "UNL"],
+  ["CFR", "INTL"],
+];
+
 export function useSyncFixtures() {
   const queryClient = useQueryClient();
 
@@ -198,9 +210,19 @@ export function useSyncFixtures() {
       };
       const base = `https://${projectId}.supabase.co/functions/v1`;
 
-      const res = await fetch(`${base}/fetch-fixtures`, { method: "POST", headers });
-      if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
-      const out = await res.json();
+      const settled = await Promise.allSettled(
+        SYNC_LEAGUE_GROUPS.map((leagues) =>
+          fetch(`${base}/fetch-fixtures`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ force: true, leagues }),
+          })
+        )
+      );
+      const ok = settled.filter((s) => s.status === "fulfilled" && s.value.ok).length;
+      if (ok === 0) throw new Error("Sync failed");
+      const out = { success: true, groups: ok };
+
 
       // Fire-and-forget: refresh official league tables (promoted/relegated
       // teams, live positions) and backfill major tournament history.
@@ -358,13 +380,20 @@ export function useAutoSync() {
         const base = `https://${projectId}.supabase.co/functions/v1`;
 
         await Promise.allSettled([
-          fetch(`${base}/fetch-fixtures`, { method: "POST", headers }),
+          ...SYNC_LEAGUE_GROUPS.map((leagues) =>
+            fetch(`${base}/fetch-fixtures`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ force: true, leagues }),
+            })
+          ),
           fetch(`${base}/fetch-standings`, {
             method: "POST",
             headers,
             body: JSON.stringify({}),
           }),
         ]);
+
 
         try {
           sessionStorage.setItem(AUTO_SYNC_SESSION_KEY, String(Date.now()));
