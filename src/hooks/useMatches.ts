@@ -380,13 +380,20 @@ export function useAutoSync() {
         const base = `https://${projectId}.supabase.co/functions/v1`;
 
         await Promise.allSettled([
-          fetch(`${base}/fetch-fixtures`, { method: "POST", headers }),
+          ...SYNC_LEAGUE_GROUPS.map((leagues) =>
+            fetch(`${base}/fetch-fixtures`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ force: true, leagues }),
+            })
+          ),
           fetch(`${base}/fetch-standings`, {
             method: "POST",
             headers,
             body: JSON.stringify({}),
           }),
         ]);
+
 
         try {
           sessionStorage.setItem(AUTO_SYNC_SESSION_KEY, String(Date.now()));
