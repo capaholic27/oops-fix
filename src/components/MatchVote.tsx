@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { TeamLogo } from "./TeamLogo";
@@ -40,18 +40,32 @@ export const MatchVote = ({ homeTeam, awayTeam, matchDate }: Props) => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Keep latest load in a ref so the realtime effect only re-subscribes on fixtureKey change
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  // Unique per component instance — multiple MatchVote components (e.g. Pro + Stats tabs)
+  // are mounted simultaneously and must not share a Supabase channel name.
+  const instanceId = useRef(Math.random().toString(36).slice(2)).current;
+
   // Realtime
   useEffect(() => {
-    const ch = supabase
-      .channel(`votes-${fixtureKey}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "match_votes", filter: `fixture_key=eq.${fixtureKey}` },
-        () => load()
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [fixtureKey, load]);
+    const channelName = `votes-${fixtureKey.replace(/\|/g, "-")}-${instanceId}`;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      ch = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "match_votes", filter: `fixture_key=eq.${fixtureKey}` },
+          () => loadRef.current()
+        )
+        .subscribe();
+    } catch (e) {
+      console.warn("MatchVote realtime subscription failed:", e);
+    }
+    return () => { if (ch) supabase.removeChannel(ch); };
+  }, [fixtureKey, instanceId]);
 
   const total = counts.home + counts.draw + counts.away;
   const pct = useMemo(() => ({
