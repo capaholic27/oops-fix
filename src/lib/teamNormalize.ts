@@ -155,6 +155,24 @@ export function isTournamentLeague(leagueName: string): boolean {
 }
 
 /**
+ * Canonical league names. The same league_code can appear under multiple names
+ * across data sources/seasons (e.g. "Super Lig" vs "Süper Lig", "Champions League"
+ * vs "UEFA Champions League"). Map every known variant to the current canonical
+ * name so match history isn't fragmented and the Games page doesn't split one
+ * league into duplicate sections.
+ */
+const LEAGUE_NAME_CANON: Record<string, string> = {
+  "Super Lig": "Süper Lig",
+  "Champions League": "UEFA Champions League",
+  "Europa League": "UEFA Europa League",
+  "Conference League": "UEFA Conference League",
+};
+
+export function normalizeLeagueName(leagueCode: string, name: string): string {
+  return LEAGUE_NAME_CANON[name] ?? name;
+}
+
+/**
  * Given a list of form results, compute a "mentality" label and description.
  * Based on patterns in the last 5-10 results.
  */

@@ -730,7 +730,10 @@ const StatsDashboard = ({ selectedTeam, leagueCode, pastN, setPastN, onBack, onO
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
   const [manualOpponent, setManualOpponent] = useState<string | null>(null);
   const { data: allMatches = [] } = useMatches(leagueCode || undefined);
-  const { data: teamMatches = [] } = useTeamMatches(selectedTeam, leagueCode || undefined);
+  // Pull the team's matches across ALL competitions (league, cups, internationals,
+  // friendlies) so recent form/results reflect every match, not just the
+  // selected league.
+  const { data: teamMatches = [] } = useTeamMatches(selectedTeam);
   const { data: fixtures = [] } = useFixtures(selectedTeam);
   const { data: allFixtures = [] } = useFixtures();
   const leagues = useMemo(() => getUniqueLeagues(allMatches), [allMatches]);

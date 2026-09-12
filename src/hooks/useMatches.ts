@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
-import { getTeamAliases, normalizeTeamName } from "@/lib/teamNormalize";
+import { getTeamAliases, normalizeTeamName, normalizeLeagueName } from "@/lib/teamNormalize";
 
 /**
  * Build a stable dedup key for a match. Uses normalized team names so that
@@ -68,7 +68,9 @@ export function useMatches(leagueCode?: string) {
       }
       // Re-sort by match_date ascending for consumers that expect that order.
       unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
-      return unique;
+      // Canonicalize league names so split histories (e.g. "Super Lig" vs
+      // "Süper Lig") merge into a single league everywhere they're consumed.
+      return unique.map((m) => ({ ...m, league_name: normalizeLeagueName(m.league_code, m.league_name) }));
     },
   });
 }
@@ -119,7 +121,9 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
         seen.add(key);
         unique.push(m);
       }
-      return unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
+      return unique
+        .map((m) => ({ ...m, league_name: normalizeLeagueName(m.league_code, m.league_name) }))
+        .sort((a, b) => a.match_date.localeCompare(b.match_date));
     },
     enabled: !!teamName,
   });
@@ -164,7 +168,7 @@ export function useFixtures(teamName?: string) {
       }
       const unique = Array.from(seen.values());
       unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
-      return unique;
+      return unique.map((f) => ({ ...f, league_name: normalizeLeagueName(f.league_code, f.league_name) }));
     },
   });
 }
