@@ -75,9 +75,21 @@ export function useMatches(leagueCode?: string) {
 
 /**
  * Competitions that should always show up in a team's recent form, no matter
- * which league is currently selected (club friendlies + national-team games).
+ * which league is currently selected: cups, continental and national-team
+ * competitions plus friendlies.
  */
-export const ALWAYS_INCLUDE_CODES = new Set(["CFR", "INTL"]);
+export const ALWAYS_INCLUDE_CODES = new Set([
+  "CFR", "INTL", "WCQ",
+  // Domestic cups
+  "ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC",
+  "GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP",
+  "BRACUP", "USACUP", "LGSCUP",
+  // Continental club competitions
+  "UCL", "UEL", "UECL", "USC",
+  "AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC", "CWC",
+  // National-team competitions
+  "WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "UNL", "CNL", "EUROQ",
+]);
 
 export function useTeamMatches(teamName: string | undefined, leagueCode?: string) {
   return useQuery({
