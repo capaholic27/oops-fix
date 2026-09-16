@@ -11,7 +11,7 @@ export type FotmobLeague = {
   name: string;
 };
 
-// Verified Fotmob IDs (April 2026).
+// Verified Fotmob IDs (verified live September 2026).
 export const FOTMOB_LEAGUES: FotmobLeague[] = [
   // Top European leagues
   { id: 47,  code: "E0",   name: "Premier League"        },
@@ -25,25 +25,98 @@ export const FOTMOB_LEAGUES: FotmobLeague[] = [
   { id: 61,  code: "P1",   name: "Primeira Liga"         },
   { id: 71,  code: "T1",   name: "Süper Lig"             },
   { id: 64,  code: "SC0",  name: "Scottish Premiership"  },
+  { id: 140, code: "SP2",  name: "La Liga 2"             },
+  { id: 146, code: "D2",   name: "Bundesliga 2"          },
+  { id: 40,  code: "B1",   name: "Belgian Pro League"    },
+  { id: 135, code: "G1",   name: "Super League Greece"   },
+  { id: 69,  code: "SUI1", name: "Swiss Super League"    },
+  { id: 46,  code: "DEN1", name: "Superligaen"           },
+  { id: 59,  code: "NOR1", name: "Eliteserien"           },
   // Other leagues the user requested
   { id: 130, code: "MLS",  name: "Major League Soccer"   },
   { id: 67,  code: "SWE1", name: "Allsvenskan"           },
   { id: 113, code: "AUS1", name: "A-League"              },
+  { id: 230, code: "MEX1", name: "Liga MX"               },
+  { id: 268, code: "BRA1", name: "Brasileirao"           },
+  { id: 112, code: "ARG1", name: "Liga Profesional"      },
+  { id: 536, code: "KSA1", name: "Saudi Pro League"      },
+  { id: 223, code: "JPN1", name: "J1 League"             },
+  { id: 9080, code: "KOR1", name: "K League 1"           },
+  // Domestic cups
+  { id: 133, code: "ENGLC", name: "EFL Cup"              },
+  { id: 132, code: "ENGFA", name: "FA Cup"               },
+  { id: 247, code: "ENGCS", name: "Community Shield"     },
+  { id: 138, code: "ESPCR", name: "Copa del Rey"         },
+  { id: 139, code: "ESPSC", name: "Spanish Super Cup"    },
+  { id: 141, code: "ITACI", name: "Coppa Italia"         },
+  { id: 222, code: "ITASC", name: "Italian Super Cup"    },
+  { id: 209, code: "GERDP", name: "DFB Pokal"            },
+  { id: 134, code: "FRACF", name: "Coupe de France"      },
+  { id: 207, code: "FRASC", name: "French Super Cup"     },
+  { id: 186, code: "PORCUP", name: "Taça de Portugal"    },
+  { id: 151, code: "TURCUP", name: "Turkish Cup"         },
+  { id: 137, code: "SCOCUP", name: "Scottish Cup"        },
+  { id: 9067, code: "BRACUP", name: "Copa do Brasil"     },
+  { id: 9441, code: "USACUP", name: "US Open Cup"        },
+  { id: 10043, code: "LGSCUP", name: "Leagues Cup"       },
   // European club competitions
   { id: 42,    code: "UCL",   name: "UEFA Champions League"  },
   { id: 73,    code: "UEL",   name: "UEFA Europa League"     },
   { id: 10216, code: "UECL",  name: "UEFA Conference League" },
+  { id: 74,    code: "USC",   name: "UEFA Super Cup"         },
+  // Continental club competitions
+  { id: 525,  code: "AFCCL", name: "AFC Champions League"     },
+  { id: 9469, code: "AFCCL2", name: "AFC Champions League Two" },
+  { id: 526,  code: "CAFCL", name: "CAF Champions League"     },
+  { id: 297,  code: "CCC",   name: "CONCACAF Champions Cup"   },
+  { id: 45,   code: "LIB",   name: "Copa Libertadores"        },
+  { id: 299,  code: "SUD",   name: "Copa Sudamericana"        },
+  { id: 10703, code: "FIC",  name: "FIFA Intercontinental Cup" },
   // International tournaments
   { id: 77,    code: "WC",    name: "World Cup"              },
   { id: 50,    code: "EURO",  name: "Euros"                  },
   { id: 44,    code: "COPA",  name: "Copa America"           },
-  { id: 6427,  code: "AFCON", name: "AFCON"                  },
+  { id: 289,   code: "AFCON", name: "AFCON"                  },
+  { id: 290,   code: "ASCUP", name: "Asian Cup"              },
+  { id: 298,   code: "GOLD",  name: "CONCACAF Gold Cup"      },
   { id: 78,    code: "CWC",   name: "FIFA Club World Cup"    },
-  { id: 10204, code: "UNL",   name: "UEFA Nations League"    },
+  { id: 9806,  code: "UNL",   name: "UEFA Nations League"    },
+  { id: 9807,  code: "UNL",   name: "UEFA Nations League"    },
+  { id: 9808,  code: "UNL",   name: "UEFA Nations League"    },
+  { id: 9809,  code: "UNL",   name: "UEFA Nations League"    },
+  { id: 9821,  code: "CNL",   name: "CONCACAF Nations League" },
+  { id: 10607, code: "EUROQ", name: "Euro Qualification"     },
   // Always-on extra competitions (requested): club friendlies + national teams
   { id: 489,   code: "CFR",   name: "Club Friendlies"        },
   { id: 114,   code: "INTL",  name: "International"          },
-  { id: 10195, code: "INTL",  name: "International"          },
+  { id: 10195, code: "WCQ",   name: "World Cup Qualification" },
+  { id: 10196, code: "WCQ",   name: "World Cup Qualification" },
+  { id: 10197, code: "WCQ",   name: "World Cup Qualification" },
+  { id: 10198, code: "WCQ",   name: "World Cup Qualification" },
+  { id: 10199, code: "WCQ",   name: "World Cup Qualification" },
+  { id: 10200, code: "WCQ",   name: "World Cup Qualification" },
+  { id: 10201, code: "WCQ",   name: "World Cup Qualification" },
+];
+
+/**
+ * Sync groups — the full league list is far too large for a single
+ * edge-function invocation, so `fetch-fixtures` is called once per group
+ * (both by cron and by the manual refresh).
+ */
+export const FOTMOB_SYNC_GROUPS: string[][] = [
+  ["E0", "E1", "SP1", "D1"],
+  ["I1", "I2", "F1", "N1", "P1"],
+  ["T1", "SC0", "SP2", "D2", "B1", "G1"],
+  ["SUI1", "DEN1", "NOR1", "SWE1", "AUS1"],
+  ["MLS", "MEX1", "BRA1", "ARG1", "KSA1", "JPN1", "KOR1"],
+  ["ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC"],
+  ["GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP"],
+  ["BRACUP", "USACUP", "LGSCUP"],
+  ["UCL", "UEL", "UECL", "USC"],
+  ["AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC"],
+  ["WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "CWC"],
+  ["UNL", "CNL", "EUROQ", "WCQ"],
+  ["CFR", "INTL"],
 ];
 
 

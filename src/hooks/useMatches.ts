@@ -75,9 +75,21 @@ export function useMatches(leagueCode?: string) {
 
 /**
  * Competitions that should always show up in a team's recent form, no matter
- * which league is currently selected (club friendlies + national-team games).
+ * which league is currently selected: cups, continental and national-team
+ * competitions plus friendlies.
  */
-export const ALWAYS_INCLUDE_CODES = new Set(["CFR", "INTL"]);
+export const ALWAYS_INCLUDE_CODES = new Set([
+  "CFR", "INTL", "WCQ",
+  // Domestic cups
+  "ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC",
+  "GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP",
+  "BRACUP", "USACUP", "LGSCUP",
+  // Continental club competitions
+  "UCL", "UEL", "UECL", "USC",
+  "AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC", "CWC",
+  // National-team competitions
+  "WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "UNL", "CNL", "EUROQ",
+]);
 
 export function useTeamMatches(teamName: string | undefined, leagueCode?: string) {
   return useQuery({
@@ -192,9 +204,17 @@ export function useSyncData() {
  */
 export const SYNC_LEAGUE_GROUPS: string[][] = [
   ["E0", "E1", "SP1", "D1"],
-  ["I1", "I2", "F1", "N1"],
-  ["P1", "T1", "SC0", "MLS", "SWE1", "AUS1"],
-  ["UCL", "UEL", "UECL", "WC", "EURO", "COPA", "AFCON", "CWC", "UNL"],
+  ["I1", "I2", "F1", "N1", "P1"],
+  ["T1", "SC0", "SP2", "D2", "B1", "G1"],
+  ["SUI1", "DEN1", "NOR1", "SWE1", "AUS1"],
+  ["MLS", "MEX1", "BRA1", "ARG1", "KSA1", "JPN1", "KOR1"],
+  ["ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC"],
+  ["GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP"],
+  ["BRACUP", "USACUP", "LGSCUP"],
+  ["UCL", "UEL", "UECL", "USC"],
+  ["AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC"],
+  ["WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "CWC"],
+  ["UNL", "CNL", "EUROQ", "WCQ"],
   ["CFR", "INTL"],
 ];
 
