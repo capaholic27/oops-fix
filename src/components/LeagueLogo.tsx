@@ -48,15 +48,10 @@ const LEAGUE_FOTMOB_ID: Record<string, number> = {
   // Americas
   "Major League Soccer": 130,
   "MLS": 130,
-  "Liga MX": 230,
-  "Brasileirao": 268,
   "Serie A Brazil": 268,
   // Asia / Oceania
   "A-League": 113,
   "A-League Men": 113,
-  "J1 League": 168,
-  "K League 1": 175,
-  "Saudi Pro League": 536,
   // Internationals
   "World Cup": 77,
   "World Cup Qualification": 10195,
