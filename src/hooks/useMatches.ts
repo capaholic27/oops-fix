@@ -204,9 +204,17 @@ export function useSyncData() {
  */
 export const SYNC_LEAGUE_GROUPS: string[][] = [
   ["E0", "E1", "SP1", "D1"],
-  ["I1", "I2", "F1", "N1"],
-  ["P1", "T1", "SC0", "MLS", "SWE1", "AUS1"],
-  ["UCL", "UEL", "UECL", "WC", "EURO", "COPA", "AFCON", "CWC", "UNL"],
+  ["I1", "I2", "F1", "N1", "P1"],
+  ["T1", "SC0", "SP2", "D2", "B1", "G1"],
+  ["SUI1", "DEN1", "NOR1", "SWE1", "AUS1"],
+  ["MLS", "MEX1", "BRA1", "ARG1", "KSA1", "JPN1", "KOR1"],
+  ["ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC"],
+  ["GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP"],
+  ["BRACUP", "USACUP", "LGSCUP"],
+  ["UCL", "UEL", "UECL", "USC"],
+  ["AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC"],
+  ["WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "CWC"],
+  ["UNL", "CNL", "EUROQ", "WCQ"],
   ["CFR", "INTL"],
 ];
 
