@@ -42,35 +42,63 @@ const ALIASES: Record<string, string> = {
   "Leverkusen": "Bayer Leverkusen",
   "St Etienne": "Saint-Étienne",
   "St. Etienne": "Saint-Étienne",
+  // Short forms used by the results feed
+  "Man Utd": "Manchester United",
+  "Cardiff": "Cardiff City",
+  "Derby": "Derby County",
+  "Hull": "Hull City",
+  "Norwich": "Norwich City",
+  "Preston": "Preston North End",
+  "QPR": "Queens Park Rangers",
+  "Swansea": "Swansea City",
+  "Stoke": "Stoke City",
+  "Birmingham": "Birmingham City",
+  "Bolton": "Bolton Wanderers",
+  "Blackburn": "Blackburn Rovers",
+  "Wigan": "Wigan Athletic",
+  "Huddersfield": "Huddersfield Town",
+  "Ipswich": "Ipswich Town",
+  "Luton": "Luton Town",
+  "Ath Madrid": "Atlético Madrid",
+  "Ath Bilbao": "Athletic Club",
+  "Inter Miami CF": "Inter Miami",
+  "Atlanta United FC": "Atlanta United",
+  "AIK Stockholm": "AIK",
 };
 
 export function normalizeTeamName(name: string): string {
-  return ALIASES[name] ?? name;
+  const trimmed = (name ?? "").trim();
+  return ALIASES[trimmed] ?? trimmed;
 }
+
 
 /**
  * Aggressive canonical key used purely for deduplication.
- * Strips suffixes ("FC", "AFC", "United", "Hotspur", "& Hove Albion"…),
- * lowercases, removes punctuation/diacritics. Two names that map to the
- * same key are considered the same club.
+ * Strips generic club-type tokens ("FC", "AFC", "SC"…), lowercases and removes
+ * punctuation/diacritics. Distinguishing words such as "City", "United",
+ * "Town" or "Rovers" are KEPT — otherwise Manchester City and Manchester
+ * United would collapse into a single team.
  */
 export function canonicalTeamKey(name: string): string {
   let s = normalizeTeamName(name).toLowerCase();
   // Strip diacritics
   s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Remove punctuation
-  s = s.replace(/[.''&]/g, " ");
-  // Strip common prefixes
+  s = s.replace(/[.''&-]/g, " ");
+  // Unify abbreviations
+  s = s.replace(/\butd\b/g, "united");
+  // Strip common club-type prefixes
   s = s.replace(/^(afc|ac|fc|sc|sv|sk|as|us|ss|cf|cd|rc|cs)\s+/i, "");
-  // Strip common suffixes (run twice to catch "Wolverhampton Wanderers FC")
+  // Strip common club-type suffixes (run twice for "… Wanderers FC")
   for (let i = 0; i < 2; i++) {
-    s = s.replace(/\s+(fc|afc|cf|sc|sv|sk|hotspur|wanderers|albion|united|utd|city|town|county|rovers|athletic|club|de futbol)$/i, "");
+    s = s.replace(/\s+(fc|afc|cf|sc|sv|sk|club|de futbol)$/i, "");
   }
-  s = s.replace(/\s+and\s+hove\s+albion$/i, "");
-  s = s.replace(/\s+&\s+hove\s+albion$/i, "");
+  s = s.replace(/\s+hotspur$/i, "");
+  s = s.replace(/\s+(and\s+)?hove\s+albion$/i, "");
   s = s.replace(/\s+/g, " ").trim();
   return s;
 }
+
 
 /** Get all name variants for a team (canonical + aliases) */
 export function getTeamAliases(teamName: string): string[] {

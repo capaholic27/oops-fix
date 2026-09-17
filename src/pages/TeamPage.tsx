@@ -9,7 +9,7 @@ import {
   filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
-import { isTournamentLeague, normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
+import { isTournamentLeague, normalizeTeamName, canonicalTeamKey, computeMentality } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
@@ -976,9 +976,13 @@ export const PredictionDialog = ({
   const getTeamStats = useCallback(
     (teamName: string) => {
       if (!teamName) return null;
+      const key = canonicalTeamKey(teamName);
       const views = filterRecentViews(
         allMatches
-          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .filter(
+            (m: any) =>
+              canonicalTeamKey(m.home_team) === key || canonicalTeamKey(m.away_team) === key
+          )
           .map((m: any) => getTeamMatchView(m, teamName))
           .filter((v: any): v is TeamMatchView => v !== null)
       ).slice(-pastN);
@@ -986,6 +990,7 @@ export const PredictionDialog = ({
     },
     [allMatches, pastN]
   );
+
 
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
   const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
