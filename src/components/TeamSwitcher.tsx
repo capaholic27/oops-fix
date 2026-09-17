@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Repeat, Search, Star } from "lucide-react";
 import { TeamLogo } from "./TeamLogo";
 import { useFavorites } from "@/hooks/useFavorites";
+import { matchesTeamQuery } from "@/lib/teamNormalize";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -34,7 +35,7 @@ export const TeamSwitcher = ({ currentTeam, allTeams, onSelect }: Props) => {
     const q = search.toLowerCase().trim();
     if (!q) return [];
     return allTeams
-      .filter((t) => t.toLowerCase().includes(q) && t !== currentTeam)
+      .filter((t) => matchesTeamQuery(t, q) && t !== currentTeam)
       .slice(0, 12);
   }, [allTeams, search, currentTeam]);
 
