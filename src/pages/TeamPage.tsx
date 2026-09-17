@@ -9,7 +9,7 @@ import {
   filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
-import { isTournamentLeague, normalizeTeamName, canonicalTeamKey, computeMentality } from "@/lib/teamNormalize";
+import { isTournamentLeague, normalizeTeamName, canonicalTeamKey, matchesTeamQuery, computeMentality } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
@@ -1147,7 +1147,7 @@ export const PredictionDialog = ({
                     <input type="text" placeholder="Search team…" value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)}
                       className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" autoFocus />
                     <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
-                      {allTeams.filter((t) => !teamSearch || t.toLowerCase().includes(teamSearch.toLowerCase())).slice(0, 15).map((team) => (
+                      {allTeams.filter((t) => matchesTeamQuery(t, teamSearch)).slice(0, 15).map((team) => (
                         <button key={team} onClick={() => { setSelectedTeamA(team); setTeamSearch(""); }}
                           className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
                           <TeamLogo teamName={team} size="xs" />{team}
@@ -1178,7 +1178,7 @@ export const PredictionDialog = ({
                         <input type="text" placeholder="Search opponent…" value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)}
                           className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
                         <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
-                          {allTeams.filter((t) => t !== selectedTeamA && (!opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))).slice(0, 12).map((team) => (
+                          {allTeams.filter((t) => t !== selectedTeamA && matchesTeamQuery(t, opponentSearch)).slice(0, 12).map((team) => (
                             <button key={team} onClick={() => { setSelectedTeamB(team); setOpponentSearch(""); }}
                               className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
                               <TeamLogo teamName={team} size="xs" />{team}
