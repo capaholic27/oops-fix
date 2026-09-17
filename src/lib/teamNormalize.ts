@@ -99,6 +99,29 @@ export function canonicalTeamKey(name: string): string {
   return s;
 }
 
+/** Lowercase, accent-free, punctuation-free form used for searching. */
+export function searchableTeamName(name: string): string {
+  return (name ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Does a team match a user's search query? Accent- and alias-insensitive, so
+ * "atletico" finds "Atlético Madrid" and "man city" finds "Manchester City".
+ */
+export function matchesTeamQuery(team: string, query: string): boolean {
+  const q = searchableTeamName(query);
+  if (!q) return true;
+  const haystack = [team, ...getTeamAliases(team)]
+    .map(searchableTeamName)
+    .join(" | ");
+  return q.split(" ").every((word) => haystack.includes(word));
+}
+
 
 /** Get all name variants for a team (canonical + aliases) */
 export function getTeamAliases(teamName: string): string[] {
