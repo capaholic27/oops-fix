@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useSyncData, useAutoSync } from "@/hooks/useMatches";
 import { toast } from "sonner";
 import { applyTheme, getStoredTheme } from "@/lib/themes";
+import { useViewportInsets } from "@/hooks/useViewportInsets";
 
 import UpcomingGamesPage from "@/pages/UpcomingGamesPage";
 import PremiumPage from "@/pages/PremiumPage";
@@ -35,6 +36,9 @@ const Index = () => {
   // Data refreshes itself: server-side scheduled jobs are the primary path,
   // this is the silent catch-up if a user opens the app on stale data.
   useAutoSync();
+
+  // Keep the shell above the on-screen keyboard so search fields stay usable.
+  useViewportInsets();
 
   useEffect(() => {
     applyTheme(getStoredTheme());
@@ -75,7 +79,10 @@ const Index = () => {
 
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-background overflow-hidden">
+    <div
+      className="flex flex-col bg-background overflow-hidden"
+      style={{ height: "var(--app-height, 100dvh)" }}
+    >
       {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm flex-shrink-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between">

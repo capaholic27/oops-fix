@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from "react";
-import { useMatches, useFixtures, type Fixture } from "@/hooks/useMatches";
+import { useMatches, useFixtures, matchKey, type Fixture } from "@/hooks/useMatches";
+import { toLocalKickoff, localDateStr } from "@/lib/matchTime";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
 import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -29,8 +30,11 @@ function getAbbr(name: string) {
 }
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
+
+/** Fixture with kickoff converted to the viewer's own timezone. */
+type LocalFixture = Fixture & { local_date: string; local_time: string | null };
 
 function formatDateLabel(dateStr: string, today: string) {
   const diff = (new Date(dateStr + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86400000;
@@ -41,7 +45,7 @@ function formatDateLabel(dateStr: string, today: string) {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
-type DayEntry = { date: string; matches: Match[]; fixtures: Fixture[] };
+type DayEntry = { date: string; matches: Match[]; fixtures: LocalFixture[] };
 
 const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) => void }) => {
   const homeGoals = m.ft_home_goals ?? 0;
@@ -71,7 +75,7 @@ const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) =
   );
 };
 
-const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: Fixture) => void }) => (
+const FixtureRow = ({ fixture: f, onSelect }: { fixture: LocalFixture; onSelect: (f: Fixture) => void }) => (
   <button
     onClick={() => onSelect(f)}
     className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3 hover:bg-muted/50 transition-colors"
@@ -82,7 +86,7 @@ const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: 
     </div>
     <div className="flex flex-col items-center justify-center px-3">
       <span className="text-xs font-semibold text-primary">vs</span>
-      {f.match_time && <span className="text-[10px] text-muted-foreground font-mono">{f.match_time}</span>}
+      {f.local_time && <span className="text-[10px] text-muted-foreground font-mono">{f.local_time}</span>}
     </div>
     <div className="flex-1 flex items-center justify-start gap-2 pl-3">
       <TeamLogo teamName={f.away_team} size="xs" />
@@ -121,10 +125,26 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   const today = useMemo(() => toDateStr(new Date()), []);
 
+  // Convert kickoffs from UTC into the viewer's timezone and make sure a game
+  // only ever appears once: the same fixture can exist under two spellings, and
+  // a played game can exist both as a result and as a fixture.
+  const localFixtures = useMemo<LocalFixture[]>(() => {
+    const playedKeys = new Set(allMatches.map(matchKey));
+    const byKey = new Map<string, LocalFixture>();
+    for (const f of fixtures) {
+      const k = toLocalKickoff(f.match_date, f.match_time);
+      const key = matchKey(f);
+      if (playedKeys.has(key)) continue;
+      if (byKey.has(key)) continue;
+      byKey.set(key, { ...f, local_date: k.date, local_time: k.time });
+    }
+    return Array.from(byKey.values());
+  }, [fixtures, allMatches]);
+
   const { days, todayIndex } = useMemo(() => {
     const dateSet = new Set<string>();
     allMatches.forEach(m => dateSet.add(m.match_date));
-    fixtures.forEach(f => dateSet.add(f.match_date));
+    localFixtures.forEach(f => dateSet.add(f.local_date));
     // Always show today, even if no fixtures, so the bar starts there.
     dateSet.add(today);
 
@@ -146,16 +166,18 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
       if (!matchesByDate.has(m.match_date)) matchesByDate.set(m.match_date, []);
       matchesByDate.get(m.match_date)!.push(m);
     });
-    const fixturesByDate = new Map<string, Fixture[]>();
-    fixtures.forEach(f => {
-      if (!fixturesByDate.has(f.match_date)) fixturesByDate.set(f.match_date, []);
-      fixturesByDate.get(f.match_date)!.push(f);
+    const fixturesByDate = new Map<string, LocalFixture[]>();
+    localFixtures.forEach(f => {
+      if (!fixturesByDate.has(f.local_date)) fixturesByDate.set(f.local_date, []);
+      fixturesByDate.get(f.local_date)!.push(f);
     });
 
     const days: DayEntry[] = allDates.map(date => ({
       date,
       matches: matchesByDate.get(date) || [],
-      fixtures: fixturesByDate.get(date) || [],
+      fixtures: (fixturesByDate.get(date) || []).sort((a, b) =>
+        (a.local_time || "99:99").localeCompare(b.local_time || "99:99")
+      ),
     }));
 
     let todayIdx = days.findIndex(d => d.date === today);
@@ -165,7 +187,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
     }
 
     return { days, todayIndex: todayIdx };
-  }, [allMatches, fixtures, today]);
+  }, [allMatches, localFixtures, today]);
 
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const activeIdx = selectedIdx ?? todayIndex;
@@ -207,7 +229,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   const leagueGroups = useMemo(() => {
     if (!currentDay) return [];
-    const map = new Map<string, { matches: Match[]; fixtures: Fixture[] }>();
+    const map = new Map<string, { matches: Match[]; fixtures: LocalFixture[] }>();
     currentDay.matches.forEach(m => {
       if (!map.has(m.league_name)) map.set(m.league_name, { matches: [], fixtures: [] });
       map.get(m.league_name)!.matches.push(m);

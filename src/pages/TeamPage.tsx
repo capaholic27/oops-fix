@@ -1117,7 +1117,10 @@ export const PredictionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 rounded-2xl border border-border shadow-xl [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
+        <DialogContent
+          style={{ bottom: "calc(max(5rem, env(safe-area-inset-bottom)) + var(--kb-inset, 0px))" }}
+          className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 rounded-2xl border border-border shadow-xl [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]"
+        >
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-2">
@@ -1146,7 +1149,7 @@ export const PredictionDialog = ({
                   <>
                     <input type="text" placeholder="Search team…" value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)}
                       className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" autoFocus />
-                    <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
+                    <div className="max-h-[min(16rem,40vh)] overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
                       {allTeams.filter((t) => matchesTeamQuery(t, teamSearch)).slice(0, 15).map((team) => (
                         <button key={team} onClick={() => { setSelectedTeamA(team); setTeamSearch(""); }}
                           className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
@@ -1177,7 +1180,7 @@ export const PredictionDialog = ({
                       <>
                         <input type="text" placeholder="Search opponent…" value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)}
                           className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
+                        <div className="max-h-[min(16rem,40vh)] overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
                           {allTeams.filter((t) => t !== selectedTeamA && matchesTeamQuery(t, opponentSearch)).slice(0, 12).map((team) => (
                             <button key={team} onClick={() => { setSelectedTeamB(team); setOpponentSearch(""); }}
                               className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">

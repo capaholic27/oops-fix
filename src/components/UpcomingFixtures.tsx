@@ -7,6 +7,7 @@ import { TeamLogo } from "@/components/TeamLogo";
 import { cn } from "@/lib/utils";
 import { CalendarDays, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
+import { toLocalKickoff } from "@/lib/matchTime";
 
 type Props = {
   teamName: string;
@@ -106,7 +107,8 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
           const opponent = isHome ? f.away_team : f.home_team;
           const isExpanded = expanded === f.id;
           const pred = isExpanded ? getQuickPrediction(f) : null;
-          const dateStr = new Date(f.match_date + "T00:00:00").toLocaleDateString("en-GB", {
+          const local = toLocalKickoff(f.match_date, f.match_time);
+          const dateStr = new Date(local.date + "T00:00:00").toLocaleDateString("en-GB", {
             weekday: "short", day: "numeric", month: "short",
           });
 

@@ -2,14 +2,15 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
-import { getTeamAliases, normalizeTeamName } from "@/lib/teamNormalize";
+import { getTeamAliases, canonicalTeamKey } from "@/lib/teamNormalize";
 
 /**
- * Build a stable dedup key for a match. Uses normalized team names so that
- * "Brighton" vs "Brighton & Hove Albion" collapse into the same fixture.
+ * Build a stable dedup key for a match. Uses canonical team names so that
+ * "Brighton" / "Brighton & Hove Albion" and "Atletico Madrid" / "Atlético
+ * Madrid" collapse into the same fixture.
  */
-function matchKey(m: { match_date: string; home_team: string; away_team: string }) {
-  return `${m.match_date}|${normalizeTeamName(m.home_team).toLowerCase()}|${normalizeTeamName(m.away_team).toLowerCase()}`;
+export function matchKey(m: { match_date: string; home_team: string; away_team: string }) {
+  return `${m.match_date}|${canonicalTeamKey(m.home_team)}|${canonicalTeamKey(m.away_team)}`;
 }
 
 export type Fixture = {
@@ -163,7 +164,26 @@ export function useFixtures(teamName?: string) {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as unknown as Fixture[];
+      const rows = (data || []) as unknown as Fixture[];
+
+      // The feed sometimes stores the same game twice under different spellings
+      // (e.g. "Atletico Madrid" / "Atlético Madrid"), occasionally with a
+      // slightly different kickoff. Collapse them into one, preferring the row
+      // with the richer (accented / longer) team names.
+      const byKey = new Map<string, Fixture>();
+      for (const f of rows) {
+        const key = matchKey(f);
+        const existing = byKey.get(key);
+        if (!existing) {
+          byKey.set(key, f);
+          continue;
+        }
+        const score = (x: Fixture) => x.home_team.length + x.away_team.length;
+        if (score(f) > score(existing)) byKey.set(key, f);
+      }
+      return Array.from(byKey.values()).sort((a, b) =>
+        a.match_date.localeCompare(b.match_date)
+      );
     },
   });
 }
