@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from "react";
-import { useMatches, useFixtures, type Fixture } from "@/hooks/useMatches";
+import { useMatches, useFixtures, matchKey, type Fixture } from "@/hooks/useMatches";
+import { toLocalKickoff, localDateStr } from "@/lib/matchTime";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
 import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -29,8 +30,11 @@ function getAbbr(name: string) {
 }
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
+
+/** Fixture with kickoff converted to the viewer's own timezone. */
+type LocalFixture = Fixture & { local_date: string; local_time: string | null };
 
 function formatDateLabel(dateStr: string, today: string) {
   const diff = (new Date(dateStr + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86400000;
