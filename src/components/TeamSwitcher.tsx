@@ -76,7 +76,7 @@ export const TeamSwitcher = ({ currentTeam, allTeams, onSelect }: Props) => {
             </div>
           </div>
 
-          <div className="max-h-72 overflow-y-auto">
+          <div className="overflow-y-auto" style={{ maxHeight: "min(18rem, calc(var(--app-height, 100dvh) - 12rem))" }}>
             {search.trim() ? (
               results.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">No teams found</p>
