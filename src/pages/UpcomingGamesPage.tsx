@@ -45,7 +45,7 @@ function formatDateLabel(dateStr: string, today: string) {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
-type DayEntry = { date: string; matches: Match[]; fixtures: Fixture[] };
+type DayEntry = { date: string; matches: Match[]; fixtures: LocalFixture[] };
 
 const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) => void }) => {
   const homeGoals = m.ft_home_goals ?? 0;
@@ -75,7 +75,7 @@ const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) =
   );
 };
 
-const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: Fixture) => void }) => (
+const FixtureRow = ({ fixture: f, onSelect }: { fixture: LocalFixture; onSelect: (f: Fixture) => void }) => (
   <button
     onClick={() => onSelect(f)}
     className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3 hover:bg-muted/50 transition-colors"
@@ -86,7 +86,7 @@ const FixtureRow = ({ fixture: f, onSelect }: { fixture: Fixture; onSelect: (f: 
     </div>
     <div className="flex flex-col items-center justify-center px-3">
       <span className="text-xs font-semibold text-primary">vs</span>
-      {f.match_time && <span className="text-[10px] text-muted-foreground font-mono">{f.match_time}</span>}
+      {f.local_time && <span className="text-[10px] text-muted-foreground font-mono">{f.local_time}</span>}
     </div>
     <div className="flex-1 flex items-center justify-start gap-2 pl-3">
       <TeamLogo teamName={f.away_team} size="xs" />
@@ -187,7 +187,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
     }
 
     return { days, todayIndex: todayIdx };
-  }, [allMatches, fixtures, today]);
+  }, [allMatches, localFixtures, today]);
 
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const activeIdx = selectedIdx ?? todayIndex;
@@ -229,7 +229,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   const leagueGroups = useMemo(() => {
     if (!currentDay) return [];
-    const map = new Map<string, { matches: Match[]; fixtures: Fixture[] }>();
+    const map = new Map<string, { matches: Match[]; fixtures: LocalFixture[] }>();
     currentDay.matches.forEach(m => {
       if (!map.has(m.league_name)) map.set(m.league_name, { matches: [], fixtures: [] });
       map.get(m.league_name)!.matches.push(m);
