@@ -10,6 +10,7 @@ import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { getTeamMatchView, aggregateStats, filterRecentViews, type TeamMatchView, type Match } from "@/lib/matchStats";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { cn } from "@/lib/utils";
+import { toLocalKickoff } from "@/lib/matchTime";
 
 type Props = {
   fixture: Fixture;
@@ -125,7 +126,8 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
     return { pred: p, suggestions: sugg, hasData: true, homeForm: formStr(homeViews), awayForm: formStr(awayViews) };
   }, [allMatches, fixture]);
 
-  const dateStr = new Date(fixture.match_date + "T00:00:00").toLocaleDateString("en-GB", {
+  const local = toLocalKickoff(fixture.match_date, fixture.match_time);
+  const dateStr = new Date(local.date + "T00:00:00").toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long",
   });
 
