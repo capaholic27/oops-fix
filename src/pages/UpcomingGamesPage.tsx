@@ -125,10 +125,26 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   const today = useMemo(() => toDateStr(new Date()), []);
 
+  // Convert kickoffs from UTC into the viewer's timezone and make sure a game
+  // only ever appears once: the same fixture can exist under two spellings, and
+  // a played game can exist both as a result and as a fixture.
+  const localFixtures = useMemo<LocalFixture[]>(() => {
+    const playedKeys = new Set(allMatches.map(matchKey));
+    const byKey = new Map<string, LocalFixture>();
+    for (const f of fixtures) {
+      const k = toLocalKickoff(f.match_date, f.match_time);
+      const key = matchKey(f);
+      if (playedKeys.has(key)) continue;
+      if (byKey.has(key)) continue;
+      byKey.set(key, { ...f, local_date: k.date, local_time: k.time });
+    }
+    return Array.from(byKey.values());
+  }, [fixtures, allMatches]);
+
   const { days, todayIndex } = useMemo(() => {
     const dateSet = new Set<string>();
     allMatches.forEach(m => dateSet.add(m.match_date));
-    fixtures.forEach(f => dateSet.add(f.match_date));
+    localFixtures.forEach(f => dateSet.add(f.local_date));
     // Always show today, even if no fixtures, so the bar starts there.
     dateSet.add(today);
 
@@ -150,16 +166,18 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
       if (!matchesByDate.has(m.match_date)) matchesByDate.set(m.match_date, []);
       matchesByDate.get(m.match_date)!.push(m);
     });
-    const fixturesByDate = new Map<string, Fixture[]>();
-    fixtures.forEach(f => {
-      if (!fixturesByDate.has(f.match_date)) fixturesByDate.set(f.match_date, []);
-      fixturesByDate.get(f.match_date)!.push(f);
+    const fixturesByDate = new Map<string, LocalFixture[]>();
+    localFixtures.forEach(f => {
+      if (!fixturesByDate.has(f.local_date)) fixturesByDate.set(f.local_date, []);
+      fixturesByDate.get(f.local_date)!.push(f);
     });
 
     const days: DayEntry[] = allDates.map(date => ({
       date,
       matches: matchesByDate.get(date) || [],
-      fixtures: fixturesByDate.get(date) || [],
+      fixtures: (fixturesByDate.get(date) || []).sort((a, b) =>
+        (a.local_time || "99:99").localeCompare(b.local_time || "99:99")
+      ),
     }));
 
     let todayIdx = days.findIndex(d => d.date === today);
