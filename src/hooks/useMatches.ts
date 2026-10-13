@@ -27,19 +27,27 @@ export type Fixture = {
 const MATCHES_STALE_MS = 10 * 60 * 1000;
 const PAGE_SIZE = 1000;
 const PAGE_CONCURRENCY = 8;
+/** Slightly wider than the stats recency window so nothing it needs is cut. */
+const ALL_MATCHES_WINDOW_DAYS = 420;
 
 export function useMatches(leagueCode?: string) {
   return useQuery({
     queryKey: ["matches", leagueCode],
     staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Match[]> => {
+      const cutoffDate = new Date(Date.now() - ALL_MATCHES_WINDOW_DAYS * 86400000);
+      const recentCutoff = cutoffDate.toISOString().slice(0, 10);
       const buildQuery = (withCount = false) => {
         let q = supabase
           .from("matches")
           .select("*", withCount ? { count: "estimated" } : undefined)
           .order("match_date", { ascending: true })
           .order("id", { ascending: true });
+        // A single competition keeps its full history (e.g. World Cup
+        // archive). The all-competitions view only needs recent games, which
+        // keeps the first load small and fast.
         if (leagueCode) q = q.eq("league_code", leagueCode);
+        else q = q.gte("match_date", recentCutoff);
         return q;
       };
 
