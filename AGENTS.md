@@ -1,0 +1,1 @@
+- The all-competitions match query loads only a recent window, in parallel pages; per-competition queries keep full history. Why: the full table made the first screen take minutes on a small backend.
