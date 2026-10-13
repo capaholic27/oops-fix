@@ -24,33 +24,63 @@ export type Fixture = {
   referee: string | null;
 };
 
+const MATCHES_STALE_MS = 10 * 60 * 1000;
+const PAGE_SIZE = 1000;
+const PAGE_CONCURRENCY = 8;
+
 export function useMatches(leagueCode?: string) {
   return useQuery({
     queryKey: ["matches", leagueCode],
+    staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Match[]> => {
-      let query = supabase
-        .from("matches")
-        .select("*")
-        .order("match_date", { ascending: true });
+      const buildQuery = (withCount = false) => {
+        let q = supabase
+          .from("matches")
+          .select("*", withCount ? { count: "estimated" } : undefined)
+          .order("match_date", { ascending: true })
+          .order("id", { ascending: true });
+        if (leagueCode) q = q.eq("league_code", leagueCode);
+        return q;
+      };
 
-      if (leagueCode) {
-        query = query.eq("league_code", leagueCode);
-      }
+      // First page also tells us roughly how many rows exist, so the rest
+      // can be downloaded in parallel instead of one page after another.
+      const first = await buildQuery(true).range(0, PAGE_SIZE - 1);
+      if (first.error) throw first.error;
+      const allMatches: Match[] = [...((first.data ?? []) as unknown as Match[])];
 
-      const allMatches: Match[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      let hasMore = true;
+      if ((first.data?.length ?? 0) === PAGE_SIZE) {
+        const estimate = Math.max(first.count ?? 0, PAGE_SIZE * 2);
+        // Over-fetch a couple of pages in case the estimate is low.
+        const pageCount = Math.ceil(estimate / PAGE_SIZE) + 2;
+        const offsets: number[] = [];
+        for (let p = 1; p < pageCount; p++) offsets.push(p * PAGE_SIZE);
 
-      while (hasMore) {
-        const { data, error } = await query.range(from, from + batchSize - 1);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allMatches.push(...(data as unknown as Match[]));
-          from += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
+        const pages: Match[][] = new Array(offsets.length);
+        let cursor = 0;
+        let reachedEnd = false;
+        const worker = async () => {
+          while (cursor < offsets.length && !reachedEnd) {
+            const idx = cursor++;
+            const from = offsets[idx];
+            const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+            if (error) throw error;
+            pages[idx] = (data ?? []) as unknown as Match[];
+            if ((data?.length ?? 0) < PAGE_SIZE) reachedEnd = true;
+          }
+        };
+        await Promise.all(Array.from({ length: PAGE_CONCURRENCY }, worker));
+        for (const pg of pages) if (pg) allMatches.push(...pg);
+
+        // Estimate was too low and every page was full: fetch the remainder.
+        let from = offsets.length ? offsets[offsets.length - 1] + PAGE_SIZE : PAGE_SIZE;
+        let last = pages[pages.length - 1];
+        while (last && last.length === PAGE_SIZE) {
+          const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          last = (data ?? []) as unknown as Match[];
+          allMatches.push(...last);
+          from += PAGE_SIZE;
         }
       }
 
@@ -95,6 +125,7 @@ export const ALWAYS_INCLUDE_CODES = new Set([
 export function useTeamMatches(teamName: string | undefined, leagueCode?: string) {
   return useQuery({
     queryKey: ["team-matches", teamName, leagueCode],
+    staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Match[]> => {
       if (!teamName) return [];
 
@@ -150,6 +181,7 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
 export function useFixtures(teamName?: string) {
   return useQuery({
     queryKey: ["fixtures", teamName],
+    staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Fixture[]> => {
       let query = supabase
         .from("fixtures")
@@ -386,6 +418,8 @@ export function useAutoSync() {
     }
 
     (async () => {
+      // Let the first screen load before starting any heavy refresh work.
+      await new Promise((r) => setTimeout(r, 20000));
       try {
         // Newest fixture row tells us when the last successful sync landed.
         const [fixtureRes, standingsRes] = await Promise.all([
