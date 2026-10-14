@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useLiveOdds } from "@/hooks/useLiveOdds";
-import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 
 type Props = {
   home: string;
@@ -13,8 +12,8 @@ type Props = {
   /** For totals only. */
   point?: number;
   /** Model probability used to render the fallback signal row when live data is unavailable. */
-  fallbackFairProb: number;
-  fallbackSeed: string;
+  fallbackFairProb?: number;
+  fallbackSeed?: string;
   fallbackSide?: "home" | "draw" | "away" | "generic";
   className?: string;
 };
@@ -62,27 +61,26 @@ export const LiveOddsRow = ({
   const rows = useMemo(() => {
     if (!live?.found) return null;
     const list: { key: string; title: string; price: number }[] = [];
+    // Our team names may be short forms ("Man City") — map to the bookmaker's names.
+    const want = outcome === home ? live.event?.home ?? outcome
+      : outcome === away ? live.event?.away ?? outcome : outcome;
     for (const b of live.bookmakers) {
       const m = b.markets.find(mm => mm.key === market);
       if (!m) continue;
       const target = m.outcomes.find(o =>
-        o.name.toLowerCase() === outcome.toLowerCase()
+        o.name.toLowerCase() === want.toLowerCase()
         && (point === undefined || o.point === point)
       );
       if (target) list.push({ key: b.key, title: b.title, price: target.price });
     }
     return list;
-  }, [live, market, outcome, point]);
+  }, [live, market, outcome, point, home, away]);
 
+  if (live === null) {
+    return <span className={cn("text-[10px] text-muted-foreground", className)}>Loading odds…</span>;
+  }
   if (!rows || rows.length === 0) {
-    return (
-      <BookmakerOddsRow
-        seed={fallbackSeed}
-        fairProb={fallbackFairProb}
-        side={fallbackSide}
-        className={className}
-      />
-    );
+    return <span className={cn("text-[10px] text-muted-foreground", className)}>No bookmaker odds yet</span>;
   }
 
   const best = rows.reduce((m, r) => (r.price > m ? r.price : m), 0);
