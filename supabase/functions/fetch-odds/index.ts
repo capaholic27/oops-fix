@@ -91,7 +91,9 @@ function tokens(s: string): string[] {
 }
 function nameMatches(a: string, b: string): boolean {
   const ta = tokens(a), tb = tokens(b);
-  if (ta.some(t => tb.includes(t))) return true;
+  // Generic words shared by many clubs must not count as a match (Man City ≠ Man United).
+  const GENERIC = new Set(["manchester","united","city","real","sporting","athletic","atletico","rangers","town","county","olympique","dynamo","inter","saint","racing","union","borussia","eintracht"]);
+  if (ta.some(t => !GENERIC.has(t) && tb.includes(t))) return true;
   const na = norm(a);
   const nb = norm(b);
   if (!na || !nb) return false;
