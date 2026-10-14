@@ -84,7 +84,14 @@ function norm(s: string): string {
     .map(w => ALIASES[w] ?? w).join("");
 }
 
+function tokens(s: string): string[] {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length >= 4 && !STOP.has(w))
+    .map(w => ({ munchen: "munich", muenchen: "munich", koln: "cologne", koeln: "cologne" } as Record<string,string>)[w] ?? ALIASES[w] ?? w);
+}
 function nameMatches(a: string, b: string): boolean {
+  const ta = tokens(a), tb = tokens(b);
+  if (ta.some(t => tb.includes(t))) return true;
   const na = norm(a);
   const nb = norm(b);
   if (!na || !nb) return false;
