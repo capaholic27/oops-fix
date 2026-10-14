@@ -36,13 +36,64 @@ const SOCCER_KEYS = [
   "soccer_conmebol_copa_america",
   "soccer_africa_cup_of_nations",
   "soccer_usa_mls",
+  "soccer_efl_champ",
+  "soccer_england_league1",
+  "soccer_england_efl_cup",
+  "soccer_fa_cup",
+  "soccer_uefa_europa_conference_league",
+  "soccer_uefa_nations_league",
+  "soccer_netherlands_eredivisie",
+  "soccer_portugal_primeira_liga",
+  "soccer_spain_segunda_division",
+  "soccer_germany_bundesliga2",
+  "soccer_italy_serie_b",
+  "soccer_france_ligue_two",
+  "soccer_turkey_super_league",
+  "soccer_spl",
+  "soccer_belgium_first_div",
+  "soccer_sweden_allsvenskan",
+  "soccer_sweden_superettan",
+  "soccer_norway_eliteserien",
+  "soccer_denmark_superliga",
+  "soccer_switzerland_superleague",
+  "soccer_greece_super_league",
+  "soccer_brazil_campeonato",
+  "soccer_argentina_primera_division",
+  "soccer_mexico_ligamx",
+  "soccer_saudi_arabia_pro_league",
+  "soccer_japan_j_league",
+  "soccer_korea_kleague1",
+  "soccer_conmebol_copa_libertadores",
+  "soccer_fifa_world_cup_qualifiers_europe",
 ];
 
+// Per-instance cache of each competition's odds board (5 min) so every
+// fixture lookup doesn't re-spend API quota.
+const boardCache = new Map<string, { at: number; events: any[] }>();
+const BOARD_TTL = 5 * 60 * 1000;
+
+const ALIASES: Record<string, string> = {
+  man: "manchester", utd: "united", ath: "atletico", atl: "atletico", nottm: "nottingham",
+  wolves: "wolverhampton", spurs: "tottenham", psg: "parissaintgermain", inter: "inter",
+  sheff: "sheffield", qpr: "queensparkrangers", "st": "saint",
+};
+const STOP = new Set(["fc", "cf", "afc", "sc", "ac", "club", "de", "the", "calcio", "hotspur", "wanderers", "albion"]);
 function norm(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w && !STOP.has(w))
+    .map(w => ALIASES[w] ?? w).join("");
 }
 
+function tokens(s: string): string[] {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(w => w.length >= 4 && !STOP.has(w))
+    .map(w => ({ munchen: "munich", muenchen: "munich", koln: "cologne", koeln: "cologne" } as Record<string,string>)[w] ?? ALIASES[w] ?? w);
+}
 function nameMatches(a: string, b: string): boolean {
+  const ta = tokens(a), tb = tokens(b);
+  // Generic words shared by many clubs must not count as a match (Man City ≠ Man United).
+  const GENERIC = new Set(["manchester","united","city","real","sporting","athletic","atletico","rangers","town","county","olympique","dynamo","inter","saint","racing","union","borussia","eintracht"]);
+  if (ta.some(t => !GENERIC.has(t) && tb.includes(t))) return true;
   const na = norm(a);
   const nb = norm(b);
   if (!na || !nb) return false;
@@ -76,10 +127,20 @@ Deno.serve(async (req) => {
 
   try {
     for (const sportKey of sportKeys) {
-      const oddsUrl = `${ODDS_HOST}/sports/${sportKey}/odds?regions=${regions}&markets=${markets}&oddsFormat=decimal&apiKey=${apiKey}`;
-      const res = await fetch(oddsUrl);
-      if (!res.ok) continue;
-      const events = await res.json() as Array<{
+      const ck = `${sportKey}|${regions}|${markets}`;
+      let cached = boardCache.get(ck);
+      if (!cached || Date.now() - cached.at > BOARD_TTL) {
+        const oddsUrl = `${ODDS_HOST}/sports/${sportKey}/odds?regions=${regions}&markets=${markets}&oddsFormat=decimal&apiKey=${apiKey}`;
+        let res = await fetch(oddsUrl);
+        // btts isn't offered on every competition — retry without it.
+        if (res.status === 422 && markets.includes("btts")) {
+          res = await fetch(oddsUrl.replace(/markets=[^&]+/, "markets=h2h,totals"));
+        }
+        if (!res.ok) { console.log("odds", sportKey, res.status, (await res.text()).slice(0, 160)); boardCache.set(ck, { at: Date.now(), events: [] }); continue; }
+        cached = { at: Date.now(), events: await res.json() };
+        boardCache.set(ck, cached);
+      }
+      const events = cached.events as Array<{
         id: string; commence_time: string; home_team: string; away_team: string;
         bookmakers: Array<{ key: string; title: string; markets: Array<{ key: string; outcomes: Array<{ name: string; price: number; point?: number }> }> }>;
       }>;

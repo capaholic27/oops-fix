@@ -13,6 +13,7 @@ export type LiveOddsBookmaker = {
 export type LiveOddsResult = {
   found: boolean;
   bookmakers: LiveOddsBookmaker[];
+  event?: { home: string; away: string } | null;
 };
 
 const cache = new Map<string, Promise<LiveOddsResult>>();
@@ -47,7 +48,7 @@ export function useLiveOdds(home: string | undefined | null, away: string | unde
           },
         });
         const json = await res.json();
-        return { found: !!json.found, bookmakers: json.bookmakers ?? [] };
+        return { found: !!json.found, bookmakers: json.bookmakers ?? [], event: json.event ?? null };
       } catch {
         return { found: false, bookmakers: [] };
       }

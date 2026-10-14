@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { settleSlip, type SettleableLeg } from "@/lib/betSettlement";
 import { BankrollManager } from "@/components/BankrollManager";
-import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { createPortal } from "react-dom";
 import { X, MousePointerClick } from "lucide-react";
@@ -274,13 +273,10 @@ const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => {
                     fallbackSide={liveParams.side}
                   />
                 ) : (
-                  <BookmakerOddsRow
-                    seed={`${pick.match}-${pick.market}-${pick.prediction}`}
-                    fairProb={pick.confidence / 100}
-                  />
+                  <span className="text-[10px] text-muted-foreground">No bookmaker odds yet</span>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-1.5">
-                  Real-time when available, otherwise model-derived signal.
+                  Real-time prices from licensed bookmakers.
                 </p>
               </div>
             </div>

@@ -5,7 +5,6 @@ import type { Fixture } from "@/hooks/useMatches";
 import { useMatches } from "@/hooks/useMatches";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
-import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { getTeamMatchView, aggregateStats, filterRecentViews, type TeamMatchView, type Match } from "@/lib/matchStats";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
@@ -247,12 +246,6 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                     </div>
                     <p className="text-xs font-bold">{s.pick}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">{s.reason}</p>
-                    <div className="mt-1.5">
-                      <BookmakerOddsRow
-                        seed={`${fixture.id}-${s.market}-${s.pick}`}
-                        fairProb={s.confidence / 100}
-                      />
-                    </div>
                   </div>
                 ))}
                 {suggestions.length === 0 && (

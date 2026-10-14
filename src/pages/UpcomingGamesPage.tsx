@@ -4,6 +4,7 @@ import { toLocalKickoff, localDateStr } from "@/lib/matchTime";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
 import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
+import { LiveStrip } from "@/components/LiveStrip";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
@@ -251,6 +252,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   return (
     <div className="flex flex-col h-full">
+      <LiveStrip />
       {/* Date bar */}
       <div className="flex-shrink-0 border-b border-border bg-card">
         <div
