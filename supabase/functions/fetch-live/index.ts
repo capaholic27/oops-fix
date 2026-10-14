@@ -58,6 +58,16 @@ function deriveMinute(status: any): { minute: number | null; state: string; labe
 
   if (status?.finished) return { minute: null, state: "ft", label: "FT" };
 
+  // Prefer Fotmob's own live clock ("78'", "45+2'", "HT") — avoids timezone drift.
+  const short = String(status?.liveTime?.short ?? "").replace(/[^\dA-Za-z+]/g, "");
+  if (/^HT$/i.test(short)) return { minute: periodLength, state: "ht", label: "HT" };
+  const m = short.match(/^(\d+)(?:\+(\d+))?/);
+  if (m) {
+    const mins = Number(m[1]) + Number(m[2] ?? 0);
+    return { minute: mins, state: "live", label: `${m[1]}${m[2] ? "+" + m[2] : ""}'` };
+  }
+
+
   const secondStart = parseHalfTime(halfs.secondHalfStarted);
   const firstEnd = parseHalfTime(halfs.firstHalfEnded);
   const firstStart = parseHalfTime(halfs.firstHalfStarted);
