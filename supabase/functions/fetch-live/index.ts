@@ -76,16 +76,16 @@ function deriveMinute(status: any): { minute: number | null; state: string; labe
   const etFirst = parseHalfTime(halfs.firstExtraHalfStarted);
   const etSecond = parseHalfTime(halfs.secondExtraHalfStarted);
   if (etSecond) {
-    const mins = Math.floor((now - etSecond) / 60000) + 105;
+    const mins = Math.max(106, Math.floor((now - etSecond) / 60000) + 105);
     return { minute: mins, state: "live", label: `${mins}'` };
   }
   if (etFirst) {
-    const mins = Math.floor((now - etFirst) / 60000) + 90;
+    const mins = Math.max(91, Math.floor((now - etFirst) / 60000) + 90);
     return { minute: mins, state: "live", label: `${mins}'` };
   }
 
   if (secondStart) {
-    const mins = Math.floor((now - secondStart) / 60000) + periodLength;
+    const mins = Math.max(periodLength + 1, Math.floor((now - secondStart) / 60000) + periodLength);
     return { minute: mins, state: "live", label: `${mins}'` };
   }
   if (firstEnd) return { minute: periodLength, state: "ht", label: "HT" };
