@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
         if (res.status === 422 && markets.includes("btts")) {
           res = await fetch(oddsUrl.replace(/markets=[^&]+/, "markets=h2h,totals"));
         }
-        if (!res.ok) { boardCache.set(ck, { at: Date.now(), events: [] }); continue; }
+        if (!res.ok) { console.log("odds", sportKey, res.status, (await res.text()).slice(0, 160)); boardCache.set(ck, { at: Date.now(), events: [] }); continue; }
         cached = { at: Date.now(), events: await res.json() };
         boardCache.set(ck, cached);
       }
