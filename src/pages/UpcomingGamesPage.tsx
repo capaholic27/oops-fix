@@ -252,54 +252,9 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      <LiveStrip />
-      {/* Date bar */}
-      <div className="flex-shrink-0 border-b border-border bg-card">
-        <div
-          ref={scrollRef}
-          className="flex overflow-x-auto gap-0"
-          style={{
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-            paddingInline: "calc(50% - 39px)",
-          }}
-        >
-          {days.map((day, i) => {
-            const isToday = day.date === today;
-            const isActive = i === activeIdx;
-            const label = formatDateLabel(day.date, today);
-            const matchCount = day.matches.length + day.fixtures.length;
-
-            return (
-              <button
-                key={day.date}
-                onClick={() => setSelectedIdx(i)}
-                className={cn(
-                  "flex-shrink-0 flex flex-col items-center justify-center px-4 py-2.5 transition-all min-w-[78px] relative",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : isToday
-                    ? "text-primary font-semibold"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {isToday && !isActive && (
-                  <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-primary" />
-                )}
-                <span className="text-[11px] font-semibold whitespace-nowrap leading-tight">
-                  {label}
-                </span>
-                <span className={cn("text-[10px] mt-0.5", isActive ? "opacity-90" : "opacity-60")}>
-                  {matchCount} {matchCount === 1 ? "game" : "games"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Matches */}
+...
       <div className="flex-1 overflow-y-auto p-4 pb-20 max-w-lg mx-auto w-full">
+        <LiveStrip />
         {leagueGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm text-muted-foreground">No matches on this date</p>

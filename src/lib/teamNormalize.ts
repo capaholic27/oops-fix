@@ -109,16 +109,47 @@ export function searchableTeamName(name: string): string {
     .trim();
 }
 
+/** Slang / nickname search terms → canonical team name (search only). */
+const NICKNAMES: Record<string, string[]> = {
+  "Manchester City": ["man city", "city", "mcfc", "citizens"],
+  "Manchester United": ["man united", "man utd", "man u", "manu", "mufc", "red devils", "united"],
+  "Liverpool": ["lfc", "pool", "the reds", "liverpool fc"],
+  "Arsenal": ["gunners", "afc"],
+  "Chelsea": ["blues", "cfc"],
+  "Tottenham": ["spurs", "thfc", "tottenham hotspur"],
+  "Newcastle": ["toon", "magpies", "nufc"],
+  "West Ham": ["hammers", "irons"],
+  "Everton": ["toffees"],
+  "Aston Villa": ["villa", "avfc"],
+  "Wolverhampton Wanderers": ["wolves"],
+  "Nottingham Forest": ["forest", "nffc"],
+  "Brighton": ["seagulls", "bha"],
+  "Barcelona": ["barca", "fcb"],
+  "Real Madrid": ["real", "madrid", "los blancos"],
+  "Atlético Madrid": ["atleti"],
+  "Juventus": ["juve"],
+  "Inter": ["inter milan", "nerazzurri"],
+  "Milan": ["ac milan", "rossoneri"],
+  "Bayern München": ["bayern munich", "fcb", "bayern"],
+  "Dortmund": ["bvb", "borussia dortmund"],
+  "Borussia Mönchengladbach": ["gladbach"],
+  "Paris Saint Germain": ["psg", "paris"],
+  "Inter Miami": ["miami"],
+};
+
 /**
- * Does a team match a user's search query? Accent- and alias-insensitive, so
- * "atletico" finds "Atlético Madrid" and "man city" finds "Manchester City".
+ * Does a team match a user's search query? Accent-, alias- and
+ * nickname-insensitive, so "atletico" finds "Atlético Madrid" and
+ * "man city" / "mcfc" find "Manchester City".
  */
 export function matchesTeamQuery(team: string, query: string): boolean {
   const q = searchableTeamName(query);
   if (!q) return true;
-  const haystack = [team, ...getTeamAliases(team)]
-    .map(searchableTeamName)
-    .join(" | ");
+  const canonical = normalizeTeamName(team);
+  const nicks = NICKNAMES[canonical] ?? [];
+  const names = [team, ...getTeamAliases(team), ...nicks].map(searchableTeamName);
+  if (nicks.some((n) => searchableTeamName(n).startsWith(q))) return true;
+  const haystack = names.join(" | ");
   return q.split(" ").every((word) => haystack.includes(word));
 }
 
