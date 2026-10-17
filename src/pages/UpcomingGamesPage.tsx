@@ -252,7 +252,6 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   return (
     <div className="flex flex-col h-full">
-      <LiveStrip />
       {/* Date bar */}
       <div className="flex-shrink-0 border-b border-border bg-card">
         <div
@@ -300,6 +299,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
       {/* Matches */}
       <div className="flex-1 overflow-y-auto p-4 pb-20 max-w-lg mx-auto w-full">
+        <LiveStrip />
         {leagueGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm text-muted-foreground">No matches on this date</p>

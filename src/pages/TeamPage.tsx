@@ -971,7 +971,19 @@ export const PredictionDialog = ({
   const [outB, setOutB] = useState<Set<string>>(new Set());
   const pastN = 10;
 
-  const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
+  const { data: standingsAll } = useStandings();
+  // Union of teams seen in results and every current league table, so clubs
+  // without a recent stored result (e.g. Liverpool) are still selectable.
+  const allTeams = useMemo(() => {
+    const base = getUniqueTeams(allMatches);
+    const keys = new Set(base.map(canonicalTeamKey));
+    for (const s of standingsAll ?? []) for (const r of s.rows ?? []) {
+      const n = normalizeTeamName(r.name);
+      const k = canonicalTeamKey(n);
+      if (k && !keys.has(k)) { keys.add(k); base.push(n); }
+    }
+    return base.sort();
+  }, [allMatches, standingsAll]);
 
   const getTeamStats = useCallback(
     (teamName: string) => {
