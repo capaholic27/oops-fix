@@ -37,7 +37,7 @@ export function useLiveMatches() {
       .on("postgres_changes", { event: "*", schema: "public", table: "live_matches" },
         () => qc.invalidateQueries({ queryKey: ["live-matches"] }))
       .subscribe();
-    return () => { clearInterval(t); supabase.removeChannel(ch); };
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); supabase.removeChannel(ch); };
   }, [qc]);
   return q;
 }
