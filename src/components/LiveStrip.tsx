@@ -22,19 +22,22 @@ export function useLiveMatches() {
       if (error) throw error;
       return (data ?? []) as unknown as LiveRow[];
     },
-    refetchInterval: 20_000,
+    refetchInterval: 10_000,
     refetchIntervalInBackground: false,
+    staleTime: 5_000,
   });
   useEffect(() => {
-    // Nudge the server to refresh from Fotmob while someone is watching.
+    // Nudge the server to refresh from Fotmob while someone is watching (like Fotmob's ~20s cadence).
     const ping = () => { if (!document.hidden) supabase.functions.invoke("fetch-live").catch(() => {}); };
     ping();
-    const t = setInterval(ping, 60_000);
+    const t = setInterval(ping, 20_000);
+    const onVis = () => { if (!document.hidden) { ping(); qc.invalidateQueries({ queryKey: ["live-matches"] }); } };
+    document.addEventListener("visibilitychange", onVis);
     const ch = supabase.channel("live-matches")
       .on("postgres_changes", { event: "*", schema: "public", table: "live_matches" },
         () => qc.invalidateQueries({ queryKey: ["live-matches"] }))
       .subscribe();
-    return () => { clearInterval(t); supabase.removeChannel(ch); };
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); supabase.removeChannel(ch); };
   }, [qc]);
   return q;
 }
