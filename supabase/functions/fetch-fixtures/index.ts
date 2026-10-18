@@ -402,4 +402,4 @@ async function handle(req: Request): Promise<Response> {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}
