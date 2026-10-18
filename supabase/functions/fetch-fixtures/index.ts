@@ -158,9 +158,24 @@ async function loadFromApiFootball(
   return { fixtures, spent, quotaExhausted };
 }
 
+// A full sync of every competition can take several minutes, longer than the
+// gateway's 150s idle limit. Answer quickly and let slow runs finish in the
+// background so callers never get a 504.
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const work = handle(req);
+  const timer = new Promise<null>((r) => setTimeout(() => r(null), 20000));
+  const res = await Promise.race([work, timer]);
+  if (res) return res;
+  // @ts-ignore EdgeRuntime is provided by the Supabase runtime
+  EdgeRuntime.waitUntil(work.catch((e) => console.error("Background sync failed", e)));
+  return new Response(
+    JSON.stringify({ success: true, background: true }),
+    { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+});
 
+async function handle(req: Request): Promise<Response> {
   try {
     const supabase = adminClient();
     const apiKey = Deno.env.get("RAPIDAPI_KEY");
@@ -387,4 +402,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}
