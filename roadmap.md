@@ -1,0 +1,2 @@
+- [ ] Add switchable quick/original statistical prediction results and expandable Edge markets.
+- [ ] Verify model market calculations and prediction interactions.
