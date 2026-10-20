@@ -36,8 +36,8 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
   }, []);
 
   const { pred, hasData, homeForm, awayForm } = useMemo(() => {
-    const homeViews = teamViews(allMatches, fixture.home_team);
-    const awayViews = teamViews(allMatches, fixture.away_team);
+    const homeViews = teamViews(allMatches, fixture.home_team).slice(-10);
+    const awayViews = teamViews(allMatches, fixture.away_team).slice(-10);
 
     if (homeViews.length < 3 || awayViews.length < 3) {
       return { pred: null, hasData: false, homeForm: "", awayForm: "" };
@@ -138,8 +138,8 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
                 prediction: pred, home: fixture.home_team, away: fixture.away_team,
                 homeViews: teamViews(allMatches, fixture.home_team).slice(-10),
                 awayViews: teamViews(allMatches, fixture.away_team).slice(-10),
-                statsHome: aggregateStats(teamViews(allMatches, fixture.home_team)),
-                statsAway: aggregateStats(teamViews(allMatches, fixture.away_team)),
+                statsHome: aggregateStats(teamViews(allMatches, fixture.home_team).slice(-10)),
+                statsAway: aggregateStats(teamViews(allMatches, fixture.away_team).slice(-10)),
                 squadHome, squadAway,
               }} />
             </div>
