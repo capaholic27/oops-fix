@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useStandings } from "@/hooks/useMatches";
+import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useStandings, useTeamCatalog } from "@/hooks/useMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getTeamMatchView,
@@ -9,7 +9,7 @@ import {
   filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
-import { isTournamentLeague, normalizeTeamName, canonicalTeamKey, matchesTeamQuery, computeMentality } from "@/lib/teamNormalize";
+import { isTournamentLeague, normalizeTeamName, canonicalTeamKey, matchesTeamQuery, uniqueTeamNames, computeMentality } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
@@ -165,7 +165,7 @@ const LeagueSelector = ({
           .sort((a, b) => a.position - b.position)
           .map((r) => r.name)
           .filter((n) => {
-            const k = normalizeTeamName(n || "").toLowerCase();
+            const k = canonicalTeamKey(n || "");
             if (!k || seen.has(k)) return false;
             seen.add(k);
             return true;
@@ -187,15 +187,21 @@ const LeagueSelector = ({
     const results: { team: string; league: { code: string; name: string }; locked: boolean }[] = [];
     leagues.forEach((l) => {
       (teamsByLeague[l.code] || []).forEach((team) => {
-        if (team.toLowerCase().includes(searchLower)) {
+        if (matchesTeamQuery(team, searchLower)) {
           const locked = !canAccessLeague(l.name);
           results.push({ team, league: l, locked });
         }
       });
     });
     // Show allowed first, then locked
-    results.sort((a, b) => Number(a.locked) - Number(b.locked));
-    return results;
+    results.sort((a, b) => Number(a.locked) - Number(b.locked) || Number(isTournamentLeague(a.league.name)) - Number(isTournamentLeague(b.league.name)));
+    const seen = new Set<string>();
+    return results.filter(r => {
+      const key = canonicalTeamKey(r.team);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [searchLower, leagues, teamsByLeague, unlocked]);
 
   // Top leagues that exist in our data
@@ -970,19 +976,8 @@ export const PredictionDialog = ({
   const [outB, setOutB] = useState<Set<string>>(new Set());
   const pastN = 10;
 
-  const { data: standingsAll } = useStandings();
-  // Union of teams seen in results and every current league table, so clubs
-  // without a recent stored result (e.g. Liverpool) are still selectable.
-  const allTeams = useMemo(() => {
-    const base = getUniqueTeams(allMatches);
-    const keys = new Set(base.map(canonicalTeamKey));
-    for (const s of standingsAll ?? []) for (const r of s.rows ?? []) {
-      const n = normalizeTeamName(r.name);
-      const k = canonicalTeamKey(n);
-      if (k && !keys.has(k)) { keys.add(k); base.push(n); }
-    }
-    return base.sort();
-  }, [allMatches, standingsAll]);
+  const catalog = useTeamCatalog();
+  const allTeams = useMemo(() => uniqueTeamNames([...catalog, ...getUniqueTeams(allMatches)]), [allMatches, catalog]);
 
   const getTeamStats = useCallback(
     (teamName: string) => {

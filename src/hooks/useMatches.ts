@@ -2,16 +2,15 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
-import { getTeamAliases, canonicalTeamKey } from "@/lib/teamNormalize";
+import { getTeamAliases, uniqueTeamNames } from "@/lib/teamNormalize";
+import { matchKey, deduplicateFixtures } from "@/lib/fixtureIdentity";
+export { matchKey } from "@/lib/fixtureIdentity";
 
 /**
  * Build a stable dedup key for a match. Uses canonical team names so that
  * "Brighton" / "Brighton & Hove Albion" and "Atletico Madrid" / "Atlético
  * Madrid" collapse into the same fixture.
  */
-export function matchKey(m: { match_date: string; home_team: string; away_team: string }) {
-  return `${m.match_date}|${canonicalTeamKey(m.home_team)}|${canonicalTeamKey(m.away_team)}`;
-}
 
 export type Fixture = {
   id: string;
@@ -22,6 +21,7 @@ export type Fixture = {
   home_team: string;
   away_team: string;
   referee: string | null;
+  created_at?: string | null;
 };
 
 const MATCHES_STALE_MS = 10 * 60 * 1000;
@@ -191,39 +191,30 @@ export function useFixtures(teamName?: string) {
     queryKey: ["fixtures", teamName],
     staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Fixture[]> => {
-      let query = supabase
+      const buildQuery = () => {
+        let query = supabase
         .from("fixtures")
         .select("*")
-        .order("match_date", { ascending: true });
+        .gte("match_date", new Date(Date.now() - 86400000).toISOString().slice(0, 10))
+        .order("match_date", { ascending: true })
+        .order("id", { ascending: true });
 
       if (teamName) {
         const aliases = getTeamAliases(teamName);
         const parts = aliases.flatMap(a => [`home_team.eq.${a}`, `away_team.eq.${a}`]);
         query = query.or(parts.join(","));
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      const rows = (data || []) as unknown as Fixture[];
-
-      // The feed sometimes stores the same game twice under different spellings
-      // (e.g. "Atletico Madrid" / "Atlético Madrid"), occasionally with a
-      // slightly different kickoff. Collapse them into one, preferring the row
-      // with the richer (accented / longer) team names.
-      const byKey = new Map<string, Fixture>();
-      for (const f of rows) {
-        const key = matchKey(f);
-        const existing = byKey.get(key);
-        if (!existing) {
-          byKey.set(key, f);
-          continue;
-        }
-        const score = (x: Fixture) => x.home_team.length + x.away_team.length;
-        if (score(f) > score(existing)) byKey.set(key, f);
+        return query;
+      };
+      const rows: Fixture[] = [];
+      // Never silently truncate at the database's 1,000-row response limit.
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1);
+        if (error) throw error;
+        rows.push(...((data ?? []) as unknown as Fixture[]));
+        if ((data?.length ?? 0) < PAGE_SIZE) break;
       }
-      return Array.from(byKey.values()).sort((a, b) =>
-        a.match_date.localeCompare(b.match_date)
-      );
+      return deduplicateFixtures(rows);
     },
   });
 }
@@ -388,6 +379,18 @@ export function useStandings() {
     },
     staleTime: STANDINGS_STALE_MS,
   });
+}
+
+/** One roster for every search: Fotmob tables + scheduled teams + results. */
+export function useTeamCatalog() {
+  const { data: standings = [] } = useStandings();
+  const { data: fixtures = [] } = useFixtures();
+  const { data: matches = [] } = useMatches();
+  return uniqueTeamNames([
+    ...standings.flatMap(s => s.rows.map(r => r.name)),
+    ...fixtures.flatMap(f => [f.home_team, f.away_team]),
+    ...matches.flatMap(m => [m.home_team, m.away_team]),
+  ]);
 }
 
 
