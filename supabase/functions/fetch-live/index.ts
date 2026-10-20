@@ -58,6 +58,16 @@ function deriveMinute(status: any): { minute: number | null; state: string; labe
 
   if (status?.finished) return { minute: null, state: "ft", label: "FT" };
 
+  // Prefer Fotmob's own live clock ("78'", "45+2'", "HT") — avoids timezone drift.
+  const short = String(status?.liveTime?.short ?? "").replace(/[^\dA-Za-z+]/g, "");
+  if (/^HT$/i.test(short)) return { minute: periodLength, state: "ht", label: "HT" };
+  const m = short.match(/^(\d+)(?:\+(\d+))?/);
+  if (m) {
+    const mins = Number(m[1]) + Number(m[2] ?? 0);
+    return { minute: mins, state: "live", label: `${m[1]}${m[2] ? "+" + m[2] : ""}'` };
+  }
+
+
   const secondStart = parseHalfTime(halfs.secondHalfStarted);
   const firstEnd = parseHalfTime(halfs.firstHalfEnded);
   const firstStart = parseHalfTime(halfs.firstHalfStarted);
@@ -66,16 +76,16 @@ function deriveMinute(status: any): { minute: number | null; state: string; labe
   const etFirst = parseHalfTime(halfs.firstExtraHalfStarted);
   const etSecond = parseHalfTime(halfs.secondExtraHalfStarted);
   if (etSecond) {
-    const mins = Math.floor((now - etSecond) / 60000) + 105;
+    const mins = Math.max(106, Math.floor((now - etSecond) / 60000) + 105);
     return { minute: mins, state: "live", label: `${mins}'` };
   }
   if (etFirst) {
-    const mins = Math.floor((now - etFirst) / 60000) + 90;
+    const mins = Math.max(91, Math.floor((now - etFirst) / 60000) + 90);
     return { minute: mins, state: "live", label: `${mins}'` };
   }
 
   if (secondStart) {
-    const mins = Math.floor((now - secondStart) / 60000) + periodLength;
+    const mins = Math.max(periodLength + 1, Math.floor((now - secondStart) / 60000) + periodLength);
     return { minute: mins, state: "live", label: `${mins}'` };
   }
   if (firstEnd) return { minute: periodLength, state: "ht", label: "HT" };

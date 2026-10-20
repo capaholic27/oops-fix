@@ -11,10 +11,10 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { settleSlip, type SettleableLeg } from "@/lib/betSettlement";
 import { BankrollManager } from "@/components/BankrollManager";
-import { BookmakerOddsRow } from "@/components/BookmakerOddsRow";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { createPortal } from "react-dom";
 import { X, MousePointerClick } from "lucide-react";
+import { PREDICTION_MARKETS } from "@/lib/predictionMarkets";
 
 /** Parse "Home vs Away" (or "Home - Away") into team names. */
 function parseMatch(match: string): { home?: string; away?: string } {
@@ -116,36 +116,7 @@ const RISK_LEVELS = [
   { id: "high", label: "High Risk", icon: Zap, desc: "Big odds, bigger risk", color: "text-red-400" },
 ] as const;
 
-const ALL_MARKETS = [
-  { id: "1x2", label: "1X2", category: "Result" },
-  { id: "double_chance", label: "Double Chance", category: "Result" },
-  { id: "draw_no_bet", label: "Draw No Bet", category: "Result" },
-  { id: "over_under_goals", label: "Over/Under Goals", category: "Goals" },
-  { id: "btts", label: "BTTS", category: "Goals" },
-  { id: "correct_score", label: "Correct Score", category: "Goals" },
-  { id: "ht_ft", label: "HT/FT", category: "Goals" },
-  { id: "goal_both_halves", label: "Goal Both Halves", category: "Goals" },
-  { id: "clean_sheet", label: "Clean Sheet", category: "Goals" },
-  { id: "win_to_nil", label: "Win to Nil", category: "Goals" },
-  { id: "team_goals", label: "Team Total Goals", category: "Team" },
-  { id: "team_corners", label: "Team Corners (Home/Away N+)", category: "Team" },
-  { id: "team_cards", label: "Team Cards (Home/Away N+)", category: "Team" },
-  { id: "team_shots", label: "Team Shots (Home/Away N+)", category: "Team" },
-  { id: "team_fouls", label: "Team Fouls (Home/Away N+)", category: "Team" },
-  { id: "corners", label: "Total Corners O/U", category: "Stats" },
-  { id: "cards", label: "Total Cards O/U", category: "Stats" },
-  { id: "fouls", label: "Total Fouls O/U", category: "Stats" },
-  { id: "shots", label: "Total Shots O/U", category: "Stats" },
-  { id: "shots_on_target", label: "Shots on Target", category: "Stats" },
-  { id: "offsides", label: "Offsides", category: "Stats" },
-  { id: "anytime_scorer", label: "Anytime Goalscorer", category: "Players" },
-  { id: "first_scorer", label: "First Goalscorer", category: "Players" },
-  { id: "player_assist", label: "Player to Assist", category: "Players" },
-  { id: "player_shots_on_target", label: "Player Shots on Target", category: "Players" },
-  { id: "player_shots", label: "Player Total Shots", category: "Players" },
-  { id: "player_fouls", label: "Player Fouls Committed", category: "Players" },
-  { id: "player_card", label: "Player to be Carded", category: "Players" },
-] as const;
+const ALL_MARKETS = PREDICTION_MARKETS;
 
 const MARKET_CATEGORIES = ["Result", "Goals", "Team", "Stats", "Players"] as const;
 
@@ -274,13 +245,10 @@ const PickCard = ({ pick, accent }: { pick: Pick; accent: string }) => {
                     fallbackSide={liveParams.side}
                   />
                 ) : (
-                  <BookmakerOddsRow
-                    seed={`${pick.match}-${pick.market}-${pick.prediction}`}
-                    fairProb={pick.confidence / 100}
-                  />
+                  <span className="text-[10px] text-muted-foreground">No bookmaker odds yet</span>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-1.5">
-                  Real-time when available, otherwise model-derived signal.
+                  Real-time prices from licensed bookmakers.
                 </p>
               </div>
             </div>

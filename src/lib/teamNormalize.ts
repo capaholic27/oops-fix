@@ -42,93 +42,163 @@ const ALIASES: Record<string, string> = {
   "Leverkusen": "Bayer Leverkusen",
   "St Etienne": "Saint-Étienne",
   "St. Etienne": "Saint-Étienne",
-  // Short forms / diacritic / prefix / case variants found across leagues.
-  // Each maps the variant used in the matches table to the canonical
-  // standings name, so useTeamMatches + getTeamMatchView pick up the most
-  // recent fixtures instead of falling back to older seasons.
-  "Hull": "Hull City",
-  "Ipswich": "Ipswich Town",
-  "Coventry": "Coventry City",
+  // Short forms used by the results feed
+  "Man Utd": "Manchester United",
   "Cardiff": "Cardiff City",
-  "Norwich": "Norwich City",
-  "Swansea": "Swansea City",
   "Derby": "Derby County",
+  "Hull": "Hull City",
+  "Norwich": "Norwich City",
+  "Preston": "Preston North End",
+  "QPR": "Queens Park Rangers",
+  "Swansea": "Swansea City",
+  "Stoke": "Stoke City",
+  "Birmingham": "Birmingham City",
+  "Bolton": "Bolton Wanderers",
   "Blackburn": "Blackburn Rovers",
-  "Bournemouth": "AFC Bournemouth",
-  "Austin": "Austin FC",
-  "Charlotte": "Charlotte FC",
-  "Pafos": "Pafos FC",
-  "Groningen": "FC Groningen",
-  "Twente": "FC Twente",
-  "Utrecht": "FC Utrecht",
-  "Heerenveen": "SC Heerenveen",
-  "AS Roma": "Roma",
-  "FC Augsburg": "Augsburg",
-  "SC Freiburg": "Freiburg",
-  "SC Braga": "Braga",
-  "FC Lugano": "Lugano",
-  "SV Elversberg": "Elversberg",
-  "Orlando City SC": "Orlando City",
+  "Wigan": "Wigan Athletic",
+  "Huddersfield": "Huddersfield Town",
+  "Ipswich": "Ipswich Town",
+  "Luton": "Luton Town",
+  "Ath Madrid": "Atlético Madrid",
+  "Ath Bilbao": "Athletic Club",
+  "Inter Miami CF": "Inter Miami",
   "Atlanta United FC": "Atlanta United",
-  "Minnesota United FC": "Minnesota United",
-  "Chicago Fire": "Chicago Fire FC",
-  "Houston Dynamo": "Houston Dynamo FC",
-  "Seattle Sounders": "Seattle Sounders FC",
-  "Inter Miami": "Inter Miami CF",
-  "Malaga": "Málaga",
+  "AIK Stockholm": "AIK",
+  "FC Barcelona": "Barcelona",
+  "Barcelona FC": "Barcelona",
+  "Barça": "Barcelona",
+  "Liverpool FC": "Liverpool",
+  "Celta": "Celta Vigo",
+  "Betis": "Real Betis",
+  "Sociedad": "Real Sociedad",
+  "Alaves": "Deportivo Alavés",
   "Deportivo Alaves": "Deportivo Alavés",
-  "Famalicao": "Famalicão",
-  "Vitoria de Guimaraes": "Vitória de Guimarães",
-  "Sudtirol": "Südtirol",
-  "Ferencvaros": "Ferencváros",
-  "Viktoria Plzen": "Viktoria Plzeň",
-  "Malmo FF": "Malmö FF",
-  "IFK Goteborg": "IFK Göteborg",
-  "GIL Vicente": "Gil Vicente",
-  "GO Ahead Eagles": "Go Ahead Eagles",
-  "Gais": "GAIS",
-  "CF Montreal": "CF Montréal",
-  "Heart Of Midlothian": "Heart of Midlothian",
-  "ST Johnstone": "St. Johnstone",
-  "ST Mirren": "St. Mirren",
-  "Union St. Gilloise": "Union St.Gilloise",
+  "Deportivo La Coruña": "Deportivo La Coruña",
+  "Deportivo A Coruña": "Deportivo La Coruña",
+  "Dep. La Coruna": "Deportivo La Coruña",
+  "Malaga": "Málaga",
 };
 
+const aliasKey = (name: string) => name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const ALIAS_LOOKUP = new Map(Object.entries(ALIASES).flatMap(([alias, canonical]) => [
+  [aliasKey(alias), canonical] as const,
+  [aliasKey(canonical), canonical] as const,
+]));
+
 export function normalizeTeamName(name: string): string {
-  return ALIASES[name] ?? name;
+  const trimmed = (name ?? "").trim();
+  return ALIAS_LOOKUP.get(aliasKey(trimmed)) ?? trimmed;
 }
+
 
 /**
  * Aggressive canonical key used purely for deduplication.
- * Strips suffixes ("FC", "AFC", "United", "Hotspur", "& Hove Albion"…),
- * lowercases, removes punctuation/diacritics. Two names that map to the
- * same key are considered the same club.
+ * Strips generic club-type tokens ("FC", "AFC", "SC"…), lowercases and removes
+ * punctuation/diacritics. Distinguishing words such as "City", "United",
+ * "Town" or "Rovers" are KEPT — otherwise Manchester City and Manchester
+ * United would collapse into a single team.
  */
 export function canonicalTeamKey(name: string): string {
   let s = normalizeTeamName(name).toLowerCase();
   // Strip diacritics
   s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   // Remove punctuation
-  s = s.replace(/[.''&]/g, " ");
-  // Strip common prefixes
+  s = s.replace(/[.''&-]/g, " ");
+  // Unify abbreviations
+  s = s.replace(/\butd\b/g, "united");
+  // Strip common club-type prefixes
   s = s.replace(/^(afc|ac|fc|sc|sv|sk|as|us|ss|cf|cd|rc|cs)\s+/i, "");
-  // Strip common suffixes (run twice to catch "Wolverhampton Wanderers FC")
+  // Strip common club-type suffixes (run twice for "… Wanderers FC")
   for (let i = 0; i < 2; i++) {
-    s = s.replace(/\s+(fc|afc|cf|sc|sv|sk|hotspur|wanderers|albion|united|utd|town|county|rovers|athletic|club|de futbol)$/i, "");
+    // SC can identify a DIFFERENT club (Barcelona SC), not a spelling variant.
+    s = s.replace(/\s+(fc|afc|cf|de futbol)$/i, "");
   }
-  s = s.replace(/\s+and\s+hove\s+albion$/i, "");
-  s = s.replace(/\s+&\s+hove\s+albion$/i, "");
+  s = s.replace(/\s+hotspur$/i, "");
+  s = s.replace(/\s+(and\s+)?hove\s+albion$/i, "");
   s = s.replace(/\s+/g, " ").trim();
   return s;
 }
 
+/** Lowercase, accent-free, punctuation-free form used for searching. */
+export function searchableTeamName(name: string): string {
+  return (name ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Slang / nickname search terms → canonical team name (search only). */
+const NICKNAMES: Record<string, string[]> = {
+  "Manchester City": ["man city", "city", "mcfc", "citizens"],
+  "Manchester United": ["man united", "man utd", "man u", "manu", "mufc", "red devils", "united"],
+  "Liverpool": ["lfc", "pool", "the reds", "liverpool fc"],
+  "Arsenal": ["gunners", "afc"],
+  "Chelsea": ["blues", "cfc"],
+  "Tottenham": ["spurs", "thfc", "tottenham hotspur"],
+  "Newcastle": ["toon", "magpies", "nufc"],
+  "West Ham": ["hammers", "irons"],
+  "Everton": ["toffees"],
+  "Aston Villa": ["villa", "avfc"],
+  "Wolverhampton Wanderers": ["wolves"],
+  "Nottingham Forest": ["forest", "nffc"],
+  "Brighton": ["seagulls", "bha"],
+  "Barcelona": ["barca", "fcb"],
+  "Real Madrid": ["real", "madrid", "los blancos"],
+  "Atlético Madrid": ["atleti"],
+  "Juventus": ["juve"],
+  "Inter": ["inter milan", "nerazzurri"],
+  "Milan": ["ac milan", "rossoneri"],
+  "Bayern München": ["bayern munich", "fcb", "bayern"],
+  "Dortmund": ["bvb", "borussia dortmund"],
+  "Borussia Mönchengladbach": ["gladbach"],
+  "Paris Saint Germain": ["psg", "paris"],
+  "Inter Miami": ["miami"],
+};
+
+/**
+ * Does a team match a user's search query? Accent-, alias- and
+ * nickname-insensitive, so "atletico" finds "Atlético Madrid" and
+ * "man city" / "mcfc" find "Manchester City".
+ */
+export function matchesTeamQuery(team: string, query: string): boolean {
+  const q = searchableTeamName(query);
+  if (!q) return true;
+  const canonical = normalizeTeamName(team);
+  const nicks = NICKNAMES[canonical] ?? [];
+  const names = [team, ...getTeamAliases(team), ...nicks].map(searchableTeamName);
+  if (nicks.some((n) => searchableTeamName(n).startsWith(q))) return true;
+  const haystack = names.join(" | ");
+  return q.split(" ").every((word) => haystack.includes(word));
+}
+
+
 /** Get all name variants for a team (canonical + aliases) */
 export function getTeamAliases(teamName: string): string[] {
   const canonical = normalizeTeamName(teamName);
+  const key = canonicalTeamKey(canonical);
   const aliases = Object.entries(ALIASES)
-    .filter(([, v]) => v === canonical)
+    .filter(([, v]) => canonicalTeamKey(v) === key)
     .map(([k]) => k);
-  return [canonical, ...aliases.filter(a => a !== canonical)];
+  return [...new Set([teamName.trim(), canonical, ...aliases, `${canonical} FC`, `FC ${canonical}`])];
+}
+
+/** Only concrete teams, not unassigned cup slots such as Barcelona/Atletico. */
+export function isConcreteTeam(name: string): boolean {
+  return !!name.trim() && !/[\/]/.test(name) && !/^(tbd|tbc|winner\b|loser\b|to be)/i.test(name.trim());
+}
+
+export function uniqueTeamNames(names: string[]): string[] {
+  const teams = new Map<string, string>();
+  for (const name of names) {
+    if (!isConcreteTeam(name)) continue;
+    const display = normalizeTeamName(name);
+    const key = canonicalTeamKey(display);
+    const existing = teams.get(key);
+    if (!existing || display.length < existing.length) teams.set(key, display);
+  }
+  return [...teams.values()].sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -142,13 +212,46 @@ export const TOURNAMENT_LEAGUES = [
   "UEFA Champions League",
   "UEFA Europa League",
   "UEFA Conference League",
+  "UEFA Super Cup",
   "UEFA Nations League",
+  "Euro Qualification",
   "World Cup",
+  "World Cup Qualification",
   "Euros",
   "AFCON",
+  "Asian Cup",
+  "CONCACAF Gold Cup",
+  "CONCACAF Nations League",
+  "CONCACAF Champions Cup",
+  "AFC Champions League",
+  "AFC Champions League Two",
+  "CAF Champions League",
+  "Copa Libertadores",
+  "Copa Sudamericana",
   "FIFA Club World Cup",
+  "FIFA Intercontinental Cup",
   "Copa America",
+  "Club Friendlies",
+  "International",
+  // Domestic cups
+  "EFL Cup",
+  "FA Cup",
+  "Community Shield",
+  "Copa del Rey",
+  "Spanish Super Cup",
+  "Coppa Italia",
+  "Italian Super Cup",
+  "DFB Pokal",
+  "Coupe de France",
+  "French Super Cup",
+  "Taça de Portugal",
+  "Turkish Cup",
+  "Scottish Cup",
+  "Copa do Brasil",
+  "US Open Cup",
+  "Leagues Cup",
 ];
+
 
 export function isTournamentLeague(leagueName: string): boolean {
   return TOURNAMENT_LEAGUES.some(t => leagueName === t);

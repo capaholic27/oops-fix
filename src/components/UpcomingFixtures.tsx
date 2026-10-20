@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
 import { useFixtures, useMatches, type Fixture } from "@/hooks/useMatches";
 import { getTeamMatchView, filterRecentViews } from "@/lib/matchStats";
-import { formatKickoffTime } from "@/lib/timezone";
 import { predictMatch, computeLeagueAvgGoals, type TeamInput } from "@/lib/dixonColes";
 import { aggregateStats, type TeamMatchView } from "@/lib/matchStats";
 import { TeamLogo } from "@/components/TeamLogo";
 import { cn } from "@/lib/utils";
 import { CalendarDays, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import type { Match } from "@/lib/matchStats";
+import { toLocalKickoff } from "@/lib/matchTime";
+import { localDateStr } from "@/lib/matchTime";
+import { canonicalTeamKey } from "@/lib/teamNormalize";
+import { deduplicateFixtures } from "@/lib/fixtureIdentity";
 
 type Props = {
   teamName: string;
@@ -20,10 +23,10 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr(new Date());
   const allUpcoming = useMemo(
-    () => fixtures.filter((f) => f.match_date >= today).slice(0, 15),
-    [fixtures, today]
+    () => deduplicateFixtures(fixtures, allMatches).filter((f) => toLocalKickoff(f.match_date, f.match_time).date >= today).slice(0, 15),
+    [fixtures, allMatches, today]
   );
 
   const upcoming = showAll ? allUpcoming : allUpcoming.slice(0, 3);
@@ -33,13 +36,11 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
   const getQuickPrediction = (fixture: Fixture) => {
     const homeViews = filterRecentViews(
       allMatches
-        .filter((m) => m.home_team === fixture.home_team || m.away_team === fixture.home_team)
         .map((m) => getTeamMatchView(m, fixture.home_team))
         .filter((v): v is TeamMatchView => v !== null)
     ).slice(-10);
     const awayViews = filterRecentViews(
       allMatches
-        .filter((m) => m.home_team === fixture.away_team || m.away_team === fixture.away_team)
         .map((m) => getTeamMatchView(m, fixture.away_team))
         .filter((v): v is TeamMatchView => v !== null)
     ).slice(-10);
@@ -103,11 +104,12 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
       </div>
       <div className="space-y-1">
         {upcoming.map((f) => {
-          const isHome = f.home_team === teamName;
+          const isHome = canonicalTeamKey(f.home_team) === canonicalTeamKey(teamName);
           const opponent = isHome ? f.away_team : f.home_team;
           const isExpanded = expanded === f.id;
           const pred = isExpanded ? getQuickPrediction(f) : null;
-          const dateStr = new Date(f.match_date + "T00:00:00").toLocaleDateString("en-GB", {
+          const local = toLocalKickoff(f.match_date, f.match_time);
+          const dateStr = new Date(local.date + "T00:00:00").toLocaleDateString("en-GB", {
             weekday: "short", day: "numeric", month: "short",
           });
 
@@ -124,7 +126,7 @@ export const UpcomingFixtures = ({ teamName, allMatches, onSelectFixture }: Prop
                       <span className="text-muted-foreground text-[9px] mr-1">{isHome ? "vs" : "@"}</span>
                       {opponent}
                     </p>
-                    <p className="text-[8px] text-muted-foreground">{dateStr}{f.match_time ? ` · ${formatKickoffTime(f.match_date, f.match_time)}` : ""} · {f.league_name}</p>
+                    <p className="text-[8px] text-muted-foreground">{dateStr}{local.time ? ` · ${local.time}` : ""} · {f.league_name}</p>
                   </div>
                 </div>
                 <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />

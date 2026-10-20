@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { matchesTeamQuery, uniqueTeamNames } from "@/lib/teamNormalize";
 
 type Props = {
   teams: string[];
@@ -12,9 +13,7 @@ export const TeamDropdown = ({ teams, selectedTeam, onSelect }: Props) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const filtered = teams.filter((t) =>
-    t.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = uniqueTeamNames(teams).filter(t => matchesTeamQuery(t, search));
 
   return (
     <div className="relative">

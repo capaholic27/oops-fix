@@ -18,13 +18,13 @@ import {
   Area as RechartsArea,
   Line as RechartsLine,
 } from "recharts";
-import { useMatches, useTeamMatches, useFixtures } from "@/hooks/useMatches";
+import { useMatches, useTeamMatches, useFixtures, useTeamCatalog } from "@/hooks/useMatches";
 import {
   getTeamMatchView, aggregateStats, getUniqueTeams, getUniqueLeagues,
   type TeamMatchView, type AggregatedStats,
   filterRecentViews,
 } from "@/lib/matchStats";
-import { computeMentality, normalizeTeamName, isTournamentLeague } from "@/lib/teamNormalize";
+import { computeMentality, normalizeTeamName, isTournamentLeague, matchesTeamQuery } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { TeamLogo } from "@/components/TeamLogo";
 import { LeagueLogo } from "@/components/LeagueLogo";
@@ -386,7 +386,7 @@ const ProTeamSelector = ({
   const favTeams = useMemo(() => allTeams.filter(t => isFavorite(t)), [allTeams, favorites]);
   const filtered = useMemo(() => {
     if (!searchLower) return [];
-    return allTeams.filter(t => t.toLowerCase().includes(searchLower)).slice(0, 12);
+    return allTeams.filter(t => matchesTeamQuery(t, searchLower)).slice(0, 12);
   }, [allTeams, searchLower]);
 
   return (
@@ -469,7 +469,7 @@ const ProDashboard = ({
 
   const { data: teamMatches = [] } = useTeamMatches(teamName);
   const { data: fixtures = [] } = useFixtures(teamName);
-  const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
+  const allTeams = useTeamCatalog();
 
   const allTeamViews: TeamMatchView[] = useMemo(() => {
     return filterRecentViews(
@@ -1965,7 +1965,7 @@ const PremiumPage = () => {
   const [unlocked, setUnlocked] = useState(isPremiumUnlocked);
   const [selectedTeam, setSelectedTeam] = useState<string>("");
   const { data: allMatches = [], isLoading } = useMatches();
-  const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
+  const allTeams = useTeamCatalog();
 
   const togglePremium = () => {
     const next = !unlocked;
