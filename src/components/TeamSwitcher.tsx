@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { Repeat, Search, Star } from "lucide-react";
 import { TeamLogo } from "./TeamLogo";
 import { useFavorites } from "@/hooks/useFavorites";
-import { matchesTeamQuery } from "@/lib/teamNormalize";
+import { matchesTeamQuery, canonicalTeamKey, uniqueTeamNames } from "@/lib/teamNormalize";
+import { useTeamCatalog } from "@/hooks/useMatches";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -16,6 +17,8 @@ export const TeamSwitcher = ({ currentTeam, allTeams, onSelect }: Props) => {
   const [search, setSearch] = useState("");
   const { isFavorite } = useFavorites();
   const ref = useRef<HTMLDivElement>(null);
+  const catalog = useTeamCatalog();
+  const teams = uniqueTeamNames([...allTeams, ...catalog]);
 
   useEffect(() => {
     if (!open) return;
@@ -27,17 +30,17 @@ export const TeamSwitcher = ({ currentTeam, allTeams, onSelect }: Props) => {
   }, [open]);
 
   const favTeams = useMemo(
-    () => allTeams.filter((t) => isFavorite(t) && t !== currentTeam).slice(0, 8),
-    [allTeams, isFavorite, currentTeam]
+    () => teams.filter((t) => isFavorite(t) && canonicalTeamKey(t) !== canonicalTeamKey(currentTeam)).slice(0, 8),
+    [teams, isFavorite, currentTeam]
   );
 
   const results = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return [];
-    return allTeams
-      .filter((t) => matchesTeamQuery(t, q) && t !== currentTeam)
+    return teams
+      .filter((t) => matchesTeamQuery(t, q) && canonicalTeamKey(t) !== canonicalTeamKey(currentTeam))
       .slice(0, 12);
-  }, [allTeams, search, currentTeam]);
+  }, [teams, search, currentTeam]);
 
   const handlePick = (team: string) => {
     onSelect(team);

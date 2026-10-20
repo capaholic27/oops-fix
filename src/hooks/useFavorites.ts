@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
+import { canonicalTeamKey, uniqueTeamNames } from "@/lib/teamNormalize";
 
 const STORAGE_KEY = "fe_favorite_teams";
 
 function loadFavorites(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return uniqueTeamNames(Array.isArray(saved) ? saved.filter((name): name is string => typeof name === "string") : []);
   } catch {
     return [];
   }
@@ -21,16 +23,17 @@ export function useFavorites() {
 
   const toggleFavorite = useCallback((team: string) => {
     setFavorites((prev) => {
-      const next = prev.includes(team)
-        ? prev.filter((t) => t !== team)
-        : [...prev, team];
+      const key = canonicalTeamKey(team);
+      const next = prev.some(t => canonicalTeamKey(t) === key)
+        ? prev.filter((t) => canonicalTeamKey(t) !== key)
+        : uniqueTeamNames([...prev, team]);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
   }, []);
 
   const isFavorite = useCallback(
-    (team: string) => favorites.includes(team),
+    (team: string) => favorites.some(t => canonicalTeamKey(t) === canonicalTeamKey(team)),
     [favorites]
   );
 
