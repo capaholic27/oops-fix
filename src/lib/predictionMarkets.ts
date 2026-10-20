@@ -125,20 +125,22 @@ export function buildPredictionMarkets(input: MarketInputs): PredictionMarket[] 
     { team: null, total: "shots_on_target", read: (v: TeamMatchView) => v.shotsOnTargetFor, opponent: (v: TeamMatchView) => v.shotsOnTargetAgainst, line: 7.5, teamLine: 3 },
   ] as const;
   for (const metric of statMarkets) {
+    const recordedHome = homeViews.filter(v => metric.read(v) + metric.opponent(v) > 0);
+    const recordedAway = awayViews.filter(v => metric.read(v) + metric.opponent(v) > 0);
     // Need recorded non-zero observations in BOTH teams' samples; unsupported == unavailable.
-    if (!homeViews.some(v => metric.read(v) > 0) || !awayViews.some(v => metric.read(v) > 0)) continue;
+    if (recordedHome.length < 3 || recordedAway.length < 3) continue;
     const hist = (views: TeamMatchView[], team: string): MarketOutcome => ({
       label: `${team} ${metric.teamLine}+`,
       probability: views.filter(v => metric.read(v) >= metric.teamLine).length / views.length * 100,
       evidence: `${views.filter(v => metric.read(v) >= metric.teamLine).length}/${views.length} recent matches · Historical frequency`,
     });
-    if (metric.team) set(metric.team, [hist(homeViews, home), hist(awayViews, away)]);
-    const unique = [...new Map([...homeViews, ...awayViews].map(v => [v.match.id, v])).values()];
+    if (metric.team) set(metric.team, [hist(recordedHome, home), hist(recordedAway, away)], Math.min(recordedHome.length, recordedAway.length));
+    const unique = [...new Map([...recordedHome, ...recordedAway].map(v => [v.match.id, v])).values()];
     const over = unique.filter(v => metric.read(v) + metric.opponent(v) > metric.line).length;
     set(metric.total, [
       { label: `Over ${metric.line}`, probability: over / unique.length * 100, evidence: `${over}/${unique.length} recent matches · Historical frequency` },
       { label: `Under ${metric.line}`, probability: (unique.length - over) / unique.length * 100, evidence: `${unique.length - over}/${unique.length} recent matches · Historical frequency` },
-    ]);
+    ], Math.min(recordedHome.length, recordedAway.length));
   }
 
   const squads = [
