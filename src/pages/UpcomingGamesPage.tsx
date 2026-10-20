@@ -8,6 +8,7 @@ import { LiveStrip } from "@/components/LiveStrip";
 import { LeagueLogo } from "@/components/LeagueLogo";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
+import { deduplicateFixtures } from "@/lib/fixtureIdentity";
 
 function getAbbr(name: string) {
   const map: Record<string, string> = {
@@ -130,16 +131,10 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
   // only ever appears once: the same fixture can exist under two spellings, and
   // a played game can exist both as a result and as a fixture.
   const localFixtures = useMemo<LocalFixture[]>(() => {
-    const playedKeys = new Set(allMatches.map(matchKey));
-    const byKey = new Map<string, LocalFixture>();
-    for (const f of fixtures) {
+    return deduplicateFixtures(fixtures, allMatches).map(f => {
       const k = toLocalKickoff(f.match_date, f.match_time);
-      const key = matchKey(f);
-      if (playedKeys.has(key)) continue;
-      if (byKey.has(key)) continue;
-      byKey.set(key, { ...f, local_date: k.date, local_time: k.time });
-    }
-    return Array.from(byKey.values());
+      return { ...f, local_date: k.date, local_time: k.time };
+    });
   }, [fixtures, allMatches]);
 
   const { days, todayIndex } = useMemo(() => {
