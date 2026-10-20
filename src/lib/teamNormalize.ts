@@ -64,11 +64,30 @@ const ALIASES: Record<string, string> = {
   "Inter Miami CF": "Inter Miami",
   "Atlanta United FC": "Atlanta United",
   "AIK Stockholm": "AIK",
+  "FC Barcelona": "Barcelona",
+  "Barcelona FC": "Barcelona",
+  "Barça": "Barcelona",
+  "Liverpool FC": "Liverpool",
+  "Celta": "Celta Vigo",
+  "Betis": "Real Betis",
+  "Sociedad": "Real Sociedad",
+  "Alaves": "Deportivo Alavés",
+  "Deportivo Alaves": "Deportivo Alavés",
+  "Deportivo La Coruña": "Deportivo La Coruña",
+  "Deportivo A Coruña": "Deportivo La Coruña",
+  "Dep. La Coruna": "Deportivo La Coruña",
+  "Malaga": "Málaga",
 };
+
+const aliasKey = (name: string) => name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+const ALIAS_LOOKUP = new Map(Object.entries(ALIASES).flatMap(([alias, canonical]) => [
+  [aliasKey(alias), canonical] as const,
+  [aliasKey(canonical), canonical] as const,
+]));
 
 export function normalizeTeamName(name: string): string {
   const trimmed = (name ?? "").trim();
-  return ALIASES[trimmed] ?? trimmed;
+  return ALIAS_LOOKUP.get(aliasKey(trimmed)) ?? trimmed;
 }
 
 
@@ -91,7 +110,8 @@ export function canonicalTeamKey(name: string): string {
   s = s.replace(/^(afc|ac|fc|sc|sv|sk|as|us|ss|cf|cd|rc|cs)\s+/i, "");
   // Strip common club-type suffixes (run twice for "… Wanderers FC")
   for (let i = 0; i < 2; i++) {
-    s = s.replace(/\s+(fc|afc|cf|sc|sv|sk|club|de futbol)$/i, "");
+    // SC can identify a DIFFERENT club (Barcelona SC), not a spelling variant.
+    s = s.replace(/\s+(fc|afc|cf|de futbol)$/i, "");
   }
   s = s.replace(/\s+hotspur$/i, "");
   s = s.replace(/\s+(and\s+)?hove\s+albion$/i, "");
@@ -157,10 +177,28 @@ export function matchesTeamQuery(team: string, query: string): boolean {
 /** Get all name variants for a team (canonical + aliases) */
 export function getTeamAliases(teamName: string): string[] {
   const canonical = normalizeTeamName(teamName);
+  const key = canonicalTeamKey(canonical);
   const aliases = Object.entries(ALIASES)
-    .filter(([, v]) => v === canonical)
+    .filter(([, v]) => canonicalTeamKey(v) === key)
     .map(([k]) => k);
-  return [canonical, ...aliases.filter(a => a !== canonical)];
+  return [...new Set([teamName.trim(), canonical, ...aliases, `${canonical} FC`, `FC ${canonical}`])];
+}
+
+/** Only concrete teams, not unassigned cup slots such as Barcelona/Atletico. */
+export function isConcreteTeam(name: string): boolean {
+  return !!name.trim() && !/[\/]/.test(name) && !/^(tbd|tbc|winner\b|loser\b|to be)/i.test(name.trim());
+}
+
+export function uniqueTeamNames(names: string[]): string[] {
+  const teams = new Map<string, string>();
+  for (const name of names) {
+    if (!isConcreteTeam(name)) continue;
+    const display = normalizeTeamName(name);
+    const key = canonicalTeamKey(display);
+    const existing = teams.get(key);
+    if (!existing || display.length < existing.length) teams.set(key, display);
+  }
+  return [...teams.values()].sort((a, b) => a.localeCompare(b));
 }
 
 /**
