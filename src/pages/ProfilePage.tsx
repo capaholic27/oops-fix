@@ -52,6 +52,13 @@ const ProfilePage = () => {
   const [changingPw, setChangingPw] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [compact, setCompact] = useState(() => localStorage.getItem("fe_compact") === "1");
+  const [timezone, setTimezone] = useState(getUserTimezone);
+
+  const handleTimezone = (value: string) => {
+    setUserTimezone(value === "auto" ? null : value);
+    setTimezone(getUserTimezone());
+    toast.success(value === "auto" ? "Timezone set to automatic" : `Timezone set to ${value.replace(/_/g, " ")}`);
+  };
 
   const toggleCompact = () => {
     const next = !compact;

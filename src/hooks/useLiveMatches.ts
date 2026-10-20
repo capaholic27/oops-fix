@@ -31,6 +31,34 @@ export type LiveMatch = {
   stats: Record<string, [number | null, number | null]>;
 };
 
+type LiveListener = () => void;
+
+/**
+ * Shared realtime subscription for `live_matches`. Supabase dedupes channels by
+ * topic, so two concurrent `useLiveMatches` mounts would otherwise collide —
+ * the second `.on()` after the first `.subscribe()` throws. Ref-count instead:
+ * one channel for all listeners, with a unique topic per generation so a
+ * channel being torn down never collides with its replacement.
+ */
+const liveListeners = new Set<LiveListener>();
+let liveChannel: ReturnType<typeof supabase.channel> | null = null;
+let liveChannelSeq = 0;
+
+function ensureLiveChannel() {
+  if (liveChannel) return;
+  liveChannel = supabase.channel(`live-matches-${++liveChannelSeq}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "live_matches" },
+      () => liveListeners.forEach((l) => l()))
+    .subscribe();
+}
+
+function releaseLiveChannel() {
+  if (!liveChannel) return;
+  const ch = liveChannel;
+  liveChannel = null;
+  supabase.removeChannel(ch);
+}
+
 /**
  * Live + just-finished matches from the `live_matches` table, kept fresh by the
  * `fetch-live` cron. Polled every 10s, pushed instantly via realtime, and
@@ -56,11 +84,15 @@ export function useLiveMatches() {
     const t = setInterval(ping, 20_000);
     const onVis = () => { if (!document.hidden) { ping(); qc.invalidateQueries({ queryKey: ["live-matches"] }); } };
     document.addEventListener("visibilitychange", onVis);
-    const ch = supabase.channel("live-matches")
-      .on("postgres_changes", { event: "*", schema: "public", table: "live_matches" },
-        () => qc.invalidateQueries({ queryKey: ["live-matches"] }))
-      .subscribe();
-    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVis); supabase.removeChannel(ch); };
+    const listener = () => qc.invalidateQueries({ queryKey: ["live-matches"] });
+    liveListeners.add(listener);
+    ensureLiveChannel();
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+      liveListeners.delete(listener);
+      if (liveListeners.size === 0) releaseLiveChannel();
+    };
   }, [qc]);
   return q;
 }
