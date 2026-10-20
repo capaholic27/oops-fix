@@ -1,14 +1,16 @@
 import { useState, useMemo, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { useMatches, useFixtures, type Fixture } from "@/hooks/useMatches";
 import { useLiveMatches, type LiveMatch } from "@/hooks/useLiveMatches";
+import { toLocalKickoff, localDateStr } from "@/lib/matchTime";
 import { MatchDetailSheet } from "@/components/MatchDetailSheet";
 import { FixturePredictSheet } from "@/components/FixturePredictSheet";
 import { TeamLogo } from "@/components/TeamLogo";
+import { LiveStrip } from "@/components/LiveStrip";
 import { LeagueLogo } from "@/components/LeagueLogo";
-import { formatKickoffTime } from "@/lib/timezone";
 import { canonicalTeamKey } from "@/lib/teamNormalize";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/lib/matchStats";
+import { deduplicateFixtures } from "@/lib/fixtureIdentity";
 
 function getAbbr(name: string) {
   const map: Record<string, string> = {
@@ -32,8 +34,11 @@ function getAbbr(name: string) {
 }
 
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
 }
+
+/** Fixture with kickoff converted to the viewer's own timezone. */
+type LocalFixture = Fixture & { local_date: string; local_time: string | null };
 
 function formatDateLabel(dateStr: string, today: string) {
   const diff = (new Date(dateStr + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86400000;
@@ -44,7 +49,7 @@ function formatDateLabel(dateStr: string, today: string) {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
-type DayEntry = { date: string; matches: Match[]; fixtures: Fixture[] };
+type DayEntry = { date: string; matches: Match[]; fixtures: LocalFixture[] };
 
 const MatchRow = ({ match: m, onSelect }: { match: Match; onSelect: (m: Match) => void }) => {
   const homeGoals = m.ft_home_goals ?? 0;
@@ -79,12 +84,12 @@ const FixtureRow = ({
   live,
   onSelect,
 }: {
-  fixture: Fixture;
+  fixture: LocalFixture;
   live?: LiveMatch | null;
   onSelect: (f: Fixture) => void;
 }) => {
   const isLive = live && (live.status === "live" || live.status === "ht");
-  const localTime = formatKickoffTime(f.match_date, f.match_time);
+  const localTime = f.local_time;
   return (
     <button
       onClick={() => onSelect(f)}
@@ -124,35 +129,6 @@ const FixtureRow = ({
   );
 };
 
-const LiveMatchRow = ({ m }: { m: LiveMatch }) => {
-  const isLive = m.status === "live";
-  return (
-    <div className="w-full flex items-center h-12 border-b border-border last:border-b-0 px-3">
-      <div className="flex-1 flex items-center justify-end gap-2 pr-3">
-        <span className={cn("text-sm font-medium truncate max-w-[88px]", m.home_goals > m.away_goals && "font-bold")}>{m.home_team}</span>
-        <TeamLogo teamName={m.home_team} size="xs" />
-      </div>
-      <div className="flex flex-col items-center justify-center px-3 min-w-[56px]">
-        <div className="flex items-center gap-1">
-          <span className="font-mono font-bold text-sm">{m.home_goals}</span>
-          <span className="text-xs text-muted-foreground">-</span>
-          <span className="font-mono font-bold text-sm">{m.away_goals}</span>
-        </div>
-        <div className="flex items-center gap-1 mt-0.5">
-          {isLive && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
-          <span className={cn("text-[9px] font-bold uppercase tracking-wide", isLive ? "text-red-500" : "text-muted-foreground")}>
-            {m.status === "ht" ? "HT" : m.status_label || (m.minute != null ? `${m.minute}'` : "LIVE")}
-          </span>
-        </div>
-      </div>
-      <div className="flex-1 flex items-center justify-start gap-2 pl-3">
-        <TeamLogo teamName={m.away_team} size="xs" />
-        <span className={cn("text-sm font-medium truncate max-w-[88px]", m.away_goals > m.home_goals && "font-bold")}>{m.away_team}</span>
-      </div>
-    </div>
-  );
-};
-
 const LeagueGroup = ({ league, children }: { league: string; children: React.ReactNode }) => (
   <div className="mb-4">
     <div className="flex items-center gap-2 px-1 mb-2">
@@ -184,29 +160,20 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
   const today = useMemo(() => toDateStr(new Date()), []);
 
+  // Convert kickoffs from UTC into the viewer's timezone and make sure a game
+  // only ever appears once: the same fixture can exist under two spellings, and
+  // a played game can exist both as a result and as a fixture.
+  const localFixtures = useMemo<LocalFixture[]>(() => {
+    return deduplicateFixtures(fixtures, allMatches).map(f => {
+      const k = toLocalKickoff(f.match_date, f.match_time);
+      return { ...f, local_date: k.date, local_time: k.time };
+    });
+  }, [fixtures, allMatches]);
+
   const { days, todayIndex } = useMemo(() => {
     const dateSet = new Set<string>();
     allMatches.forEach(m => dateSet.add(m.match_date));
-
-    const now = new Date();
-    // A fixture counts as "upcoming" while its kick-off is still ahead — or if
-    // it's currently in play (kept so the live score shows inline). Once a match
-    // has kicked off it has a result in `matches` (shown via MatchRow) or is
-    // simply stale, so we drop it here to avoid showing a kick-off time for a
-    // game that's already been played.
-    const liveFixtureKeys = new Set<string>();
-    liveMatches.forEach((lm) => {
-      const date = lm.kickoff_at?.slice(0, 10);
-      if (date) liveFixtureKeys.add(`${date}|${canonicalTeamKey(lm.home_team)}|${canonicalTeamKey(lm.away_team)}`);
-    });
-    const upcomingFixtures = fixtures.filter((f) => {
-      const key = `${f.match_date}|${canonicalTeamKey(f.home_team)}|${canonicalTeamKey(f.away_team)}`;
-      if (liveFixtureKeys.has(key)) return true;
-      if (f.match_time) return new Date(`${f.match_date}T${f.match_time}:00Z`).getTime() > now.getTime();
-      return f.match_date >= today;
-    });
-
-    upcomingFixtures.forEach(f => dateSet.add(f.match_date));
+    localFixtures.forEach(f => dateSet.add(f.local_date));
     // Always show today, even if no fixtures, so the bar starts there.
     dateSet.add(today);
 
@@ -228,16 +195,18 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
       if (!matchesByDate.has(m.match_date)) matchesByDate.set(m.match_date, []);
       matchesByDate.get(m.match_date)!.push(m);
     });
-    const fixturesByDate = new Map<string, Fixture[]>();
-    upcomingFixtures.forEach(f => {
-      if (!fixturesByDate.has(f.match_date)) fixturesByDate.set(f.match_date, []);
-      fixturesByDate.get(f.match_date)!.push(f);
+    const fixturesByDate = new Map<string, LocalFixture[]>();
+    localFixtures.forEach(f => {
+      if (!fixturesByDate.has(f.local_date)) fixturesByDate.set(f.local_date, []);
+      fixturesByDate.get(f.local_date)!.push(f);
     });
 
     const days: DayEntry[] = allDates.map(date => ({
       date,
       matches: matchesByDate.get(date) || [],
-      fixtures: fixturesByDate.get(date) || [],
+      fixtures: (fixturesByDate.get(date) || []).sort((a, b) =>
+        (a.local_time || "99:99").localeCompare(b.local_time || "99:99")
+      ),
     }));
 
     let todayIdx = days.findIndex(d => d.date === today);
@@ -247,7 +216,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
     }
 
     return { days, todayIndex: todayIdx };
-  }, [allMatches, fixtures, today, liveMatches]);
+  }, [allMatches, localFixtures, today]);
 
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const activeIdx = selectedIdx ?? todayIndex;
@@ -307,25 +276,9 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
     },
     [liveByKey],
   );
-
-  // Currently in-play matches (across all leagues), shown in a Live Now lane.
-  const liveNow = useMemo(
-    () => liveMatches.filter((m) => m.status === "live" || m.status === "ht"),
-    [liveMatches],
-  );
-  const liveByLeague = useMemo(() => {
-    const map = new Map<string, LiveMatch[]>();
-    liveNow.forEach((m) => {
-      const lg = m.league_name || "Live";
-      if (!map.has(lg)) map.set(lg, []);
-      map.get(lg)!.push(m);
-    });
-    return Array.from(map.entries());
-  }, [liveNow]);
-
   const leagueGroups = useMemo(() => {
     if (!currentDay) return [];
-    const map = new Map<string, { matches: Match[]; fixtures: Fixture[] }>();
+    const map = new Map<string, { matches: Match[]; fixtures: LocalFixture[] }>();
     currentDay.matches.forEach(m => {
       if (!map.has(m.league_name)) map.set(m.league_name, { matches: [], fixtures: [] });
       map.get(m.league_name)!.matches.push(m);
@@ -394,24 +347,7 @@ const UpcomingGamesPage = ({ isActive = true }: UpcomingGamesPageProps) => {
 
       {/* Matches */}
       <div className="flex-1 overflow-y-auto p-4 pb-20 max-w-lg mx-auto w-full">
-        {liveByLeague.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center gap-2 px-1 mb-2">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs font-bold text-red-500 uppercase tracking-wide">Live Now</span>
-              </span>
-              <span className="text-[10px] text-muted-foreground">{liveNow.length} in play</span>
-            </div>
-            {liveByLeague.map(([league, lms]) => (
-              <LeagueGroup key={league} league={league}>
-                {lms.map(m => (
-                  <LiveMatchRow key={m.id} m={m} />
-                ))}
-              </LeagueGroup>
-            ))}
-          </div>
-        )}
+        <LiveStrip />
         {leagueGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16">
             <p className="text-sm text-muted-foreground">No matches on this date</p>

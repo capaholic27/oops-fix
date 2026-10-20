@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useStandings } from "@/hooks/useMatches";
+import { useMatches, useTeamMatches, useSyncData, useFixtures, useSyncFixtures, useStandings, useTeamCatalog } from "@/hooks/useMatches";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getTeamMatchView,
@@ -9,7 +9,7 @@ import {
   filterRecentViews,
   type TeamMatchView,
 } from "@/lib/matchStats";
-import { isTournamentLeague, normalizeTeamName, computeMentality } from "@/lib/teamNormalize";
+import { isTournamentLeague, normalizeTeamName, canonicalTeamKey, matchesTeamQuery, uniqueTeamNames, computeMentality } from "@/lib/teamNormalize";
 import { predictMatch, computeLeagueAvgGoals, type PredictionResult, type TeamInput } from "@/lib/dixonColes";
 import { StatCard } from "@/components/StatCard";
 import { StatCardDetail } from "@/components/StatCardDetail";
@@ -29,9 +29,9 @@ import { getSyntheticSquad } from "@/lib/playerNames";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useTeamPlayers, type RealPlayer } from "@/hooks/useTeamPlayers";
 import { LineupSelector } from "@/components/LineupSelector";
-import { PlayerPropsPanel } from "@/components/PlayerPropsPanel";
+import { PredictionMetrics, PredictionViewSwitch, type PredictionView } from "@/components/PredictionMetrics";
 import { PredictionGuide } from "@/components/PredictionGuide";
-import { computeLineupImpact, computePlayerProps, type PredictionMode } from "@/lib/playerProps";
+import { computeLineupImpact, type PredictionMode } from "@/lib/playerProps";
 import {
   Target, Flag, AlertTriangle, Shield, TrendingUp, Crosshair,
   RefreshCw, ChevronLeft, ChevronRight, Sparkles, X, Loader2,
@@ -165,7 +165,7 @@ const LeagueSelector = ({
           .sort((a, b) => a.position - b.position)
           .map((r) => r.name)
           .filter((n) => {
-            const k = normalizeTeamName(n || "").toLowerCase();
+            const k = canonicalTeamKey(n || "");
             if (!k || seen.has(k)) return false;
             seen.add(k);
             return true;
@@ -187,15 +187,21 @@ const LeagueSelector = ({
     const results: { team: string; league: { code: string; name: string }; locked: boolean }[] = [];
     leagues.forEach((l) => {
       (teamsByLeague[l.code] || []).forEach((team) => {
-        if (team.toLowerCase().includes(searchLower)) {
+        if (matchesTeamQuery(team, searchLower)) {
           const locked = !canAccessLeague(l.name);
           results.push({ team, league: l, locked });
         }
       });
     });
     // Show allowed first, then locked
-    results.sort((a, b) => Number(a.locked) - Number(b.locked));
-    return results;
+    results.sort((a, b) => Number(a.locked) - Number(b.locked) || Number(isTournamentLeague(a.league.name)) - Number(isTournamentLeague(b.league.name)));
+    const seen = new Set<string>();
+    return results.filter(r => {
+      const key = canonicalTeamKey(r.team);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }, [searchLower, leagues, teamsByLeague, unlocked]);
 
   // Top leagues that exist in our data
@@ -959,8 +965,7 @@ export const PredictionDialog = ({
   onOpenChange: (open: boolean) => void;
   allMatches: any[];
 }) => {
-  const [predicting, setPredicting] = useState(false);
-  const [prediction, setPrediction] = useState<string | null>(null);
+  const [metricView, setMetricView] = useState<PredictionView>("quick");
   const [selectedTeamA, setSelectedTeamA] = useState("");
   const [selectedTeamB, setSelectedTeamB] = useState("");
   const [teamSearch, setTeamSearch] = useState("");
@@ -974,14 +979,19 @@ export const PredictionDialog = ({
   const [outB, setOutB] = useState<Set<string>>(new Set());
   const pastN = 10;
 
-  const allTeams = useMemo(() => getUniqueTeams(allMatches), [allMatches]);
+  const catalog = useTeamCatalog();
+  const allTeams = useMemo(() => uniqueTeamNames([...catalog, ...getUniqueTeams(allMatches)]), [allMatches, catalog]);
 
   const getTeamStats = useCallback(
     (teamName: string) => {
       if (!teamName) return null;
+      const key = canonicalTeamKey(teamName);
       const views = filterRecentViews(
         allMatches
-          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .filter(
+            (m: any) =>
+              canonicalTeamKey(m.home_team) === key || canonicalTeamKey(m.away_team) === key
+          )
           .map((m: any) => getTeamMatchView(m, teamName))
           .filter((v: any): v is TeamMatchView => v !== null)
       ).slice(-pastN);
@@ -989,6 +999,7 @@ export const PredictionDialog = ({
     },
     [allMatches, pastN]
   );
+
 
   const statsA = useMemo(() => getTeamStats(selectedTeamA), [selectedTeamA, getTeamStats]);
   const statsB = useMemo(() => getTeamStats(selectedTeamB), [selectedTeamB, getTeamStats]);
@@ -1002,7 +1013,7 @@ export const PredictionDialog = ({
     const getRecentStats = (teamName: string) => {
       const views = filterRecentViews(
         allMatches
-          .filter((m: any) => m.home_team === teamName || m.away_team === teamName)
+          .filter((m: any) => canonicalTeamKey(m.home_team) === canonicalTeamKey(teamName) || canonicalTeamKey(m.away_team) === canonicalTeamKey(teamName))
           .map((m: any) => getTeamMatchView(m, teamName))
           .filter((v: any): v is TeamMatchView => v !== null)
       ).slice(-5);
@@ -1033,7 +1044,6 @@ export const PredictionDialog = ({
   }, [statsA, statsB, selectedTeamA, selectedTeamB, allMatches, impactA, impactB]);
 
   const handleReset = () => {
-    setPrediction(null);
     setSelectedTeamA("");
     setSelectedTeamB("");
     setTeamSearch("");
@@ -1047,75 +1057,25 @@ export const PredictionDialog = ({
     setOutB(new Set());
   };
 
-  const handleRunPredict = useCallback(async () => {
-    if (!selectedTeamA || !statsA) return;
-    setPredicting(true);
-    setPrediction(null);
-    try {
-      const body: any = { teamName: selectedTeamA, stats: statsA, recentForm: statsA.formLast5 };
-      if (selectedTeamB && statsB) {
-        body.upcomingOpponent = selectedTeamB;
-        body.opponentStats = statsB;
-        body.opponentForm = statsB.formLast5;
-      }
-      body.predictionMode = mode;
-      const lineupLines = [
-        ...impactA.notes.map((n) => `${selectedTeamA}: ${n}`),
-        ...impactB.notes.map((n) => `${selectedTeamB}: ${n}`),
-      ];
-      if (lineupLines.length > 0) body.unavailablePlayers = lineupLines;
-      if (mode !== "full" && dcResult) {
-        body.playerMarkets = {
-          home: computePlayerProps(squadA, selectedTeamA, dcResult.lambdaHome, outA).slice(0, 6),
-          away: computePlayerProps(squadB, selectedTeamB, dcResult.lambdaAway, outB).slice(0, 6),
-        };
-      }
-      if (matchContext.trim()) {
-        body.matchContext = matchContext.trim();
-      }
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-match`,
-        { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` }, body: JSON.stringify(body) }
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || `Error ${response.status}`);
-      if (!data?.prediction) throw new Error(data?.error || "No prediction returned");
-      setPrediction(data.prediction);
-      setShowAI(true);
-      toast.success("AI prediction ready!");
-    } catch (err: any) {
-      console.error("Predict error:", err);
-      toast.error(err?.message || "Prediction failed — try again");
-    } finally {
-      setPredicting(false);
-    }
-  }, [selectedTeamA, statsA, selectedTeamB, statsB, matchContext, mode, impactA, impactB, dcResult, squadA, squadB, outA, outB]);
+  const handleRunPredict = () => {
+    if (!dcResult || !statsA || !statsB) return;
+    setShowAI(true);
+  };
 
-  const ComparisonRow = ({ label, a, b, better }: { label: string; a: string; b: string; better: "a" | "b" | "none" }) => (
-    <div className="flex items-center py-2 px-3">
-      <span className={cn("font-mono text-xs font-semibold w-16 text-right", better === "a" && "text-stat-positive")}>{a}</span>
-      <span className="flex-1 text-center text-[10px] text-muted-foreground font-medium">{label}</span>
-      <span className={cn("font-mono text-xs font-semibold w-16", better === "b" && "text-stat-positive")}>{b}</span>
-    </div>
-  );
-
-  const hasBothTeams = selectedTeamA && statsA && selectedTeamB && statsB;
-
-  const ProbBar = ({ label, value, color }: { label: string; value: number; color: string }) => (
-    <div className="space-y-1">
-      <div className="flex justify-between">
-        <span className="text-xs text-muted-foreground font-medium">{label}</span>
-        <span className="font-mono text-xs font-semibold">{value.toFixed(1)}%</span>
-      </div>
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-700", color)} style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
+  const predictionInputs = dcResult && statsA && statsB ? {
+    prediction: dcResult, home: selectedTeamA, away: selectedTeamB,
+    statsHome: statsA, statsAway: statsB,
+    homeViews: filterRecentViews(allMatches.map(m => getTeamMatchView(m, selectedTeamA)).filter((v): v is TeamMatchView => v !== null)).slice(-pastN),
+    awayViews: filterRecentViews(allMatches.map(m => getTeamMatchView(m, selectedTeamB)).filter((v): v is TeamMatchView => v !== null)).slice(-pastN),
+    squadHome: squadA, squadAway: squadB, outHome: outA, outAway: outB,
+  } : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] bottom-[max(5rem,env(safe-area-inset-bottom))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 rounded-2xl border border-border shadow-xl [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]">
+        <DialogContent
+          style={{ bottom: "calc(max(5rem, env(safe-area-inset-bottom)) + var(--kb-inset, 0px))" }}
+          className="fixed left-[50%] translate-x-[-50%] translate-y-0 top-[max(0.5rem,env(safe-area-inset-top))] w-[calc(100vw-1rem)] max-w-md flex flex-col p-0 gap-0 rounded-2xl border border-border shadow-xl [&>button:last-child]:hidden overflow-hidden sm:top-[50%] sm:bottom-auto sm:max-h-[92vh] sm:translate-y-[-50%]"
+        >
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border bg-card">
           <div className="flex items-center gap-2">
@@ -1144,8 +1104,8 @@ export const PredictionDialog = ({
                   <>
                     <input type="text" placeholder="Search team…" value={teamSearch} onChange={(e) => setTeamSearch(e.target.value)}
                       className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" autoFocus />
-                    <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
-                      {allTeams.filter((t) => !teamSearch || t.toLowerCase().includes(teamSearch.toLowerCase())).slice(0, 15).map((team) => (
+                    <div className="max-h-[min(16rem,40vh)] overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
+                      {allTeams.filter((t) => matchesTeamQuery(t, teamSearch)).slice(0, 15).map((team) => (
                         <button key={team} onClick={() => { setSelectedTeamA(team); setTeamSearch(""); }}
                           className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
                           <TeamLogo teamName={team} size="xs" />{team}
@@ -1175,8 +1135,8 @@ export const PredictionDialog = ({
                       <>
                         <input type="text" placeholder="Search opponent…" value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)}
                           className="w-full h-9 px-3 text-sm rounded-xl border border-border bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                        <div className="max-h-28 overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
-                          {allTeams.filter((t) => t !== selectedTeamA && (!opponentSearch || t.toLowerCase().includes(opponentSearch.toLowerCase()))).slice(0, 12).map((team) => (
+                        <div className="max-h-[min(16rem,40vh)] overflow-y-auto rounded-xl border border-border bg-card mt-1.5">
+                          {allTeams.filter((t) => t !== selectedTeamA && matchesTeamQuery(t, opponentSearch)).slice(0, 12).map((team) => (
                             <button key={team} onClick={() => { setSelectedTeamB(team); setOpponentSearch(""); }}
                               className="w-full text-left px-3 py-2 text-sm border-b border-border last:border-b-0 hover:bg-muted flex items-center gap-2">
                               <TeamLogo teamName={team} size="xs" />{team}
@@ -1190,6 +1150,8 @@ export const PredictionDialog = ({
               )}
             </div>
           )}
+
+          {!showAI && <PredictionViewSwitch value={metricView} onChange={setMetricView} />}
 
           {/* How it works */}
           {!showAI && <PredictionGuide />}
@@ -1244,7 +1206,7 @@ export const PredictionDialog = ({
           {/* Match context input */}
           {selectedTeamA && selectedTeamB && !showAI && (
             <div>
-              <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Match Context (optional)</label>
+              <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Match note (optional)</label>
               <textarea
                 value={matchContext}
                 onChange={(e) => setMatchContext(e.target.value)}
@@ -1256,134 +1218,17 @@ export const PredictionDialog = ({
             </div>
           )}
 
-          {dcResult && hasBothTeams && !showAI && (
-            <div className="space-y-3">
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-3 py-2 bg-primary/5 border-b border-border">
-                  <span className="text-xs font-semibold text-primary">📊 Match Probabilities</span>
-                </div>
-                <div className="p-3 space-y-2">
-                  <ProbBar label={selectedTeamA} value={dcResult.homeWin} color="bg-stat-positive" />
-                  <ProbBar label="Draw" value={dcResult.draw} color="bg-stat-warn" />
-                  <ProbBar label={selectedTeamB} value={dcResult.awayWin} color="bg-stat-negative" />
-                </div>
-              </div>
-
-              {mode !== "full" && (
-                <PlayerPropsPanel
-                  homeTeam={selectedTeamA}
-                  awayTeam={selectedTeamB}
-                  homeSquad={squadA}
-                  awaySquad={squadB}
-                  homeOut={outA}
-                  awayOut={outB}
-                  lambdaHome={dcResult.lambdaHome}
-                  lambdaAway={dcResult.lambdaAway}
-                />
-              )}
-
-
-
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-3 py-2 bg-muted/40 border-b border-border">
-                  <span className="text-xs font-semibold text-muted-foreground">⚽ Expected Goals</span>
-                </div>
-                <div className="flex items-center justify-around py-3">
-                  <div className="text-center">
-                    <p className="font-mono text-2xl font-bold">{dcResult.lambdaHome.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{selectedTeamA}</p>
-                  </div>
-                  <div className="text-xs font-bold text-muted-foreground">xG</div>
-                  <div className="text-center">
-                    <p className="font-mono text-2xl font-bold">{dcResult.lambdaAway.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5">{selectedTeamB}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-3 py-2 bg-muted/40 border-b border-border">
-                  <span className="text-xs font-semibold text-muted-foreground">🎯 Most Likely Scorelines</span>
-                </div>
-                <div className="divide-y divide-border">
-                  {dcResult.topScorelines.slice(0, 5).map((s, i) => (
-                    <div key={i} className="flex items-center px-3 py-2">
-                      <span className="text-xs text-muted-foreground font-mono w-5">#{i + 1}</span>
-                      <span className="font-mono text-sm font-semibold flex-1 text-center">{s.home} – {s.away}</span>
-                      <span className="font-mono text-xs font-semibold text-primary">{(s.probability * 100).toFixed(1)}%</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="px-3 py-2 bg-muted/40 border-b border-border">
-                  <span className="text-xs font-semibold text-muted-foreground">📈 Head to Head Stats</span>
-                </div>
-                <ComparisonRow label="Win %" a={`${statsA!.winProbability.toFixed(0)}%`} b={`${statsB!.winProbability.toFixed(0)}%`} better={statsA!.winProbability > statsB!.winProbability ? "a" : statsA!.winProbability < statsB!.winProbability ? "b" : "none"} />
-                <ComparisonRow label="GF/G" a={(statsA!.goalsFor / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsFor / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsFor / statsA!.matchesPlayed > statsB!.goalsFor / statsB!.matchesPlayed ? "a" : "b"} />
-                <ComparisonRow label="GA/G" a={(statsA!.goalsAgainst / statsA!.matchesPlayed).toFixed(1)} b={(statsB!.goalsAgainst / statsB!.matchesPlayed).toFixed(1)} better={statsA!.goalsAgainst / statsA!.matchesPlayed < statsB!.goalsAgainst / statsB!.matchesPlayed ? "a" : "b"} />
-                <ComparisonRow label="Shots" a={statsA!.avgShotsFor.toFixed(1)} b={statsB!.avgShotsFor.toFixed(1)} better={statsA!.avgShotsFor > statsB!.avgShotsFor ? "a" : "b"} />
-                <ComparisonRow label="BTTS" a={`${statsA!.bttsPercentage.toFixed(0)}%`} b={`${statsB!.bttsPercentage.toFixed(0)}%`} better="none" />
-                <ComparisonRow label="O2.5" a={`${statsA!.over25Percentage.toFixed(0)}%`} b={`${statsB!.over25Percentage.toFixed(0)}%`} better="none" />
-
-                <div className="px-3 py-2 border-t border-border flex items-center justify-between bg-muted/20">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[8px] text-muted-foreground font-medium">Form</span>
-                    <div className="flex gap-[2px]">{statsA!.formLast5.map((r, i) => <span key={i} className={cn("w-[6px] h-[6px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="flex gap-[2px]">{statsB!.formLast5.map((r, i) => <span key={i} className={cn("w-[6px] h-[6px] rounded-full", r === "W" && "bg-stat-positive", r === "D" && "bg-stat-warn", r === "L" && "bg-stat-negative")} />)}</div>
-                    <span className="text-[8px] text-muted-foreground font-medium">Form</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {selectedTeamA && selectedTeamB && !showAI && !predictionInputs && (
+            <p className="text-xs text-muted-foreground">Recent match data is needed for both teams before a prediction can be generated.</p>
           )}
-
-          {showAI && prediction && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <TeamLogo teamName={selectedTeamA} size="sm" />
-                  <p className="text-sm font-semibold">{selectedTeamA}</p>
-                </div>
-                {selectedTeamB && (
-                  <>
-                    <span className="text-xs font-bold text-muted-foreground">VS</span>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold">{selectedTeamB}</p>
-                      <TeamLogo teamName={selectedTeamB} size="sm" />
-                    </div>
-                  </>
-                )}
+          {showAI && predictionInputs && (
+            <>
+              <PredictionMetrics inputs={predictionInputs} view={metricView} onViewChange={setMetricView} mode={mode} note={matchContext} />
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowAI(false)}>Edit selection</Button>
+                <Button variant="ghost" size="sm" onClick={handleReset}>New prediction</Button>
               </div>
-
-              {dcResult && (
-                <div className="rounded-xl border border-border bg-card p-3 flex items-center justify-around">
-                  <div className="text-center">
-                    <p className="font-mono text-sm font-bold text-stat-positive">{dcResult.homeWin.toFixed(0)}%</p>
-                    <p className="text-[8px] text-muted-foreground">Home</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-mono text-sm font-bold text-stat-warn">{dcResult.draw.toFixed(0)}%</p>
-                    <p className="text-[8px] text-muted-foreground">Draw</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-mono text-sm font-bold text-stat-negative">{dcResult.awayWin.toFixed(0)}%</p>
-                    <p className="text-[8px] text-muted-foreground">Away</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{prediction}</div>
-              </div>
-              <button onClick={handleReset}
-                className="w-full py-2 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors">
-                New Prediction
-              </button>
-            </div>
+            </>
           )}
         </div>
 
@@ -1391,15 +1236,9 @@ export const PredictionDialog = ({
         <div className="flex-shrink-0 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))]">
           {selectedTeamA && selectedTeamB && !showAI && (
             <div className="px-4 pt-3 pb-1 flex gap-2">
-              <button onClick={handleRunPredict} disabled={predicting || !statsA}
-                className={cn(
-                  "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold rounded-xl transition-all",
-                  "bg-primary text-primary-foreground hover:bg-primary/90",
-                  (predicting || !statsA) && "opacity-70 cursor-wait"
-                )}>
-                {predicting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {predicting ? "Analyzing…" : "AI Deep Analysis"}
-              </button>
+              <Button onClick={handleRunPredict} disabled={!predictionInputs} className="flex-1 h-10 text-sm font-semibold">
+                <Sparkles className="w-4 h-4" /> Generate Prediction
+              </Button>
             </div>
           )}
           <p className="text-[10px] text-muted-foreground text-center px-4 py-2">
@@ -1449,12 +1288,11 @@ const TeamPage = () => {
     toast.info("Syncing fixtures & results from Fotmob…");
     syncFixtures.mutate(undefined, {
       onSuccess: (data) => {
-        const fx = data.fotmobFixtures ?? data.inserted ?? 0;
-        const res = data.resultsInserted ?? 0;
-        toast.success(`Synced ${fx} fixtures & ${res} results`);
+        toast.success(`Updated ${data.groups} competition groups`);
       },
       onError: (e) => toast.error(`Sync failed: ${e.message}`),
     });
+
   };
 
   if (isLoading) {

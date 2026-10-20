@@ -17,3 +17,8 @@
 ## Verification
 - `curl -sf -H "Host: external-preview.example.com" http://localhost:3000/` must return the app HTML (Vite dev, not a prebuilt bundle).
 - Routes: `/` (main app), `/reset-password`, `*` → NotFound.
+
+## App notes
+- The all-competitions match query loads only a recent window, in parallel pages; per-competition queries keep full history. Why: the full table made the first screen take minutes on a small backend.
+- Prediction views share a market catalog with Edge and derive goal probabilities from the existing Dixon-Coles matrix; unsupported markets stay unavailable. Why: avoid contradictory numbers, fabricated odds, and slow text-generation calls.
+- Team selectors share the Fotmob roster union and explicit alias identities; fixtures share UTC-date/team deduplication before local-time rendering. Why: keep missing-table clubs selectable without merging distinct clubs or repeating games.

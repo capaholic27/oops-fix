@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS matches_date_id_idx ON public.matches (match_date, id);

@@ -2,15 +2,15 @@ import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Match } from "@/lib/matchStats";
-import { getTeamAliases, normalizeTeamName, normalizeLeagueName } from "@/lib/teamNormalize";
+import { getTeamAliases, normalizeLeagueName } from "@/lib/teamNormalize";
+import { matchKey, deduplicateFixtures } from "@/lib/fixtureIdentity";
+export { matchKey } from "@/lib/fixtureIdentity";
 
 /**
- * Build a stable dedup key for a match. Uses normalized team names so that
- * "Brighton" vs "Brighton & Hove Albion" collapse into the same fixture.
+ * Build a stable dedup key for a match. Uses canonical team names so that
+ * "Brighton" / "Brighton & Hove Albion" and "Atletico Madrid" / "Atlético
+ * Madrid" collapse into the same fixture.
  */
-function matchKey(m: { match_date: string; home_team: string; away_team: string }) {
-  return `${m.match_date}|${normalizeTeamName(m.home_team).toLowerCase()}|${normalizeTeamName(m.away_team).toLowerCase()}`;
-}
 
 export type Fixture = {
   id: string;
@@ -21,35 +21,74 @@ export type Fixture = {
   home_team: string;
   away_team: string;
   referee: string | null;
+  created_at?: string | null;
 };
+
+const MATCHES_STALE_MS = 10 * 60 * 1000;
+const PAGE_SIZE = 1000;
+const PAGE_CONCURRENCY = 8;
+/** Slightly wider than the stats recency window so nothing it needs is cut. */
+const ALL_MATCHES_WINDOW_DAYS = 420;
 
 export function useMatches(leagueCode?: string) {
   return useQuery({
     queryKey: ["matches", leagueCode],
+    staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Match[]> => {
-      let query = supabase
-        .from("matches")
-        .select("*")
-        .order("match_date", { ascending: true });
+      const cutoffDate = new Date(Date.now() - ALL_MATCHES_WINDOW_DAYS * 86400000);
+      const recentCutoff = cutoffDate.toISOString().slice(0, 10);
+      const buildQuery = (withCount = false) => {
+        let q = supabase
+          .from("matches")
+          .select("*", withCount ? { count: "estimated" } : undefined)
+          .order("match_date", { ascending: true })
+          .order("id", { ascending: true });
+        // A single competition keeps its full history (e.g. World Cup
+        // archive). The all-competitions view only needs recent games, which
+        // keeps the first load small and fast.
+        if (leagueCode) q = q.eq("league_code", leagueCode);
+        else q = q.gte("match_date", recentCutoff);
+        return q;
+      };
 
-      if (leagueCode) {
-        query = query.eq("league_code", leagueCode);
-      }
+      // First page also tells us roughly how many rows exist, so the rest
+      // can be downloaded in parallel instead of one page after another.
+      const first = await buildQuery(true).range(0, PAGE_SIZE - 1);
+      if (first.error) throw first.error;
+      const allMatches: Match[] = [...((first.data ?? []) as unknown as Match[])];
 
-      const allMatches: Match[] = [];
-      let from = 0;
-      const batchSize = 1000;
-      let hasMore = true;
+      if ((first.data?.length ?? 0) === PAGE_SIZE) {
+        const estimate = Math.max(first.count ?? 0, PAGE_SIZE * 2);
+        // Over-fetch a couple of pages in case the estimate is low.
+        const pageCount = Math.ceil(estimate / PAGE_SIZE) + 2;
+        const offsets: number[] = [];
+        for (let p = 1; p < pageCount; p++) offsets.push(p * PAGE_SIZE);
 
-      while (hasMore) {
-        const { data, error } = await query.range(from, from + batchSize - 1);
-        if (error) throw error;
-        if (data && data.length > 0) {
-          allMatches.push(...(data as unknown as Match[]));
-          from += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
+        const pages: Match[][] = new Array(offsets.length);
+        let cursor = 0;
+        let reachedEnd = false;
+        const worker = async () => {
+          while (cursor < offsets.length && !reachedEnd) {
+            const idx = cursor++;
+            const from = offsets[idx];
+            const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+            if (error) throw error;
+            pages[idx] = (data ?? []) as unknown as Match[];
+            if ((data?.length ?? 0) < PAGE_SIZE) reachedEnd = true;
+          }
+        };
+        await Promise.all(Array.from({ length: PAGE_CONCURRENCY }, worker));
+        for (const pg of pages) if (pg) allMatches.push(...pg);
+
+        // Estimate was too low and every page was full: fetch the remainder.
+        let from = offsets.length ? offsets[offsets.length - 1] + PAGE_SIZE : PAGE_SIZE;
+        let last = pages[pages.length - 1];
+        while (last && last.length === PAGE_SIZE) {
+          const { data, error } = await buildQuery().range(from, from + PAGE_SIZE - 1);
+          if (error) throw error;
+          last = (data ?? []) as unknown as Match[];
+          allMatches.push(...last);
+          from += PAGE_SIZE;
         }
       }
 
@@ -75,9 +114,28 @@ export function useMatches(leagueCode?: string) {
   });
 }
 
+/**
+ * Competitions that should always show up in a team's recent form, no matter
+ * which league is currently selected: cups, continental and national-team
+ * competitions plus friendlies.
+ */
+export const ALWAYS_INCLUDE_CODES = new Set([
+  "CFR", "INTL", "WCQ",
+  // Domestic cups
+  "ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC",
+  "GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP",
+  "BRACUP", "USACUP", "LGSCUP",
+  // Continental club competitions
+  "UCL", "UEL", "UECL", "USC",
+  "AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC", "CWC",
+  // National-team competitions
+  "WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "UNL", "CNL", "EUROQ",
+]);
+
 export function useTeamMatches(teamName: string | undefined, leagueCode?: string) {
   return useQuery({
     queryKey: ["team-matches", teamName, leagueCode],
+    staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Match[]> => {
       if (!teamName) return [];
 
@@ -86,28 +144,31 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
       const homeFilter = aliases.map(a => `home_team.eq.${a}`).join(",");
       const awayFilter = aliases.map(a => `away_team.eq.${a}`).join(",");
 
-      let homeQuery = supabase
+      const homeQuery = supabase
         .from("matches")
         .select("*")
         .or(homeFilter)
         .order("match_date", { ascending: true });
 
-      let awayQuery = supabase
+      const awayQuery = supabase
         .from("matches")
         .select("*")
         .or(awayFilter)
         .order("match_date", { ascending: true });
 
-      if (leagueCode) {
-        homeQuery = homeQuery.eq("league_code", leagueCode);
-        awayQuery = awayQuery.eq("league_code", leagueCode);
-      }
-
       const [homeRes, awayRes] = await Promise.all([homeQuery, awayQuery]);
       if (homeRes.error) throw homeRes.error;
       if (awayRes.error) throw awayRes.error;
 
-      const all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
+      let all = [...(homeRes.data || []), ...(awayRes.data || [])] as unknown as Match[];
+      // League filtering happens client-side so friendlies / international
+      // games are always part of the picture.
+      if (leagueCode) {
+        all = all.filter(
+          (m) => m.league_code === leagueCode || ALWAYS_INCLUDE_CODES.has(m.league_code)
+        );
+      }
+
       // Deduplicate by (date, normalized home, normalized away) — collapses
       // alias variants (e.g. "Brighton" / "Brighton & Hove Albion").
       const seen = new Set<string>();
@@ -132,43 +193,34 @@ export function useTeamMatches(teamName: string | undefined, leagueCode?: string
 export function useFixtures(teamName?: string) {
   return useQuery({
     queryKey: ["fixtures", teamName],
+    staleTime: MATCHES_STALE_MS,
     queryFn: async (): Promise<Fixture[]> => {
-      let query = supabase
+      const buildQuery = () => {
+        let query = supabase
         .from("fixtures")
         .select("*")
-        .order("match_date", { ascending: true });
+        .gte("match_date", new Date(Date.now() - 86400000).toISOString().slice(0, 10))
+        .order("match_date", { ascending: true })
+        .order("id", { ascending: true });
 
       if (teamName) {
         const aliases = getTeamAliases(teamName);
         const parts = aliases.flatMap(a => [`home_team.eq.${a}`, `away_team.eq.${a}`]);
         query = query.or(parts.join(","));
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      const rows = (data || []) as unknown as Fixture[];
-
-      // Dedupe cross-source duplicates: the same matchup can land on different
-      // dates/times when the CSV and API-Football disagree, or as placeholder
-      // dates for unscheduled rounds (e.g. a whole UEL matchday stamped on one
-      // default date). Keep the latest date per (home, away, league) so the real
-      // scheduled date wins over placeholders. Home/away legs have distinct
-      // tuples so they are never merged.
-      const seen = new Map<string, Fixture>();
-      for (const f of rows) {
-        const key = `${normalizeTeamName(f.home_team).toLowerCase()}|${normalizeTeamName(f.away_team).toLowerCase()}|${f.league_code}`;
-        const prev = seen.get(key);
-        if (
-          !prev ||
-          f.match_date > prev.match_date ||
-          (f.match_date === prev.match_date && (f.match_time ?? "") > (prev.match_time ?? ""))
-        ) {
-          seen.set(key, f);
-        }
+        return query;
+      };
+      const rows: Fixture[] = [];
+      // Never silently truncate at the database's 1,000-row response limit.
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1);
+        if (error) throw error;
+        rows.push(...((data ?? []) as unknown as Fixture[]));
+        if ((data?.length ?? 0) < PAGE_SIZE) break;
       }
-      const unique = Array.from(seen.values());
-      unique.sort((a, b) => a.match_date.localeCompare(b.match_date));
-      return unique.map((f) => ({ ...f, league_name: normalizeLeagueName(f.league_code, f.league_name) }));
+      return deduplicateFixtures(rows).map(
+        (f) => ({ ...f, league_name: normalizeLeagueName(f.league_code, f.league_name) })
+      );
     },
   });
 }
@@ -203,6 +255,26 @@ export function useSyncData() {
   });
 }
 
+/**
+ * Competition groups used when refreshing. The full list is too large for one
+ * request, so it is split into chunks that each finish comfortably.
+ */
+export const SYNC_LEAGUE_GROUPS: string[][] = [
+  ["E0", "E1", "SP1", "D1"],
+  ["I1", "I2", "F1", "N1", "P1"],
+  ["T1", "SC0", "SP2", "D2", "B1", "G1"],
+  ["SUI1", "DEN1", "NOR1", "SWE1", "AUS1"],
+  ["MLS", "MEX1", "BRA1", "ARG1", "KSA1", "JPN1", "KOR1"],
+  ["ENGLC", "ENGFA", "ENGCS", "ESPCR", "ESPSC", "ITACI", "ITASC"],
+  ["GERDP", "FRACF", "FRASC", "PORCUP", "TURCUP", "SCOCUP"],
+  ["BRACUP", "USACUP", "LGSCUP"],
+  ["UCL", "UEL", "UECL", "USC"],
+  ["AFCCL", "AFCCL2", "CAFCL", "CCC", "LIB", "SUD", "FIC"],
+  ["WC", "EURO", "COPA", "AFCON", "ASCUP", "GOLD", "CWC"],
+  ["UNL", "CNL", "EUROQ", "WCQ"],
+  ["CFR", "INTL"],
+];
+
 export function useSyncFixtures() {
   const queryClient = useQueryClient();
 
@@ -215,9 +287,19 @@ export function useSyncFixtures() {
       };
       const base = `https://${projectId}.supabase.co/functions/v1`;
 
-      const res = await fetch(`${base}/fetch-fixtures`, { method: "POST", headers });
-      if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
-      const out = await res.json();
+      const settled = await Promise.allSettled(
+        SYNC_LEAGUE_GROUPS.map((leagues) =>
+          fetch(`${base}/fetch-fixtures`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ force: true, leagues }),
+          })
+        )
+      );
+      const ok = settled.filter((s) => s.status === "fulfilled" && s.value.ok).length;
+      if (ok === 0) throw new Error("Sync failed");
+      const out = { success: true, groups: ok };
+
 
       // Fire-and-forget: refresh official league tables (promoted/relegated
       // teams, live positions) and backfill major tournament history.
@@ -305,6 +387,18 @@ export function useStandings() {
   });
 }
 
+/** One roster for every search: Fotmob tables + scheduled teams + results. */
+export function useTeamCatalog() {
+  const { data: standings = [] } = useStandings();
+  const { data: fixtures = [] } = useFixtures();
+  const { data: matches = [] } = useMatches();
+  return uniqueTeamNames([
+    ...standings.flatMap(s => s.rows.map(r => r.name)),
+    ...fixtures.flatMap(f => [f.home_team, f.away_team]),
+    ...matches.flatMap(m => [m.home_team, m.away_team]),
+  ]);
+}
+
 
 // useSyncApiFootball removed — Fotmob is the sole data source.
 // Use useSyncFixtures() instead, which already handles results + fixtures.
@@ -341,6 +435,8 @@ export function useAutoSync() {
     }
 
     (async () => {
+      // Let the first screen load before starting any heavy refresh work.
+      await new Promise((r) => setTimeout(r, 20000));
       try {
         // Newest fixture row tells us when the last successful sync landed.
         const [fixtureRes, standingsRes] = await Promise.all([
@@ -375,13 +471,20 @@ export function useAutoSync() {
         const base = `https://${projectId}.supabase.co/functions/v1`;
 
         await Promise.allSettled([
-          fetch(`${base}/fetch-fixtures`, { method: "POST", headers }),
+          ...SYNC_LEAGUE_GROUPS.map((leagues) =>
+            fetch(`${base}/fetch-fixtures`, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ force: true, leagues }),
+            })
+          ),
           fetch(`${base}/fetch-standings`, {
             method: "POST",
             headers,
             body: JSON.stringify({}),
           }),
         ]);
+
 
         try {
           sessionStorage.setItem(AUTO_SYNC_SESSION_KEY, String(Date.now()));

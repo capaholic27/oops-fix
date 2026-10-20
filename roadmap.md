@@ -1,0 +1,4 @@
+- [x] Add switchable quick/original statistical prediction results and expandable Edge markets.
+- [x] Verify model market calculations and prediction interactions with real teams, desktop and mobile layouts.
+- [ ] Fix team identity collisions and complete Fotmob team lists across searches.
+- [ ] Deduplicate Games and team upcoming fixtures and verify Barcelona with real data.
