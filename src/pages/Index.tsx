@@ -15,6 +15,7 @@ import EdgePage from "@/pages/EdgePage";
 import ProfilePage from "@/pages/ProfilePage";
 import { AdBanner } from "@/components/AdBanner";
 import { HelpSheet } from "@/components/HelpSheet";
+import { BetInspector } from "@/components/BetInspector";
 
 const PAGES = [
   { id: "upcoming", label: "Games", icon: CalendarDays },
@@ -146,6 +147,9 @@ const Index = () => {
         </div>
         <AdBanner variant="sidebar" />
       </div>
+
+      {/* Draggable bet inspector */}
+      <BetInspector />
 
       {/* Bottom Nav */}
       <nav className="flex-shrink-0 border-t border-border bg-card/80 backdrop-blur-sm">

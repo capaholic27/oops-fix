@@ -1,17 +1,18 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Info, SlidersHorizontal, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, Info, SlidersHorizontal, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { TeamLogo } from "@/components/TeamLogo";
+import { AiMatchPrediction } from "@/components/AiMatchPrediction";
 import { buildPredictionMarkets, type MarketId, type MarketInputs, type PredictionMarket } from "@/lib/predictionMarkets";
 import type { PredictionMode } from "@/lib/playerProps";
 import { cn } from "@/lib/utils";
 
-export type PredictionView = "quick" | "original";
+export type PredictionView = "quick" | "original" | "ai";
 
 export function PredictionViewSwitch({ value, onChange }: { value: PredictionView; onChange: (view: PredictionView) => void }) {
-  return <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Prediction metric view">
-    {([{ id: "quick", label: "Quick view", icon: Zap }, { id: "original", label: "Original metrics", icon: SlidersHorizontal }] as const).map(view =>
+  return <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" role="group" aria-label="Prediction metric view">
+    {([{ id: "quick", label: "Quick", icon: Zap }, { id: "original", label: "Metrics", icon: SlidersHorizontal }, { id: "ai", label: "AI text", icon: Sparkles }] as const).map(view =>
       <Button key={view.id} variant={value === view.id ? "outline" : "ghost"} size="sm" className="h-8 text-xs" aria-pressed={value === view.id} onClick={() => onChange(view.id)}><view.icon />{view.label}</Button>
     )}
   </div>;
@@ -94,6 +95,8 @@ export function PredictionMetrics({ inputs, view, mode = "both", onViewChange, n
         ].map(([label, a, b]) => <div key={label} className="grid grid-cols-[4rem_1fr_4rem] items-center py-2 text-xs"><span className="font-mono font-semibold">{Number(a).toFixed(1)}</span><span className="text-center text-muted-foreground text-[10px]">{label}</span><span className="font-mono font-semibold text-right">{Number(b).toFixed(1)}</span></div>)}
       </div>
     </section>}
+    {view === "ai" && <AiMatchPrediction inputs={inputs} note={note} />}
+    {view !== "ai" && <>
     <div className="flex flex-wrap gap-1" role="group" aria-label="Market category">
       {categories.map(c => <Button key={c} size="sm" variant={category === c ? "secondary" : "ghost"} className="h-7 px-2 text-[10px]" aria-pressed={category === c} onClick={() => setCategory(c)}>{c}</Button>)}
     </div>
@@ -101,6 +104,7 @@ export function PredictionMetrics({ inputs, view, mode = "both", onViewChange, n
       {visible.map(market => <MarketRow key={market.id} market={market} home={inputs.home} away={inputs.away} expanded={expanded.has(market.id)} onToggle={() => setExpanded(current => { const next = new Set(current); if (next.has(market.id)) next.delete(market.id); else next.add(market.id); return next; })} />)}
     </div>
     {view === "quick" && category === "All" && <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => setAllQuick(!allQuick)}>{allQuick ? "Show key markets" : `All ${filtered.length} markets`}<ChevronDown /></Button>}
+    </>}
     {note && <details className="border-t border-border pt-2 text-xs"><summary className="cursor-pointer text-muted-foreground">Your match note</summary><p className="mt-2 break-words">{note}</p><p className="text-[10px] text-muted-foreground mt-1">Saved for reference; free-text notes do not change model probabilities.</p></details>}
     <p className="text-[9px] leading-relaxed text-muted-foreground">Estimated chance · Confidence measures data support · Normal time only · Not guaranteed returns</p>
   </div>;
