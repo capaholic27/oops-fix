@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Crosshair, Gauge, RotateCcw, X } from "lucide-react";
+import { Check, Crosshair, Gauge, Loader2, RotateCcw, X } from "lucide-react";
 import { useMatches, useTeamCatalog } from "@/hooks/useMatches";
 import { useTeamPlayers } from "@/hooks/useTeamPlayers";
 import { getTeamMatchView, aggregateStats, filterRecentViews, type TeamMatchView } from "@/lib/matchStats";
@@ -104,6 +104,12 @@ export function BetInspector() {
   const [away, setAway] = useState("");
   const [picks, setPicks] = useState<BetPick[]>([]);
   const [evaluated, setEvaluated] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const verdictRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (evaluated) verdictRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [evaluated]);
 
   const { data: allMatches = [] } = useMatches();
   const catalog = useTeamCatalog();
@@ -158,6 +164,14 @@ export function BetInspector() {
   const reset = () => {
     setPicks([]);
     setEvaluated(false);
+    setEvaluating(false);
+  };
+
+  const evaluate = () => {
+    if (!picks.length || evaluating) return;
+    setEvaluated(false);
+    setEvaluating(true);
+    window.setTimeout(() => { setEvaluated(true); setEvaluating(false); }, 650);
   };
 
   const score = useMemo(() => {
@@ -245,7 +259,7 @@ export function BetInspector() {
 
                   {/* Verdict */}
                   {evaluated && score !== null && (
-                    <section className="border border-border rounded-xl p-3 space-y-3 bg-muted/30" aria-label="Bet evaluation">
+                    <section ref={verdictRef} className="border border-[#2c2c2e] bg-[#151517] rounded-2xl p-3 space-y-3" aria-label="Bet evaluation">
                       <div className="flex items-center gap-2">
                         <Gauge className="w-4 h-4 text-primary" />
                         <h3 className="text-xs font-semibold uppercase tracking-wide">Your bet, rated by the model</h3>
@@ -275,8 +289,11 @@ export function BetInspector() {
                   <div className="space-y-2">
                     <h3 className="text-[10px] uppercase font-semibold text-muted-foreground">Tap the markets you have in mind</h3>
                     {marketData.markets.map(market => (
-                      <div key={market.id} className="space-y-1">
-                        <p className="text-[10px] font-medium text-muted-foreground">{market.label}</p>
+                      <div key={market.id} className="rounded-xl border border-[#2c2c2e] bg-[#151517] px-3 pt-2.5 pb-3">
+                        <div className="flex items-center justify-between gap-2 pb-2">
+                          <p className="text-[10px] font-semibold text-neutral-400">{market.label}</p>
+                          <span className="text-[9px] font-medium" style={{ color: market.confidence === "Strong" ? "#2ecc71" : market.confidence === "Moderate" ? "#f1c40f" : "#f87171" }}>{market.confidence}</span>
+                        </div>
                         <div className="flex flex-wrap gap-1.5">
                           {market.outcomes.map(outcome => {
                             const key = `${market.id}::${outcome.label}`;
@@ -287,13 +304,15 @@ export function BetInspector() {
                                 onClick={() => togglePick(market.id, market.label, outcome)}
                                 aria-pressed={selected}
                                 className={cn(
-                                  "px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-colors",
+                                  "flex items-center gap-1 px-2.5 py-1.5 rounded-full border text-[11px] font-medium transition-all active:scale-95",
                                   selected
-                                    ? "bg-primary text-primary-foreground border-primary font-semibold"
-                                    : "bg-card border-border hover:bg-muted"
+                                    ? "border-[#2ecc71] bg-[#2ecc71]/15 text-white font-semibold"
+                                    : "border-[#2c2c2e] bg-white/5 text-neutral-300 hover:bg-white/10"
                                 )}
                               >
-                                {outcome.label} <span className="font-mono opacity-70">{outcome.probability.toFixed(0)}%</span>
+                                {selected && <Check className="w-3 h-3" style={{ color: "#2ecc71" }} />}
+                                {outcome.label}
+                                <span className="font-mono" style={{ color: `#${Math.round(outcome.probability) >= 60 ? "2ecc71" : Math.round(outcome.probability) >= 40 ? "f1c40f" : "f87171"}` }}>{outcome.probability.toFixed(0)}%</span>
                               </button>
                             );
                           })}
@@ -305,11 +324,13 @@ export function BetInspector() {
                   {/* Actions */}
                   <div className="flex gap-2 pt-1">
                     <button
-                      onClick={() => setEvaluated(true)}
-                      disabled={picks.length === 0}
-                      className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+                      onClick={evaluate}
+                      disabled={picks.length === 0 || evaluating}
+                      className="flex-1 h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                     >
-                      <Gauge className="w-4 h-4" /> Evaluate bet {picks.length > 0 && `(${picks.length})`}
+                      {evaluating
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Evaluating…</>
+                        : <><Gauge className="w-4 h-4" /> Evaluate bet{picks.length > 0 ? ` (${picks.length})` : ""}</>}
                     </button>
                     {picks.length > 0 && (
                       <button onClick={reset} className="h-10 px-3 rounded-xl border border-border text-muted-foreground hover:bg-muted" aria-label="Clear picks">

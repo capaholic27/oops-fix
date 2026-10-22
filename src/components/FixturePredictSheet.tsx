@@ -135,7 +135,7 @@ const FixturePredictSheetInner = ({ fixture, onClose }: Props) => {
         {hasData && pred && (
           <>
             <div className="px-4 py-3">
-              <PredictionMetrics view={metricView} onViewChange={setMetricView} inputs={{
+              <PredictionMetrics view={metricView} onViewChange={setMetricView} kickoffLabel={`${dateStr}${fixture.match_time ? ` · ${fixture.match_time}` : ""}`} inputs={{
                 prediction: pred, home: fixture.home_team, away: fixture.away_team,
                 homeViews: teamViews(allMatches, fixture.home_team).slice(-10),
                 awayViews: teamViews(allMatches, fixture.away_team).slice(-10),

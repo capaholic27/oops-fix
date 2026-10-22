@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Info, SlidersHorizontal, Sparkles, Zap } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, Info, SlidersHorizontal, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { TeamLogo } from "@/components/TeamLogo";
 import { AiMatchPrediction } from "@/components/AiMatchPrediction";
+import { BetMarketCardSheet, pctColor } from "@/components/BetMarketCard";
 import { buildPredictionMarkets, type MarketId, type MarketInputs, type PredictionMarket } from "@/lib/predictionMarkets";
 import type { PredictionMode } from "@/lib/playerProps";
 import { cn } from "@/lib/utils";
@@ -53,17 +54,41 @@ function MarketRow({ market, home, away, expanded, onToggle }: { market: Predict
   </div>;
 }
 
-export function PredictionMetrics({ inputs, view, mode = "both", onViewChange, note }: {
+/** Quick-view tappable market row — opens the detailed stat card. */
+function QuickMarketRow({ market, onOpen }: { market: PredictionMarket; onOpen: () => void }) {
+  const best = [...market.outcomes].sort((a, b) => b.probability - a.probability)[0];
+  if (!best) return <div className="rounded-xl border border-[#2c2c2e] bg-[#151517] px-3 py-2.5 opacity-60">
+    <span className="block text-[10px] text-neutral-400">{market.label}</span>
+    <span className="block text-xs font-semibold text-white mt-0.5">Data unavailable</span>
+  </div>;
+  return <button onClick={onOpen} className="w-full flex items-center gap-2.5 rounded-xl border border-[#2c2c2e] bg-[#151517] px-3 py-2.5 text-left active:scale-[0.98] transition-transform" aria-label={`${market.label} — open prediction details`}>
+    <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0"><BarChart3 className="w-4 h-4" style={{ color: pctColor(best.probability) }} /></span>
+    <span className="min-w-0 flex-1">
+      <span className="block text-[10px] font-medium text-neutral-400">{market.label}</span>
+      <span className="block text-xs font-semibold text-white truncate mt-0.5">{best.label}</span>
+    </span>
+    <span className="text-right shrink-0">
+      <span className="block font-mono text-sm font-bold text-white">{best.probability.toFixed(0)}%</span>
+      <span className="block text-[9px] font-medium" style={{ color: pctColor(best.probability) === "#e74c3c" ? "#f1c40f" : pctColor(best.probability) }}>{market.confidence} confidence</span>
+    </span>
+    <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />
+  </button>;
+}
+
+export function PredictionMetrics({ inputs, view, mode = "both", onViewChange, note, kickoffLabel }: {
   inputs: MarketInputs;
   view: PredictionView;
   mode?: PredictionMode;
   onViewChange: (view: PredictionView) => void;
   note?: string;
+  kickoffLabel?: string;
 }) {
   const markets = useMemo(() => buildPredictionMarkets(inputs), [inputs]);
   const [expanded, setExpanded] = useState<Set<MarketId>>(new Set());
   const [category, setCategory] = useState("All");
   const [allQuick, setAllQuick] = useState(false);
+  const [quickCard, setQuickCard] = useState<MarketId | null>(null);
+  const quickMarket = quickCard ? markets.find(m => m.id === quickCard) : undefined;
   const filtered = markets.filter(market => (mode === "both" || (mode === "players" ? market.category === "Players" : market.category !== "Players")) && (category === "All" || market.category === category));
   const quickIds = new Set<MarketId>(mode === "players" ? ["anytime_scorer", "player_assist", "player_card"] : ["1x2", "double_chance", "over_under_goals", "btts", "corners", "cards"]);
   const visible = view === "quick" && !allQuick && category === "All" ? filtered.filter(m => quickIds.has(m.id)) : filtered;
@@ -101,10 +126,13 @@ export function PredictionMetrics({ inputs, view, mode = "both", onViewChange, n
       {categories.map(c => <Button key={c} size="sm" variant={category === c ? "secondary" : "ghost"} className="h-7 px-2 text-[10px]" aria-pressed={category === c} onClick={() => setCategory(c)}>{c}</Button>)}
     </div>
     <div className="space-y-1.5">
-      {visible.map(market => <MarketRow key={market.id} market={market} home={inputs.home} away={inputs.away} expanded={expanded.has(market.id)} onToggle={() => setExpanded(current => { const next = new Set(current); if (next.has(market.id)) next.delete(market.id); else next.add(market.id); return next; })} />)}
+      {visible.map(market => view === "quick"
+        ? <QuickMarketRow key={market.id} market={market} onOpen={() => setQuickCard(market.id)} />
+        : <MarketRow key={market.id} market={market} home={inputs.home} away={inputs.away} expanded={expanded.has(market.id)} onToggle={() => setExpanded(current => { const next = new Set(current); if (next.has(market.id)) next.delete(market.id); else next.add(market.id); return next; })} />)}
     </div>
     {view === "quick" && category === "All" && <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => setAllQuick(!allQuick)}>{allQuick ? "Show key markets" : `All ${filtered.length} markets`}<ChevronDown /></Button>}
     </>}
+    {view === "quick" && quickMarket && <BetMarketCardSheet market={quickMarket} inputs={inputs} kickoffLabel={kickoffLabel} onClose={() => setQuickCard(null)} />}
     {note && <details className="border-t border-border pt-2 text-xs"><summary className="cursor-pointer text-muted-foreground">Your match note</summary><p className="mt-2 break-words">{note}</p><p className="text-[10px] text-muted-foreground mt-1">Saved for reference; free-text notes do not change model probabilities.</p></details>}
     <p className="text-[9px] leading-relaxed text-muted-foreground">Estimated chance · Confidence measures data support · Normal time only · Not guaranteed returns</p>
   </div>;
