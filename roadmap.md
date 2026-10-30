@@ -2,3 +2,5 @@
 - [x] Verify model market calculations and prediction interactions with real teams, desktop and mobile layouts.
 - [ ] Fix team identity collisions and complete Fotmob team lists across searches.
 - [ ] Deduplicate Games and team upcoming fixtures and verify Barcelona with real data.
+- [ ] Add Fotmob lineup pitch maps with individual player evaluations and injury replacement scenarios.
+- [ ] Verify lineup evidence, replacement behavior and pitch interactions.
