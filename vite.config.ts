@@ -12,6 +12,15 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    // Single-origin wiring: the Supabase client calls /rest, /functions, /auth,
+    // /realtime on the page's own origin. Vite proxies them to the local Fotmob
+    // API service so the browser never makes a cross-origin request.
+    proxy: {
+      "/rest": { target: "http://api:8080", changeOrigin: true },
+      "/functions": { target: "http://api:8080", changeOrigin: true },
+      "/auth": { target: "http://api:8080", changeOrigin: true },
+      "/realtime": { target: "http://api:8080", changeOrigin: true, ws: true },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

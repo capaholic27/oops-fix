@@ -234,8 +234,7 @@ export function useSyncData() {
       if (params?.season) searchParams.set("season", params.season);
       if (params?.league) searchParams.set("league", params.league);
 
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const url = `https://${projectId}.supabase.co/functions/v1/fetch-football-data?${searchParams}`;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-football-data?${searchParams}`;
 
       const res = await fetch(url, {
         method: "POST",
@@ -280,12 +279,11 @@ export function useSyncFixtures() {
 
   return useMutation({
     mutationFn: async () => {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const headers = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       };
-      const base = `https://${projectId}.supabase.co/functions/v1`;
+      const base = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
       const settled = await Promise.allSettled(
         SYNC_LEAGUE_GROUPS.map((leagues) =>
@@ -367,8 +365,7 @@ export function useStandings() {
       );
       if (stale && !standingsRefreshInFlight) {
         standingsRefreshInFlight = true;
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        fetch(`https://${projectId}.supabase.co/functions/v1/fetch-standings`, {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-standings`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -463,12 +460,11 @@ export function useAutoSync() {
         const stale = !newest || Date.now() - newest > AUTO_SYNC_STALE_MS;
         if (!stale) return;
 
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const headers = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         };
-        const base = `https://${projectId}.supabase.co/functions/v1`;
+        const base = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
         await Promise.allSettled([
           ...SYNC_LEAGUE_GROUPS.map((leagues) =>

@@ -13,7 +13,41 @@ services:
       - /run/base44/app.env
     environment:
       - CHOKIDAR_USEPOLLING=true
+      # Local Fotmob-backed API proxied through the Vite dev server (same origin),
+      # replacing the paused Lovable Supabase project. /rest, /functions, /auth,
+      # /realtime on this origin are forwarded to the `api` service.
+      - VITE_SUPABASE_URL=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+      - VITE_SUPABASE_PUBLISHABLE_KEY=local-anon-key
+      - VITE_SUPABASE_PROJECT_ID=local
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+  api:
+    image: node:22
+    working_dir: /app
+    volumes:
+      - ./:/app
+    ports:
+      - "8000:8080"
+    command: ["node", "server/index.mjs"]
+    environment:
+      - PORT=8080
+      - FRONTEND_ORIGIN=https://3000-${BASE44_PUBLIC_HOST_SUFFIX}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 6
 
 volumes:
   node_modules:
