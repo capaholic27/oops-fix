@@ -4,6 +4,7 @@
 import http from "node:http";
 import { getState, refreshFull, refreshLive, startScheduler, SYNC_JOBS } from "./store.mjs";
 import { filterRows, projectRows } from "./query.mjs";
+import { buildBet, buildEdgePicks } from "./betBuilder.mjs";
 
 const PORT = process.env.PORT || 8080;
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*";
@@ -116,9 +117,9 @@ async function handleFunction(req, res, name) {
     case "fetch-odds":
       return sendJson(res, 200, { odds: null });
     case "build-bet":
-      return sendJson(res, 200, { confidence: 50, verdict: "Evaluation unavailable in preview mode." });
+      return sendJson(res, 200, buildBet(getState(), body));
     case "edge-picks":
-      return sendJson(res, 200, { picks: [] });
+      return sendJson(res, 200, buildEdgePicks(getState()));
     case "resolve-team-logo": {
       const s = getState();
       const name = body?.name || body?.team;
