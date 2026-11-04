@@ -10,6 +10,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { settleSlip, type SettleableLeg } from "@/lib/betSettlement";
+import { useMatches, useFixtures } from "@/hooks/useMatches";
+import {
+  buildBetSlip,
+  swapLeg as swapLegFn,
+  buildEdgePicks,
+} from "@/lib/betBuilder";
 import { BankrollManager } from "@/components/BankrollManager";
 import { LiveOddsRow } from "@/components/LiveOddsRow";
 import { createPortal } from "react-dom";
@@ -772,6 +778,8 @@ function getUpcomingDates(): { value: string; label: string }[] {
 
 /* ─── Bet Builder ─── */
 const BetBuilder = () => {
+  const { data: allMatches = [] } = useMatches();
+  const { data: allFixtures = [] } = useFixtures();
   const [odds, setOdds] = useState("");
   const [risk, setRisk] = useState<"low" | "medium" | "high">("medium");
   const [loading, setLoading] = useState(false);
@@ -845,21 +853,16 @@ const BetBuilder = () => {
     setLoading(true);
     setResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("build-bet", {
-        body: {
-          targetOdds: effectiveOdds,
-          riskLevel: risk,
-          enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
-          leagueFilter: leagueFilter || undefined,
-          maxLegs: maxLegs || undefined,
-          targetDate: targetDate || undefined,
-          stakeAmount: stakeMode ? Number(stakeAmount) : undefined,
-          desiredWinAmount: stakeMode ? Number(desiredWin) : undefined,
-        },
+      const slip = buildBetSlip(allFixtures, allMatches, {
+        targetOdds: effectiveOdds,
+        riskLevel: risk,
+        enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+        leagueFilter: leagueFilter || undefined,
+        maxLegs: maxLegs || undefined,
+        targetDate: targetDate || undefined,
+        stakeAmount: stakeMode ? Number(stakeAmount) : undefined,
+        desiredWinAmount: stakeMode ? Number(desiredWin) : undefined,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const slip = data as BetSlip;
       if (!slip.slip || slip.slip.length === 0) {
         toast.error("No matches available for the selected date/league. Try another date.");
         setResult(slip);
@@ -898,20 +901,14 @@ const BetBuilder = () => {
     setSwapping(index);
     try {
       const rejected = result.slip[index];
-      const { data, error } = await supabase.functions.invoke("build-bet", {
-        body: {
-          swapLeg: { match: rejected.match, market: rejected.market, pick: (rejected as any).pick },
-          existingLegs: result.slip.filter((_, i) => i !== index).map(l => ({ match: l.match, market: l.market })),
-          riskLevel: risk,
-          enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
-          leagueFilter: leagueFilter || undefined,
-          targetDate: targetDate || rejected.matchDate || undefined,
-          maxLegs: 1,
-        },
+      const alt = swapLegFn(allFixtures, allMatches, {
+        rejected,
+        existingLegs: result.slip.filter((_, i) => i !== index),
+        riskLevel: risk,
+        enabledMarkets: Array.from(enabledMarkets).map(id => ALL_MARKETS.find(m => m.id === id)?.label).filter(Boolean),
+        leagueFilter: leagueFilter || undefined,
+        targetDate: targetDate || rejected.matchDate || undefined,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const alt = (data?.slip?.[0]) as BetLeg | undefined;
       if (!alt) { toast.error("No alternative found — try widening the date or leagues."); return; }
       const newSlip = [...result.slip];
       newSlip[index] = alt;
@@ -1332,6 +1329,8 @@ const EdgePage = () => {
   const [tab, setTab] = useState<"picks" | "builder" | "bankroll">("picks");
   const [edgeData, setEdgeData] = useState<EdgeData | null>(null);
   const [loading, setLoading] = useState(false);
+  const { data: allMatches = [] } = useMatches();
+  const { data: allFixtures = [] } = useFixtures();
 
   // Sync with Pro unlock from other components
   useEffect(() => {
@@ -1345,18 +1344,14 @@ const EdgePage = () => {
   const fetchEdge = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("edge-picks", {
-        body: { fixtures: [], matchStats: [] },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setEdgeData(data as EdgeData);
+      const data = buildEdgePicks(allFixtures, allMatches);
+      setEdgeData(data);
     } catch (e: any) {
       toast.error(e.message || "Failed to load picks");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [allFixtures, allMatches]);
 
   useEffect(() => {
     if (unlocked) fetchEdge();
